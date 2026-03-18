@@ -73,25 +73,25 @@ public static class CredentialHelper {
     /// Gets the background color for a credential based on its schema SAID.
     /// Colors have transparency to accommodate light/dark modes.
     /// </summary>
-    public static string GetBackgroundColor(string? schemaSaid) => schemaSaid switch {
-        SchemaSaids.Oor => "hsl(210 30% 82% / 0.3)",      // Soft steel blue – neutral, professional
-        SchemaSaids.EcrAuth => "hsl(150 28% 80% / 0.75)", // Muted mint green – calm, positive
-        SchemaSaids.Ecr => "hsl(35 35% 82% / 0.35)",      // Warm sand – friendly and readable
-        SchemaSaids.Vlei => "hsl(270 25% 82% / 0.75)",    // Dusty lavender – subtle distinction
-        SchemaSaids.OorAuth => "hsl(10 30% 80% / 0.75)",  // Soft clay / muted coral
-        SchemaSaids.Qvi => "hsl(195 30% 80% / 0.75)",     // Desaturated teal – modern, balanced
-        SchemaSaids.Ixbrl => "hsl(90 28% 82% / 0.75)",    // Pale olive – earthy, understated
-        SchemaSaids.Sedi => "hsl(41 71% 57% / 1.00)",     // Orange
-        _ => "hsl(0 0% 85% / 0.75)"                       // Neutral gray – safest baseline
+    public static string GetBackgroundColor(string? schemaSaid, bool isDarkTheme) => schemaSaid switch {
+        SchemaSaids.Oor => isDarkTheme ? "hsl(210 30% 41% / 0.3)" : "hsl(210 30% 82% / 0.3)",
+        SchemaSaids.EcrAuth => isDarkTheme ? "hsl(150 28% 40% / 0.75)" : "hsl(150 28% 80% / 0.75)",
+        SchemaSaids.Ecr => isDarkTheme ? "hsl(35 35% 41% / 0.35)" : "hsl(35 35% 82% / 0.35)",
+        SchemaSaids.Vlei => isDarkTheme ? "hsl(270 25% 41% / 0.75)" : "hsl(270 25% 82% / 0.75)",
+        SchemaSaids.OorAuth => isDarkTheme ? "hsl(10 30% 40% / 0.75)" : "hsl(10 30% 80% / 0.75)",
+        SchemaSaids.Qvi => isDarkTheme ? "hsl(195 30% 40% / 0.75)" : "hsl(195 30% 80% / 0.75)",
+        SchemaSaids.Ixbrl => isDarkTheme ? "hsl(90 28% 41% / 0.75)" : "hsl(90 28% 82% / 0.75)",
+        SchemaSaids.Sedi => isDarkTheme ? "hsl(41 71% 29% / 1.00)" : "hsl(41 71% 80% / 1.00)",
+        _ => isDarkTheme ? "hsl(0 0% 43% / 0.75)" : "hsl(0 0% 85% / 0.75)"
     };
 
     /// <summary>
     /// Gets the background color for a credential from a RecursiveDictionary.
     /// Extracts the schema SAID from the "sad.s" path.
     /// </summary>
-    public static string GetBackgroundColor(RecursiveDictionary? credential) {
+    public static string GetBackgroundColor(RecursiveDictionary? credential, bool isDarkTheme) {
         var schemaSaid = credential?.GetValueByPath("sad.s")?.Value?.ToString();
-        return GetBackgroundColor(schemaSaid);
+        return GetBackgroundColor(schemaSaid, isDarkTheme);
     }
 
     /// <summary>
@@ -115,16 +115,13 @@ public static class CredentialHelper {
     public static SchemaFieldDisplay GetSchemaField(
         RecursiveDictionary credential,
         RecursiveDictionary? schemaProps,
-        string fieldName)
-    {
+        string fieldName) {
         var schemaSaid = credential.GetValueByPath("sad.s")?.Value?.ToString();
         var value = credential.GetValueByPath($"sad.a.{fieldName}")?.Value?.ToString();
 
-        if (schemaSaid is not null)
-        {
+        if (schemaSaid is not null) {
             var fieldCache = SchemaMetadataCache.GetOrAdd(schemaSaid, _ => new());
-            var (label, format) = fieldCache.GetOrAdd(fieldName, _ =>
-            {
+            var (label, format) = fieldCache.GetOrAdd(fieldName, _ => {
                 var l = schemaProps?.GetValueByPath($"properties.{fieldName}.description")?.Value?.ToString();
                 var f = schemaProps?.GetValueByPath($"properties.{fieldName}.format")?.Value?.ToString();
                 return (l, f);
