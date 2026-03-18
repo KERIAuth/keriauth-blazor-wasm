@@ -360,8 +360,7 @@ export const bootAndConnect = async (
     try {
         await ready();
 
-        // TODO P2: Consider raising Tier for production use
-        _client = new SignifyClient(agentUrl, passcode, Tier.low, bootUrl);
+        _client = new SignifyClient(agentUrl, passcode, Tier.med, bootUrl);
 
         // Boot the agent
         const bootResponse = await _client.boot().catch((e: Error) => {
@@ -451,8 +450,7 @@ export const connect = async (
     try {
         await ready();
 
-        // TODO P2: Consider raising Tier for production use
-        _client = new SignifyClient(agentUrl, passcode, Tier.low, '');
+        _client = new SignifyClient(agentUrl, passcode, Tier.med, '');
 
         let lastError: Error | null = null;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
