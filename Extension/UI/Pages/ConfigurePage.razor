@@ -562,9 +562,7 @@
 
             // Wait for identifiers to be updated in appCache (BW updates storage after CreateAid)
             var waitRefreshSuccess = await appCache.WaitForAppCache([
-                () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
-                      appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0 &&
-                      appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.Count > 0
+                () => appCache.Aids.Count > 0
             ], 30000, 100);
 
             if (!waitRefreshSuccess)

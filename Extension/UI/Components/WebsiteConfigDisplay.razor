@@ -39,9 +39,9 @@
     private bool _isRefreshing;
 
     // computed properties
-    List<Aid> Identifiers => appCache.MyKeriaConnectionInfo?.IdentifiersList?.Count > 0
-        ? appCache.MyKeriaConnectionInfo.IdentifiersList[0].Aids.OrderBy(a => a.Name).ToList()
-        : new List<Aid>();
+    List<Aid> Identifiers => appCache.Aids.Count > 0
+        ? appCache.Aids.OrderBy(a => a.Name).ToList()
+        : [];
     RecursiveDictionary? SelectedCredentialOrNothing => (SelectedCredSaidOrNothing is null || CredentialsDict is null) ? null : CredentialsDict.FirstOrDefault(c => c.GetValueByPath("sad.d")?.Value as string == SelectedCredSaidOrNothing);
     string? SelectedCredSaidOrNothing => (ThisWebsiteConfig is null) ? null : ThisWebsiteConfig.RememberedCredSaidOrNothing;
     List<RecursiveDictionary> IssueeCredentials => (CredentialsDict is null || SelectedPrefix is null) ? new List<RecursiveDictionary>() : CredentialHelper.FilterCredentials(CredentialsDict, [("sad.a.i", SelectedPrefix)]);
