@@ -16,6 +16,7 @@
 
 @code {
     private MudButton? connectButton;
+    private MudTextField<string>? friendlyNameField;
 
     private string? SelectedAidName { get; set; }
     private string? SelectedPrefix { get; set; }
@@ -24,6 +25,8 @@
     private string? OobiName { get; set; }
 
     ConnectionInviteRequestPayload? payload;
+
+    string? ResolvedAidPrefix => payload?.ResolvedAidPrefix;
 
     bool IsApproveDisabled => SelectedAidName is null || string.IsNullOrWhiteSpace(ConnectionName) || string.IsNullOrWhiteSpace(FriendlyName);
 
@@ -65,7 +68,7 @@
 
         OobiName = ConnectionName;
 
-        if (payload.ResolvedAidPrefix is null)
+        if (ResolvedAidPrefix is null)
         {
             logger.LogError("OnInitializedAsync: ResolvedAidPrefix is null for oobi={Oobi}", payload.Oobi);
         }
@@ -126,11 +129,12 @@
         logger.LogInformation("HandleAidChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
         SelectedPrefix = value.selectedPrefix;
         SelectedAidName = value.selectedAlias;
-        // Intentionally clear friendly name when profile changes
-        FriendlyName = "";
-        if (connectButton is not null)
+        FriendlyName = value.selectedAlias;
+        StateHasChanged();
+        await Task.Yield();
+        if (friendlyNameField is not null)
         {
-            // await connectButton.FocusAsync();
+            await friendlyNameField.SelectAsync();
         }
     }
 
@@ -158,14 +162,16 @@
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
                 <PageHeading Title="Request to Connect" />
-                @if (ActiveTab is not null)
-                {
-                    <TabInteractionDisplay ActiveTab=@ActiveTab />
-                }
-                else
-                {
-                    <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
-                }
+                <div style="min-height: 3.5rem;">
+                    @if (ActiveTab is not null)
+                    {
+                        <TabInteractionDisplay ActiveTab=@ActiveTab />
+                    }
+                    else
+                    {
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="3rem" Width="100%" />
+                    }
+                </div>
                 <MudText Typo="Typo.body1" Class="bt-help-text">
                     This website is requesting you to establish a mutual KERI connection.<br/>
                     ① Select one of your profiles to share with the them; <br/>
@@ -203,18 +209,20 @@
                             </MudPaper>
                             <MudPaper id="paper3" Class="pa-2 flex-grow-1 d-flex align-end" Elevation="0" Style="background:transparent; padding-right:75px !important;">
                                 <MudStack Class="color-incoming" Style="gap:0;">
-                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Invitation for their connection</MudText>
-                                    <div id="tf-name3">
+                                    <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Your invitation for their connection</MudText>
+                                    <div id="tf-name3" style="min-height: 3.5rem;">
                                         @if (SelectedAidName is null)
                                         {
-                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="2.5rem" Width="100%" Class="mt-1" />
                                         }
                                         else
                                         {
-                                            <MudTextField @bind-Value="FriendlyName"
+                                            <MudTextField @ref="friendlyNameField"
+                                                          @bind-Value="FriendlyName"
                                                           Label="③ Name"
                                                           Variant="Variant.Outlined"
-                                                          Immediate="true" />
+                                                          Immediate="true"
+                                                          @onkeydown="HandleKeyDown" />
                                         }
                                     </div>
                                 </MudStack>
@@ -245,7 +253,19 @@
 
                     <MudPaper id="paper4" Class="pa-2" Elevation="2" Outlined="true">
                         <MudText Class="bt-section-title" Style="margin-top:0; margin-bottom:0;">Their Profile</MudText>
-                        <AidPrefixDisplay Prefix="@(payload?.ResolvedAidPrefix ?? string.Empty)" Name="@OobiName" ShowCopyButton="false" />
+                        <div style="min-height: 2.5rem;">
+                            @if (!string.IsNullOrEmpty(ResolvedAidPrefix))
+                            {
+                                <AidPrefixDisplay Prefix="@ResolvedAidPrefix" Name="@OobiName" ShowCopyButton="false" />
+                            }
+                            else
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="2.5rem" Height="2.5rem" />
+                                    <MudSkeleton SkeletonType="SkeletonType.Text" Width="9rem" />
+                                </MudStack>
+                            }
+                        </div>
                     </MudPaper>
                 </div>
             </div>
