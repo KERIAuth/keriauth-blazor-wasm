@@ -24,7 +24,7 @@
     // Section 1: Prime AIDs
     StepStatus goStatus;
     string? goError;
-    string prepend = "001";
+    string prepend = "";
 
     // Section 2: IPEX Workflows
     StepStatus ipexStatus;
@@ -310,14 +310,15 @@
             <PageHeading Title="Prime Data" />
 
             <MudText Class="bt-pref-group-label0">
-                Prime GEDA&#x2192;QVI&#x2192;LE and Person AIDs and Credentials
+                Prime GEDA&#x2192;...&#x2192;Person Profiles and vLEI Creds
             </MudText>
             <MudStack Class="ml-5">
-                <MudTextField T="string" Label="Prepend" @bind-Value="prepend" Variant="Variant.Outlined" />
+                <MudTextField T="string" Label="Prepend to profile names (optional)" @bind-Value="prepend" Variant="Variant.Outlined"
+                              Validation="@((string v) => !string.IsNullOrEmpty(v) && v.Any(char.IsWhiteSpace) ? "Must not contain whitespace" : null)" />
             </MudStack>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-5">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running)">
+                           OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running || (!string.IsNullOrEmpty(prepend) && prepend.Any(char.IsWhiteSpace)))">
                     Go
                 </MudButton>
                 @if (goStatus == StepStatus.Running)
@@ -336,10 +337,10 @@
             </MudStack>
 
             <MudText Class="bt-pref-group-label0">
-                Prime IPEX Credential Issuance Workflows (ECR)
+                Prime IPEX Cred Issuance Workflows (ECR)
             </MudText>
             <MudText Typo="Typo.body2" Class="ml-5">
-                The available disclosers, disclosees, and workflows depend on existing connections.
+                Note, the available disclosers, disclosees, and workflows depend on existing connections.
                 Some workflows require mutual connections between the selected AIDs.
                 For workflows beyond Apply, the discloser must hold the appropriate credential
                 (ECR Auth for issuance, ECR for presentation).

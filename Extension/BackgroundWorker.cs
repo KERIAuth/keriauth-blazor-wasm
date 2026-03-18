@@ -20,11 +20,11 @@ using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
 using Extension.Utilities;
-using WebExtensions.Net.Alarms;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.JSInterop;
 using WebExtensions.Net;
+using WebExtensions.Net.Alarms;
 using WebExtensions.Net.Manifest;
 using WebExtensions.Net.Permissions;
 using WebExtensions.Net.Runtime;
@@ -2698,20 +2698,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         try {
-            if (!payload.HasValue) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataGoResponse(false, Error: "Missing payload"));
-                return;
-            }
-
-            var goPayload = JsonSerializer.Deserialize<PrimeDataGoPayload>(
-                payload.Value.GetRawText(), JsonOptions.CamelCase);
-
-            if (goPayload is null || string.IsNullOrEmpty(goPayload.Prepend)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataGoResponse(false, Error: "Invalid or missing prepend"));
-                return;
-            }
+            var goPayload = payload.HasValue
+                ? JsonSerializer.Deserialize<PrimeDataGoPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase)
+                : null;
 
             var goResult = await _primeDataService.GoAsync(goPayload);
 

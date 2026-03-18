@@ -746,7 +746,7 @@ namespace Extension.Models.Messages.AppBw {
     /// Expandable: add more fields later (salts, registry names, etc.)
     /// </summary>
     public record PrimeDataGoPayload(
-        [property: JsonPropertyName("prepend")] string Prepend
+        [property: JsonPropertyName("prepend")] string? Prepend
     );
 
     /// <summary>

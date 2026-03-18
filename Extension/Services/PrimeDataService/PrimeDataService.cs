@@ -21,8 +21,8 @@ namespace Extension.Services.PrimeDataService {
             _logger = logger;
         }
 
-        public async Task<Result<PrimeDataGoResponse>> GoAsync(PrimeDataGoPayload payload) {
-            var prepend = payload.Prepend;
+        public async Task<Result<PrimeDataGoResponse>> GoAsync(PrimeDataGoPayload? payload = null) {
+            var prepend = payload?.Prepend ?? string.Empty;
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
             var generatedExchangeSaids = new HashSet<string>();
@@ -30,22 +30,22 @@ namespace Extension.Services.PrimeDataService {
             // Steps 1-4: Create AIDs
             var nameToPrefix = new Dictionary<string, string>();
 
-            var gedaName = $"{prepend}_geda";
+            var gedaName = $"{prepend}geda";
             var gedaResult = await CreateAidStep(gedaName, "Step 1");
             if (gedaResult.IsFailed) return FailResponse(gedaResult.Errors[0].Message);
             nameToPrefix[gedaName] = gedaResult.Value.Prefix;
 
-            var qviName = $"{prepend}_qvi";
+            var qviName = $"{prepend}qvi";
             var qviResult = await CreateAidStep(qviName, "Step 2");
             if (qviResult.IsFailed) return FailResponse(qviResult.Errors[0].Message);
             nameToPrefix[qviName] = qviResult.Value.Prefix;
 
-            var leName = $"{prepend}_le";
+            var leName = $"{prepend}le";
             var leResult = await CreateAidStep(leName, "Step 3");
             if (leResult.IsFailed) return FailResponse(leResult.Errors[0].Message);
             nameToPrefix[leName] = leResult.Value.Prefix;
 
-            var personName = $"{prepend}_person";
+            var personName = $"{prepend}person";
             var personResult = await CreateAidStep(personName, "Step 4");
             if (personResult.IsFailed) return FailResponse(personResult.Errors[0].Message);
             nameToPrefix[personName] = personResult.Value.Prefix;
@@ -77,7 +77,7 @@ namespace Extension.Services.PrimeDataService {
             if (step9.IsFailed) return FailResponse(step9.Errors[0].Message);
 
             // Step 12: GEDA creates credential registry
-            var gedaRegistryName = $"{prepend}_geda_registry";
+            var gedaRegistryName = $"{prepend}geda_registry";
             var registryResult = await CreateRegistryStep(gedaName, gedaRegistryName, "Step 12");
             if (registryResult.IsFailed) return FailResponse(registryResult.Errors[0].Message);
 
@@ -130,7 +130,7 @@ namespace Extension.Services.PrimeDataService {
             generatedExchangeSaids.Add(step14.Value);
 
             // Step 15a: Create Verifier AID
-            var verifierName = $"{prepend}_verifier";
+            var verifierName = $"{prepend}verifier";
             var verifierResult = await CreateAidStep(verifierName, "Step 15a");
             if (verifierResult.IsFailed) return FailResponse(verifierResult.Errors[0].Message);
             nameToPrefix[verifierName] = verifierResult.Value.Prefix;
@@ -195,7 +195,7 @@ namespace Extension.Services.PrimeDataService {
             generatedExchangeSaids.Add(agreeSaid);
 
             // Step 17: QVI creates credential registry for LE credentials
-            var qviRegistryName = $"{prepend}_qvi_le_registry";
+            var qviRegistryName = $"{prepend}qvi_le_registry";
             var qviRegistryResult = await CreateRegistryStep(qviName, qviRegistryName, "Step 17");
             if (qviRegistryResult.IsFailed) return FailResponse(qviRegistryResult.Errors[0].Message);
 
@@ -271,7 +271,7 @@ namespace Extension.Services.PrimeDataService {
             if (step22Store.IsFailed) return FailResponse(step22Store.Errors[0].Message);
 
             // Step 23: LE creates credential registry
-            var leRegistryName = $"{prepend}_le_oor_registry";
+            var leRegistryName = $"{prepend}le_oor_registry";
             var leRegistryResult = await CreateRegistryStep(leName, leRegistryName, "Step 23");
             if (leRegistryResult.IsFailed) return FailResponse(leRegistryResult.Errors[0].Message);
 
