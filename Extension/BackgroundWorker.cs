@@ -109,7 +109,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // NOTE: Do NOT add non-listener calls here. The Blazor.BrowserExtension.Analyzer
         // generates JavaScript equivalents for everything in Main(), and arbitrary method
         // calls get emitted as raw JS function calls that don't exist.
-        // Port readiness is signaled by Program.cs calling __keriauth_setBwReady.
+        // WASM readiness is signaled by afterStarted() resolving _wasmReady in app.ts.
     }
 
     private readonly ISignifyClientBinding _signifyClientBinding;

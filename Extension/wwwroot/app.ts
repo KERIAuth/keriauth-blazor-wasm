@@ -63,6 +63,13 @@ const CS_ID_PREFIX = 'keriauth-cs';
 // during initial script evaluation (required to catch cold-start events).
 const _isSW = typeof (globalThis as any).ServiceWorkerGlobalScope !== 'undefined';
 
+// WASM readiness gate (SW context only).
+// Resolved by afterStarted() once the Blazor runtime is fully loaded.
+// CLIENT_SW_WAKE handlers hold their response until this resolves,
+// so clients get a single definitive answer without polling.
+let _wasmReadyResolve: () => void;
+const _wasmReady = new Promise<void>(resolve => { _wasmReadyResolve = resolve; });
+
 // Type definitions for Blazor Browser Extension types
 interface WebAssemblyStartOptions {
     [key: string]: unknown;
@@ -841,21 +848,24 @@ if (_isSW) {
         console.debug(`app.ts: ${_logTag} onMessage received:`, message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
 
         // Handle CLIENT_SW_WAKE: App/CS is probing BW readiness.
-        // WASM is ready if this JS listener fires (it runs in the BW context).
+        // Holds the response until WASM is fully loaded (afterStarted resolved _wasmReady).
         if (message?.t === 'CLIENT_SW_WAKE') {
             const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
             const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-            console.debug(`app.ts: ${_logTag} CLIENT_SW_WAKE from ${source}, replying awake=true`);
+            console.debug(`app.ts: ${_logTag} CLIENT_SW_WAKE from ${source}, waiting for WASM...`);
 
-            const reply = { t: 'SW_CLIENT_AWAKE', ready: true };
-            // sendResponse delivers the reply to the sender's sendMessage() Promise
-            // (used by ContentScript which awaits the response directly).
-            sendResponse(reply);
-            // Broadcast to all extension pages so App's onMessage listener
-            // sets __keriauth_bwReady = true (App uses InvokeVoidAsync and
-            // ignores the sendResponse value).
-            chrome.runtime.sendMessage(reply);
-            return false;
+            _wasmReady.then(() => {
+                console.debug(`app.ts: ${_logTag} CLIENT_SW_WAKE from ${source}, replying awake=true`);
+                const reply = { t: 'SW_CLIENT_AWAKE', ready: true };
+                // sendResponse delivers the reply to the sender's sendMessage() Promise
+                // (used by ContentScript which awaits the response directly).
+                sendResponse(reply);
+                // Broadcast to all extension pages so App's onMessage listener
+                // sets __keriauth_bwReady = true (App uses InvokeVoidAsync and
+                // ignores the sendResponse value).
+                chrome.runtime.sendMessage(reply);
+            });
+            return true;  // keep message channel open for async sendResponse
         }
 
         // Note: 'cs-ready' is defined in CsInternalMsgEnum.CS_READY (@keriauth/types)
@@ -1000,8 +1010,8 @@ export async function beforeStart(
  */
 export function afterStarted(blazor: unknown): void {
     console.debug(`app.ts: ${_logTag} afterStarted - Blazor runtime ready`);
-    // Note: _wasmReady is NOT set here. In SW context, it's set by C# via
-    // __keriauth_setBwReady after Program.cs completes DI setup and module loading.
-    // This ensures clients don't attempt port connections before BwPortService is ready.
-    // In App context, _wasmReady is unused (CLIENT_SW_WAKE handler only runs in SW).
+    if (_isSW) {
+        _wasmReadyResolve();
+        console.debug(`app.ts: ${_logTag} afterStarted - _wasmReady resolved, CLIENT_SW_WAKE will now reply immediately`);
+    }
 }
