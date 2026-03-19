@@ -99,7 +99,7 @@
 
     bool IsWorkflowEnabled(IpexWorkflow wf) {
         bool needsForward = wf is not IpexWorkflow.Apply;
-        bool needsReverse = wf is not IpexWorkflow.Grant;
+        bool needsReverse = wf is not (IpexWorkflow.Offer or IpexWorkflow.Grant);
 
         if (needsForward && !HasConnectionDiscloserToDisclosee) return false;
         if (needsReverse && !HasConnectionDiscloseeToDiscloser && !IsDiscloseeExternal) return false;
@@ -108,6 +108,7 @@
 
     static string WorkflowDisplayName(IpexWorkflow wf) => wf switch {
         IpexWorkflow.Apply => "Apply",
+        IpexWorkflow.Offer => "Offer",
         IpexWorkflow.ApplyOffer => "Apply\u279BOffer",
         IpexWorkflow.ApplyOfferAgree => "Apply\u279BOffer\u279BAgree",
         IpexWorkflow.ApplyOfferAgreeGrant => "Apply\u279BOffer\u279BAgree\u279BGrant",

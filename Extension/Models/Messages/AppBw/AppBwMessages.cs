@@ -817,6 +817,7 @@ namespace Extension.Models.Messages.AppBw {
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum IpexWorkflow {
         Apply,
+        Offer,
         ApplyOffer,
         ApplyOfferAgree,
         ApplyOfferAgreeGrant,

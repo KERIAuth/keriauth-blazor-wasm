@@ -634,7 +634,7 @@ namespace Extension.Services.PrimeDataService {
             }
 
             // Offer step (Discloser sends Offer to Disclosee)
-            if (workflow is IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+            if (workflow is IpexWorkflow.Offer or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
 
                 _logger.LogInformation("IPEX Offer: Discloser {Discloser} offering to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);

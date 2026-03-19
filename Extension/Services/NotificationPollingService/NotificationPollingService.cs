@@ -22,6 +22,7 @@ public class NotificationPollingService : INotificationPollingService {
     private string? _lastCredentialFingerprint;
 
     public Func<Task>? OnCredentialNotificationsChanged { get; set; }
+    public Func<Task>? OnSchemasNeeded { get; set; }
     public Func<bool>? IsClientReady { get; set; }
     public Func<bool>? IsLongOperationActive { get; set; }
 
@@ -167,6 +168,23 @@ public class NotificationPollingService : INotificationPollingService {
             _exchangePrefixCache[notification.ExchangeSaid] = (view.I, view.Rp);
             _logger.LogInformation(nameof(FetchAndCacheExchangePrefixesAsync) + ": Exchange {Said}: sender={Sender} recipient={Recipient} route={Route}",
                 notification.ExchangeSaid, view.I, view.Rp, notification.Route);
+
+            // For grant/offer exchanges, proactively resolve all known schemas in the background.
+            // Credentials are chained (e.g., ECR → ECR Auth → LE → QVI) and KERIA needs all schemas
+            // in the chain to verify and index a credential.
+            // Fire-and-forget: don't block notification polling while resolving (unreachable hosts can timeout for 30s+ each).
+            if (OnSchemasNeeded is not null &&
+                notification.Route is "/exn/ipex/grant" or "/exn/ipex/offer") {
+                _ = Task.Run(async () => {
+                    try {
+                        await OnSchemasNeeded();
+                    }
+                    catch (Exception schemaEx) {
+                        _logger.LogWarning(schemaEx, nameof(FetchAndCacheExchangePrefixesAsync) +
+                            ": Background schema resolution failed");
+                    }
+                });
+            }
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(FetchAndCacheExchangePrefixesAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);

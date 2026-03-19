@@ -154,6 +154,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _primeDataService = primeDataService;
         _notificationPollingService = notificationPollingService;
         _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
+        _notificationPollingService.OnSchemasNeeded = async () => {
+            await EnsureAllManifestSchemasResolvedAsync("NotificationPolling");
+        };
         _notificationPollingService.IsClientReady = () => _signifyClientService.IsConnected;
         _notificationPollingService.IsLongOperationActive = () => _signifyClientService.IsLongOperationActive;
 
@@ -1921,6 +1924,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
 
             // Route IPEX response to ContentScript via stored port info
+            // Note: schema OOBIs should already be resolved proactively by notification polling (OnSchemasNeeded callback)
             if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await ExecuteIpexAndRespondAsync(
                     pendingRequest.PortId, pendingRequest.PortSessionId,
@@ -2000,6 +2004,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
 
             // Route IPEX response to ContentScript via stored port info (may take 60+ seconds for admit)
+            // Note: schema OOBIs should already be resolved proactively by notification polling (OnSchemasNeeded callback)
             logger.LogInformation(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) +
                 ": Starting IpexAdmitAndSubmit, sender={Sender}, recipient={Recipient}, grantSaid={GrantSaid}",
                 approvalPayload.SenderPrefix, approvalPayload.RecipientPrefix, approvalPayload.GrantSaid);
@@ -3081,6 +3086,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            // Note: schema OOBIs should already be resolved proactively by notification polling (OnSchemasNeeded callback)
+
             logger.LogInformation(nameof(HandleAppRequestIpexAdmitRpcAsync) +
                 ": Starting IpexAdmitAndSubmit, sender={Sender}, recipient={Recipient}, grantSaid={GrantSaid}",
                 admitRequest.SenderNameOrPrefix, admitRequest.RecipientPrefix, admitRequest.GrantSaid);
@@ -3130,6 +3137,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            // Note: schema OOBIs should already be resolved proactively by notification polling (OnSchemasNeeded callback)
+
             logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) +
                 ": sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
                 agreeRequest.SenderNameOrPrefix, agreeRequest.RecipientPrefix, agreeRequest.OfferSaid);
@@ -3168,6 +3177,152 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Handles success (extracts SAID if present), failure, and exceptions uniformly.
     /// Used by IPEX apply, agree, and admit handlers.
     /// </summary>
+    /// <summary>
+    /// Ensures the schema identified by the given SAID is resolved in KERIA.
+    /// Checks if already available, and if not, resolves via OOBI from manifest or default hosts.
+    /// Returns true if the schema is available (already was, or successfully resolved).
+    /// </summary>
+    private async Task<bool> EnsureSchemaResolvedAsync(string schemaSaid, string callerName) {
+        try {
+            // TODO P3: Consider caching within the current KeriaConnectConfig the list of known schemas
+            // (based on our last inquiry for these). This would be a performance optimization to avoid
+            // repeated GetSchema calls to KERIA for schemas we already know are resolved.
+
+            // Fast path: check if schema is already in KERIA
+            var existingSchema = await _signifyClientService.GetSchema(schemaSaid);
+            if (existingSchema.IsSuccess) {
+                logger.LogDebug("{Caller}: Schema {SchemaSaid} already resolved in KERIA", callerName, schemaSaid);
+                return true;
+            }
+
+            logger.LogInformation("{Caller}: Schema {SchemaSaid} not found in KERIA, attempting to load via OOBI", callerName, schemaSaid);
+
+            var schemaOobiUrls = _schemaService.GetOobiUrls(schemaSaid);
+            if (schemaOobiUrls.Length == 0) {
+                logger.LogInformation("{Caller}: Schema {SchemaSaid} not in manifest, trying default hosts", callerName, schemaSaid);
+                schemaOobiUrls = [.. _schemaService.DefaultOobiHosts.Select(host => $"{host}/oobi/{schemaSaid}")];
+            }
+            else {
+                var schemaEntry = _schemaService.GetSchema(schemaSaid);
+                logger.LogInformation("{Caller}: Found schema '{SchemaName}' in manifest with {Count} OOBI URLs",
+                    callerName, schemaEntry?.Name ?? schemaSaid, schemaOobiUrls.Length);
+            }
+
+            foreach (var schemaOobi in schemaOobiUrls) {
+                try {
+                    logger.LogInformation("{Caller}: Attempting to resolve schema OOBI: {Oobi}", callerName, schemaOobi);
+                    var resolveResult = await _signifyClientService.ResolveOobi(schemaOobi);
+                    if (resolveResult.IsSuccess) {
+                        var resolveOp = resolveResult.Value;
+                        if (resolveOp.TryGetValue("name", out var nameValue) && nameValue.StringValue is string opName && !string.IsNullOrEmpty(opName)) {
+                            logger.LogInformation("{Caller}: Waiting for schema OOBI resolution operation {OpName}", callerName, opName);
+                            var op = new Operation(opName);
+                            var waitResult = await _signifyClientService.WaitForOperation(op);
+                            if (waitResult.IsFailed) {
+                                logger.LogWarning("{Caller}: Operation wait failed for schema OOBI: {Error}", callerName, waitResult.Errors[0].Message);
+                                continue;
+                            }
+                        }
+
+                        const int maxRetries = 5;
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            var verifyResult = await _signifyClientService.GetSchema(schemaSaid);
+                            if (verifyResult.IsSuccess) {
+                                logger.LogInformation("{Caller}: Successfully loaded and verified schema {SchemaSaid} from {Oobi} (attempt {Attempt})",
+                                    callerName, schemaSaid, schemaOobi, attempt);
+                                return true;
+                            }
+                            if (attempt < maxRetries) {
+                                logger.LogInformation("{Caller}: Schema {SchemaSaid} not yet available, retrying ({Attempt}/{MaxRetries})",
+                                    callerName, schemaSaid, attempt, maxRetries);
+                                await Task.Delay(1000);
+                            }
+                            else {
+                                logger.LogWarning("{Caller}: Schema OOBI resolved but schema {SchemaSaid} still not available in KERIA after {MaxRetries} attempts",
+                                    callerName, schemaSaid, maxRetries);
+                            }
+                        }
+                    }
+                    else {
+                        logger.LogWarning("{Caller}: Failed to resolve schema OOBI {Oobi}: {Error}",
+                            callerName, schemaOobi, resolveResult.Errors[0].Message);
+                    }
+                }
+                catch (Exception ex) {
+                    logger.LogWarning(ex, "{Caller}: Exception resolving schema OOBI {Oobi}", callerName, schemaOobi);
+                }
+            }
+
+            logger.LogWarning("{Caller}: Could not load schema {SchemaSaid} from any known source", callerName, schemaSaid);
+            return false;
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "{Caller}: Exception in EnsureSchemaResolvedAsync for {SchemaSaid}", callerName, schemaSaid);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves all schemas from the manifest in KERIA. Credentials are chained (e.g., ECR → ECR Auth → LE → QVI),
+    /// and KERIA needs all schemas in the chain to verify and index a credential. Rather than trying to chase
+    /// the chain from a single exchange, we proactively resolve all known schemas.
+    /// Already-resolved schemas return immediately via the fast path in EnsureSchemaResolvedAsync.
+    /// </summary>
+    private async Task EnsureAllManifestSchemasResolvedAsync(string callerName) {
+        var allSchemas = _schemaService.GetAllSchemas();
+        foreach (var schema in allSchemas) {
+            await EnsureSchemaResolvedAsync(schema.Said, callerName);
+        }
+    }
+
+    /// <summary>
+    /// Fetches an exchange by SAID and extracts all schema SAIDs from its embedded ACDC:
+    /// the credential's own schema (e.acdc.s) and any edge schemas (e.acdc.e.{name}.s).
+    /// </summary>
+    private async Task<List<string>> GetSchemaSaidsFromExchangeAsync(string exchangeSaid, string callerName) {
+        var schemaSaids = new List<string>();
+        try {
+            var exnResult = await _signifyClientService.GetExchange(exchangeSaid);
+            if (exnResult.IsFailed) {
+                logger.LogWarning("{Caller}: GetExchange failed for {Said}: {Error}",
+                    callerName, exchangeSaid, exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");
+                return schemaSaids;
+            }
+            var view = ExchangeView.FromRecursiveDictionary(exnResult.Value);
+
+            // Extract the credential's own schema SAID
+            var mainSchema = view.E?.GetValueByPath("acdc.s")?.Value?.ToString();
+            if (mainSchema is not null) {
+                schemaSaids.Add(mainSchema);
+            }
+
+            // Extract edge schema SAIDs (e.g., acdc.e.auth.s for ECR Auth edge)
+            var edges = view.E?.GetByPath("acdc.e")?.Dictionary;
+            if (edges is not null) {
+                foreach (var kvp in edges) {
+                    if (kvp.Key == "d") continue; // Skip SAID placeholder
+                    var edgeSchema = kvp.Value?.Dictionary?.GetByPath("s")?.StringValue;
+                    if (edgeSchema is not null) {
+                        schemaSaids.Add(edgeSchema);
+                    }
+                }
+            }
+
+            if (schemaSaids.Count > 0) {
+                logger.LogInformation("{Caller}: Extracted {Count} schema SAIDs from exchange {ExchangeSaid}: [{Saids}]",
+                    callerName, schemaSaids.Count, exchangeSaid, string.Join(", ", schemaSaids));
+            }
+            else {
+                logger.LogDebug("{Caller}: No schema SAIDs found in exchange {ExchangeSaid}", callerName, exchangeSaid);
+            }
+            return schemaSaids;
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "{Caller}: Exception extracting schema SAIDs from exchange {ExchangeSaid}", callerName, exchangeSaid);
+            return schemaSaids;
+        }
+    }
+
     private async Task ExecuteIpexAndRespondAsync(
         string portId,
         string portSessionId,
@@ -4229,81 +4384,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Verify schema exists, and if not, try to load it via OOBI
-            var schemaResult = await _signifyClientService.GetSchema(schemaSaid);
-            if (schemaResult.IsFailed) {
-                logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": schema {SchemaSaid} not found in KERIA, attempting to load via OOBI",
-                    schemaSaid);
-
-                // Try to resolve the schema OOBI from SchemaService manifest first
-                var schemaOobiUrls = _schemaService.GetOobiUrls(schemaSaid);
-                if (schemaOobiUrls.Length == 0) {
-                    // Fall back to constructing URLs from default OOBI hosts
-                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": schema {SchemaSaid} not in manifest, trying default hosts",
-                        schemaSaid);
-                    schemaOobiUrls = [.. _schemaService.DefaultOobiHosts.Select(host => $"{host}/oobi/{schemaSaid}")];
-                }
-                else {
-                    var schemaEntry = _schemaService.GetSchema(schemaSaid);
-                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": found schema '{SchemaName}' in manifest with {Count} OOBI URLs",
-                        schemaEntry?.Name ?? schemaSaid, schemaOobiUrls.Length);
-                }
-
-                bool schemaLoaded = false;
-                foreach (var schemaOobi in schemaOobiUrls) {
-                    try {
-                        logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Attempting to resolve schema OOBI: {Oobi}", schemaOobi);
-                        var resolveResult = await _signifyClientService.ResolveOobi(schemaOobi);
-                        if (resolveResult.IsSuccess) {
-                            // Wait for the OOBI resolution operation to complete in KERIA
-                            var resolveOp = resolveResult.Value;
-                            if (resolveOp.TryGetValue("name", out var nameValue) && nameValue.StringValue is string opName && !string.IsNullOrEmpty(opName)) {
-                                logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": waiting for schema OOBI resolution operation {OpName}", opName);
-                                var op = new Operation(opName);
-                                var waitResult = await _signifyClientService.WaitForOperation(op);
-                                if (waitResult.IsFailed) {
-                                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": operation wait failed for schema OOBI: {Error}", waitResult.Errors[0].Message);
-                                    continue; // Try next OOBI URL
-                                }
-                            }
-
-                            // Verify the schema is now available in KERIA (retry with delay — KERIA indexes asynchronously)
-                            const int maxRetries = 5;
-                            for (int attempt = 1; attempt <= maxRetries; attempt++) {
-                                var verifyResult = await _signifyClientService.GetSchema(schemaSaid);
-                                if (verifyResult.IsSuccess) {
-                                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Successfully loaded and verified schema {SchemaSaid} from {Oobi} (attempt {Attempt})",
-                                        schemaSaid, schemaOobi, attempt);
-                                    schemaLoaded = true;
-                                    break;
-                                }
-                                if (attempt < maxRetries) {
-                                    logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Schema {SchemaSaid} not yet available, retrying ({Attempt}/{MaxRetries})",
-                                        schemaSaid, attempt, maxRetries);
-                                    await Task.Delay(1000); // Give KERIA time to index the schema
-                                }
-                                else {
-                                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Schema OOBI resolved but schema {SchemaSaid} still not available in KERIA after {MaxRetries} attempts",
-                                        schemaSaid, maxRetries);
-                                }
-                            }
-                            if (schemaLoaded) break;
-                        }
-                        else {
-                            logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Failed to resolve schema OOBI {Oobi}: {Error}",
-                                schemaOobi, resolveResult.Errors[0].Message);
-                        }
-                    }
-                    catch (Exception ex) {
-                        logger.LogWarning(ex, nameof(HandleCreateCredentialApprovalAsync) + ": Exception resolving schema OOBI {Oobi}", schemaOobi);
-                    }
-                }
-
-                if (!schemaLoaded) {
-                    logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": Could not load schema {SchemaSaid} from any known source",
-                        schemaSaid);
-                    await SendResponseAsync(null, $"Failed to load credential schema {schemaSaid}. Ensure the schema OOBI is accessible.");
-                    return;
-                }
+            var schemaResolved = await EnsureSchemaResolvedAsync(schemaSaid, nameof(HandleCreateCredentialApprovalAsync));
+            if (!schemaResolved) {
+                await SendResponseAsync(null, $"Failed to load credential schema {schemaSaid}. Ensure the schema OOBI is accessible.");
+                return;
             }
 
             // Convert credData to OrderedDictionary to preserve field order (critical for CESR/SAID)

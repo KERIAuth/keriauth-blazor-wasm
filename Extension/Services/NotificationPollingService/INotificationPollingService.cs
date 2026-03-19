@@ -11,6 +11,13 @@ public interface INotificationPollingService {
     Func<Task>? OnCredentialNotificationsChanged { get; set; }
 
     /// <summary>
+    /// Callback invoked when a grant/offer exchange is seen, to ensure all known schemas
+    /// are resolved in KERIA. Credentials are chained, so the full schema chain must be available.
+    /// Best-effort, non-blocking.
+    /// </summary>
+    Func<Task>? OnSchemasNeeded { get; set; }
+
+    /// <summary>
     /// Gate that returns true when the signify client is ready (passcode available).
     /// Polling is silently skipped when this returns false.
     /// </summary>

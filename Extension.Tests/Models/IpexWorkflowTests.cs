@@ -11,6 +11,7 @@ namespace Extension.Tests.Models {
 
         [Theory]
         [InlineData(IpexWorkflow.Apply, "\"Apply\"")]
+        [InlineData(IpexWorkflow.Offer, "\"Offer\"")]
         [InlineData(IpexWorkflow.ApplyOffer, "\"ApplyOffer\"")]
         [InlineData(IpexWorkflow.ApplyOfferAgree, "\"ApplyOfferAgree\"")]
         [InlineData(IpexWorkflow.ApplyOfferAgreeGrant, "\"ApplyOfferAgreeGrant\"")]
@@ -24,6 +25,7 @@ namespace Extension.Tests.Models {
 
         [Theory]
         [InlineData("\"Apply\"", IpexWorkflow.Apply)]
+        [InlineData("\"Offer\"", IpexWorkflow.Offer)]
         [InlineData("\"ApplyOffer\"", IpexWorkflow.ApplyOffer)]
         [InlineData("\"Grant\"", IpexWorkflow.Grant)]
         [InlineData("\"GrantAdmit\"", IpexWorkflow.GrantAdmit)]
