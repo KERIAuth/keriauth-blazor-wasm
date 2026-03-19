@@ -154,6 +154,11 @@ namespace Extension.Services.SignifyService {
             }
             logger.LogInformation(nameof(Connect) + "...");
 
+            // Mark as disconnected immediately — the JS side resets _client = null at the
+            // start of connect(), so any concurrent polling that checks IsClientReady must
+            // see the client as unavailable until reconnection completes.
+            IsConnected = false;
+
             TimeSpan timeout2;
             if (timeout is null) {
                 timeout2 = AppConfig.SignifyTimeout;

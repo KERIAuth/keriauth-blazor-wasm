@@ -2388,26 +2388,43 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Cancel any active burst before connecting — Connect() resets the JS client,
-            // and in-flight polling calls would hit "Client not connected"
-            _notificationPollingCts?.Cancel();
-
+            // If already connected (e.g., unlock path already called TryConnectSignifyClientAsync),
+            // skip the redundant Connect which would destructively reset the JS _client to null
+            // and race with in-flight notification polling calls.
             Result<State> connectResult;
-            using (_signifyClientService.BeginLongOperation()) {
-                connectResult = await _signifyClientService.Connect(
-                    connectRequest.AdminUrl,
-                    passcode,
-                    connectRequest.BootUrl,
-                    connectRequest.IsNewAgent
-                );
+            var skippedConnect = false;
+            if (_signifyClientService.IsConnected && !connectRequest.IsNewAgent) {
+                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Already connected, skipping redundant Connect");
+                skippedConnect = true;
+                var stateResult = await _signifyClientService.GetState();
+                connectResult = stateResult.IsSuccess
+                    ? Result.Ok(stateResult.Value)
+                    : Result.Fail<State>(stateResult.Errors);
+            }
+            else {
+                // Cancel any active burst before connecting — Connect() resets the JS client,
+                // and in-flight polling calls would hit "Client not connected"
+                _notificationPollingCts?.Cancel();
+
+                using (_signifyClientService.BeginLongOperation()) {
+                    connectResult = await _signifyClientService.Connect(
+                        connectRequest.AdminUrl,
+                        passcode,
+                        connectRequest.BootUrl,
+                        connectRequest.IsNewAgent
+                    );
+                }
             }
 
             if (connectResult.IsSuccess && connectResult.Value is not null) {
                 var clientAidPrefix = connectResult.Value.Controller?.State?.I;
                 var agentAidPrefix = connectResult.Value.Agent?.I;
 
-                // Start notification burst polling now that connection is established
-                RestartNotificationBurst();
+                // Only restart notification burst if we actually reconnected —
+                // in the skip path, the burst from TryConnectSignifyClientAsync is already running.
+                if (!skippedConnect) {
+                    RestartNotificationBurst();
+                }
 
                 // Fetch identifiers and store in session for App to read
                 var identifiersResult = await _signifyClientService.GetIdentifiers();
