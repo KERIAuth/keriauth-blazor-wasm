@@ -1547,23 +1547,33 @@ namespace Extension.Services.SignifyService {
 
         public async Task<Result<RecursiveDictionary>> IpexAdmitAndSubmit(IpexAdmitSubmitArgs args, TimeSpan? timeout = null) {
             var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
+            logger.LogInformation("{Op}: Calling JS interop (timeout={Timeout}s)", nameof(IpexAdmitAndSubmit), timeout2.TotalSeconds);
             try {
                 var argsJson = JsonSerializer.Serialize(args, jsonSerializerOptions);
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(
                     ct => _binding.IpexAdmitAndSubmitAsync(argsJson, ct),
                     timeout2
                 );
+                logger.LogInformation("{Op}: JS interop returned, IsFailed={IsFailed}", nameof(IpexAdmitAndSubmit), timeoutResult.IsFailed);
                 if (timeoutResult.IsFailed) {
+                    var failMsg = timeoutResult.Errors.Count > 0 ? timeoutResult.Errors[0].Message : "unknown";
+                    logger.LogWarning("{Op}: TimeoutHelper returned failure: {Error}", nameof(IpexAdmitAndSubmit), failMsg);
                     return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
                 }
                 var unwrapped = UnwrapJsResult(timeoutResult.Value);
-                if (unwrapped.IsFailed) return Result.Fail<RecursiveDictionary>(unwrapped.Errors);
+                if (unwrapped.IsFailed) {
+                    logger.LogWarning("{Op}: UnwrapJsResult failed: {Error}", nameof(IpexAdmitAndSubmit),
+                        unwrapped.Errors.Count > 0 ? unwrapped.Errors[0].Message : "unknown");
+                    return Result.Fail<RecursiveDictionary>(unwrapped.Errors);
+                }
 
                 var resultDict = JsonSerializer.Deserialize<Dictionary<string, object>>(unwrapped.Value, jsonSerializerOptions);
                 if (resultDict is null) {
+                    logger.LogWarning("{Op}: Deserialization returned null", nameof(IpexAdmitAndSubmit));
                     return Result.Fail<RecursiveDictionary>("Failed to deserialize IpexAdmitAndSubmit result");
                 }
                 var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                logger.LogInformation("{Op}: Completed successfully", nameof(IpexAdmitAndSubmit));
                 return Result.Ok(result);
             }
             catch (JSException e) {

@@ -1996,6 +1996,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id, result: new { success = true });
 
             // Route IPEX response to ContentScript via stored port info (may take 60+ seconds for admit)
+            logger.LogInformation(nameof(HandleAppReplyIpexAdmitApprovalRpcAsync) +
+                ": Starting IpexAdmitAndSubmit, sender={Sender}, recipient={Recipient}, grantSaid={GrantSaid}",
+                approvalPayload.SenderPrefix, approvalPayload.RecipientPrefix, approvalPayload.GrantSaid);
+
             if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
                 await ExecuteIpexAndRespondAsync(
                     pendingRequest.PortId, pendingRequest.PortSessionId,
@@ -3053,6 +3057,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            logger.LogInformation(nameof(HandleAppRequestIpexAdmitRpcAsync) +
+                ": Starting IpexAdmitAndSubmit, sender={Sender}, recipient={Recipient}, grantSaid={GrantSaid}",
+                admitRequest.SenderNameOrPrefix, admitRequest.RecipientPrefix, admitRequest.GrantSaid);
+
             await ExecuteIpexAndRespondAsync(
                 portId, request.PortSessionId, request.Id,
                 operationName: nameof(HandleAppRequestIpexAdmitRpcAsync),
@@ -3146,18 +3154,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string? senderPrefix = null,
         Func<Task>? onSuccess = null) {
         try {
+            logger.LogInformation("{Op}: Starting IPEX operation", operationName);
             Result<RecursiveDictionary> result;
             using (_signifyClientService.BeginLongOperation()) {
                 result = await operation();
             }
 
             if (result.IsSuccess) {
+                var credentialPending = result.Value.TryGetValue("credentialPending", out var cpVal) ? cpVal?.BooleanValue : null;
+                logger.LogInformation("{Op}: IPEX operation succeeded, credentialPending={CredentialPending}, keys=[{Keys}]",
+                    operationName, credentialPending, string.Join(", ", result.Value.Keys));
+
                 if (onSuccess is not null) {
                     await onSuccess();
                 }
 
                 if (saidKey is not null) {
                     var said = result.Value[saidKey]?.StringValue;
+                    logger.LogInformation("{Op}: Responding with {SaidKey}={Said}", operationName, saidKey, said);
                     await _portService.SendRpcResponseAsync(portId, portSessionId, rpcRequestId,
                         result: new IpexResponsePayload(Said: said, SenderPrefix: senderPrefix));
                 }
