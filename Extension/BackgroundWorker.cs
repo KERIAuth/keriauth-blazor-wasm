@@ -120,6 +120,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly INotificationPollingService _notificationPollingService;
     private CancellationTokenSource? _notificationPollingCts;
 
+    // Tracks a background connect started by unlock so HandleAppRequestConnectRpcAsync can
+    // await it instead of starting a redundant (and destructive) second connect.
+    private Task<Result>? _pendingConnectTask;
+
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
         IJSRuntime jsRuntime,
@@ -2280,13 +2284,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Connect signify-ts client now that passcode is in memory
-            var connectResult = await TryConnectSignifyClientAsync();
-            if (connectResult.IsFailed) {
-                var errorMsg = connectResult.Errors.Count > 0 ? connectResult.Errors[0].Message : "KERIA connect failed";
-                logger.LogWarning(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": KERIA connect failed after unlock: {Error}", errorMsg);
-                // Don't fail the unlock — App can still navigate and retry connect separately
-            }
+            // Fire off KERIA connect in background — don't block the unlock response.
+            // App will navigate to ConnectingPage which sends RequestConnect;
+            // that handler awaits _pendingConnectTask if still in progress.
+            _pendingConnectTask = TryConnectSignifyClientAsync();
+            _ = _pendingConnectTask.ContinueWith(t => {
+                if (t.Result.IsFailed) {
+                    var errorMsg = t.Result.Errors.Count > 0 ? t.Result.Errors[0].Message : "KERIA connect failed";
+                    logger.LogWarning(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": Background KERIA connect failed: {Error}", errorMsg);
+                }
+                _pendingConnectTask = null;
+            }, TaskScheduler.Current);
 
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new { success = true });
@@ -2404,6 +2412,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 connectResult = stateResult.IsSuccess
                     ? Result.Ok(stateResult.Value)
                     : Result.Fail<State>(stateResult.Errors);
+            }
+            else if (_pendingConnectTask is not null && !connectRequest.IsNewAgent) {
+                // Unlock handler already started a background connect — await it
+                // instead of starting a destructive second connect.
+                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Awaiting pending background connect from unlock");
+                var pendingResult = await _pendingConnectTask;
+                skippedConnect = true;
+                if (pendingResult.IsSuccess) {
+                    var stateResult = await _signifyClientService.GetState();
+                    connectResult = stateResult.IsSuccess
+                        ? Result.Ok(stateResult.Value)
+                        : Result.Fail<State>(stateResult.Errors);
+                }
+                else {
+                    connectResult = Result.Fail<State>(pendingResult.Errors);
+                }
             }
             else {
                 // Cancel any active burst before connecting — Connect() resets the JS client,
