@@ -1426,14 +1426,25 @@ export const contactsDelete = async (prefix: string): Promise<string> => {
 // ===================== Schema Operations =====================
 
 export const schemasGet = async (said: string): Promise<string> => {
-    return withClientOperation(
-        'schemasGet',
-        async (client) => {
-            const schema: Schema = await client.schemas().get(said);
-            return schema;
-        },
-        { SAID: said }
-    );
+    // Handle 404 locally: it's expected when probing whether a schema is already in KERIA.
+    // Avoids noisy console.error from withClientOperation for a normal code path.
+    try {
+        const client = await validateClient();
+        const schema: Schema = await client.schemas().get(said);
+        console.debug(`signifyClient: schemasGet - SAID: ${said}`);
+        const wrapped: ResultOk = { ok: true, value: schema };
+        return JSON.stringify(wrapped);
+    } catch (error) {
+        const is404 = error instanceof Error && error.message?.includes('404');
+        if (is404) {
+            console.debug(`signifyClient: schemasGet 404 - SAID: ${said}`);
+        } else {
+            console.error(`signifyClient: schemasGet error - SAID: ${said}`, error);
+        }
+        const classified = classifyError(error);
+        const wrapped: ResultErr = { ok: false, ...classified };
+        return JSON.stringify(wrapped);
+    }
 };
 
 export const schemasList = async (): Promise<string> => {
