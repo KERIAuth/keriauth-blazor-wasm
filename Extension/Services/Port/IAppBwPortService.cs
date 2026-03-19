@@ -12,14 +12,14 @@ namespace Extension.Services.Port;
 /// </summary>
 public interface IAppBwPortService : IAsyncDisposable, IObservable<BwAppMessage> {
     /// <summary>
-    /// Registers runtime.onMessage listener for SW_CLIENT_HELLO messages.
+    /// Registers runtime.onMessage listener for SW_CLIENT_AWAKE messages.
     /// Must be called once during app initialization, before ConnectAsync.
     /// </summary>
     Task StartAsync();
 
     /// <summary>
-    /// Connects to the BackgroundWorker and completes the HELLO/READY handshake.
-    /// Sends CLIENT_SW_HELLO via sendMessage first to confirm WASM is alive,
+    /// Connects to the BackgroundWorker and completes the WAKE/READY handshake.
+    /// Sends CLIENT_SW_WAKE via sendMessage first to confirm WASM is alive,
     /// then creates a port and performs HELLO/READY.
     /// </summary>
     /// <returns>Task that completes when the connection is established and READY is received.</returns>

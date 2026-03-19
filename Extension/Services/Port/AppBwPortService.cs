@@ -32,7 +32,7 @@ public class AppBwPortService(
     private static readonly TimeSpan DefaultRpcTimeout = TimeSpan.FromSeconds(30);
 
     // ConnectAsync timeout settings
-    // Phase 1 sends CLIENT_SW_HELLO via chrome.runtime.sendMessage and awaits the
+    // Phase 1 sends CLIENT_SW_WAKE via chrome.runtime.sendMessage and awaits the
     // sendResponse reply directly (resolves as a Promise). If BW is ready, the reply
     // contains { ready: true } and Phase 1 completes immediately. If BW hasn't loaded
     // yet, sendMessage throws ("Receiving end does not exist") and we retry after
@@ -54,7 +54,7 @@ public class AppBwPortService(
     public event EventHandler? Disconnected;
 
     public Task StartAsync() {
-        // No-op: SW_CLIENT_HELLO is now received as the sendResponse to CLIENT_SW_HELLO
+        // No-op: SW_CLIENT_AWAKE is now received as the sendResponse to CLIENT_SW_WAKE
         // (same message channel). No separate runtime.onMessage listener needed.
         _logger.LogInformation(nameof(StartAsync) + ": called (no listener registration needed)");
         return Task.CompletedTask;
@@ -66,9 +66,9 @@ public class AppBwPortService(
             return;
         }
 
-        // Phase 1: Send CLIENT_SW_HELLO via chrome.runtime.sendMessage and await the
+        // Phase 1: Send CLIENT_SW_WAKE via chrome.runtime.sendMessage and await the
         // sendResponse reply directly. The BW's onMessage handler (app.ts) calls
-        // sendResponse({ t: 'SW_CLIENT_HELLO', ready: true }) which resolves the
+        // sendResponse({ t: 'SW_CLIENT_AWAKE', ready: true }) which resolves the
         // sendMessage Promise. If BW hasn't loaded yet, sendMessage throws.
         _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Polling for BW readiness (timeout={Timeout}s, interval={Interval}s)...",
             WasmReadyTimeout.TotalSeconds, PollInterval.TotalSeconds);
@@ -80,9 +80,9 @@ public class AppBwPortService(
         while (DateTime.UtcNow < deadline) {
             pollAttempt++;
             try {
-                _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Sending CLIENT_SW_HELLO (attempt {Attempt})", pollAttempt);
+                _logger.LogInformation(nameof(ConnectAsync) + ": Phase 1: Sending CLIENT_SW_WAKE (attempt {Attempt})", pollAttempt);
                 var response = await _jsRuntime.InvokeAsync<JsonElement>("chrome.runtime.sendMessage",
-                    new { t = SendMessageTypes.ClientHello });
+                    new { t = SendMessageTypes.ClientWake });
 
                 // sendResponse from BW's onMessage handler resolves the Promise directly
                 if (response.ValueKind == JsonValueKind.Object

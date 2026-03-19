@@ -840,14 +840,14 @@ if (_isSW) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.debug(`app.ts: ${_logTag} onMessage received:`, message?.t ?? message?.type ?? 'unknown', 'from', sender?.url ?? sender?.tab?.id ?? 'unknown');
 
-        // Handle CLIENT_SW_HELLO: App/CS is probing BW readiness.
+        // Handle CLIENT_SW_WAKE: App/CS is probing BW readiness.
         // WASM is ready if this JS listener fires (it runs in the BW context).
-        if (message?.t === 'CLIENT_SW_HELLO') {
+        if (message?.t === 'CLIENT_SW_WAKE') {
             const isExtPage = sender?.url?.startsWith('chrome-extension://') === true;
             const source = isExtPage ? 'extension page' : `CS tab ${sender.tab?.id}`;
-            console.debug(`app.ts: ${_logTag} CLIENT_SW_HELLO from ${source}, replying ready=true`);
+            console.debug(`app.ts: ${_logTag} CLIENT_SW_WAKE from ${source}, replying awake=true`);
 
-            const reply = { t: 'SW_CLIENT_HELLO', ready: true };
+            const reply = { t: 'SW_CLIENT_AWAKE', ready: true };
             // sendResponse delivers the reply to the sender's sendMessage() Promise
             // (used by ContentScript which awaits the response directly).
             sendResponse(reply);
@@ -961,7 +961,7 @@ export async function beforeStart(
             // Use 'window' (not globalThis) so Blazor's IJSRuntime can resolve identifiers.
 
             // TODO P3 rename __keriauth_* globals to use PRODUCT_NAME-based prefix
-            // BW readiness flag: set when SW_CLIENT_HELLO arrives
+            // BW readiness flag: set when SW_CLIENT_AWAKE arrives
             (window as any).__keriauth_bwReady = false;
             (window as any).__keriauth_isBwReady = () => (window as any).__keriauth_bwReady === true;
 
@@ -974,9 +974,9 @@ export async function beforeStart(
             };
 
             chrome.runtime.onMessage.addListener((message) => {
-                if (message?.t === 'SW_CLIENT_HELLO' && message?.ready === true) {
+                if (message?.t === 'SW_CLIENT_AWAKE' && message?.ready === true) {
                     (window as any).__keriauth_bwReady = true;
-                    console.log(`app.ts: ${_logTag} Received SW_CLIENT_HELLO, BW is ready`);
+                    console.log(`app.ts: ${_logTag} Received SW_CLIENT_AWAKE, BW is awake`);
                 }
                 if (message?.t === 'SW_APP_WAKE') {
                     (window as any).__keriauth_appWake = true;
@@ -1003,5 +1003,5 @@ export function afterStarted(blazor: unknown): void {
     // Note: _wasmReady is NOT set here. In SW context, it's set by C# via
     // __keriauth_setBwReady after Program.cs completes DI setup and module loading.
     // This ensures clients don't attempt port connections before BwPortService is ready.
-    // In App context, _wasmReady is unused (CLIENT_SW_HELLO handler only runs in SW).
+    // In App context, _wasmReady is unused (CLIENT_SW_WAKE handler only runs in SW).
 }

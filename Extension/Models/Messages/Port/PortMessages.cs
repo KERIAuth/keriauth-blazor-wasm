@@ -219,10 +219,10 @@ public static class PortMessageTypes {
 /// Used for WASM readiness probing before port creation.
 /// </summary>
 public static class SendMessageTypes {
-    /// <summary>Client → SW: "Is WASM alive?" (sent via chrome.runtime.sendMessage)</summary>
-    public const string ClientHello = "CLIENT_SW_HELLO";
-    /// <summary>SW → Client: "WASM is ready, you can create a port" (sent via runtime/tabs.sendMessage)</summary>
-    public const string SwHello = "SW_CLIENT_HELLO";
+    /// <summary>Client → SW: "Wake up, are you alive?" (sent via chrome.runtime.sendMessage)</summary>
+    public const string ClientWake = "CLIENT_SW_WAKE";
+    /// <summary>SW → Client: "I'm awake, you can create a port" (sent via runtime/tabs.sendMessage)</summary>
+    public const string SwAwake = "SW_CLIENT_AWAKE";
     /// <summary>SW → App: "I have pending work, please reconnect" (sent via chrome.runtime.sendMessage)</summary>
     public const string SwAppWake = "SW_APP_WAKE";
 }

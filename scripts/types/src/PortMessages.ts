@@ -37,10 +37,10 @@ export const PortMessageTypes = {
  * Used for WASM readiness probing before port creation.
  */
 export const SendMessageTypes = {
-    /** Client → SW: "Is WASM alive?" (sent via chrome.runtime.sendMessage) */
-    ClientHello: 'CLIENT_SW_HELLO',
-    /** SW → Client: "WASM is ready, you can create a port" (sent via runtime/tabs.sendMessage) */
-    SwHello: 'SW_CLIENT_HELLO'
+    /** Client → SW: "Wake up, are you alive?" (sent via chrome.runtime.sendMessage) */
+    ClientWake: 'CLIENT_SW_WAKE',
+    /** SW → Client: "I'm awake, you can create a port" (sent via runtime/tabs.sendMessage) */
+    SwAwake: 'SW_CLIENT_AWAKE'
 } as const;
 
 /**

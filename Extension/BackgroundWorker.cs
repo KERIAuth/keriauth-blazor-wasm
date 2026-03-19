@@ -214,23 +214,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 json = JsonSerializer.SerializeToElement(message);
             }
 
-            if (json.TryGetProperty("t", out var tProp) &&
-                tProp.GetString() == SendMessageTypes.ClientHello) {
-                var isExtPage = sender?.Url?.StartsWith("chrome-extension://", System.StringComparison.InvariantCulture) == true;
-                var source = isExtPage ? "extension page" : $"CS tab {sender?.Tab?.Id}";
-                logger.LogInformation(nameof(OnMessageAsync) + ": CLIENT_SW_HELLO from {Source}, replying ready=true", source);
-
-                var reply = new { t = SendMessageTypes.SwHello, ready = true };
-                if (isExtPage) {
-                    await _jsRuntime.InvokeVoidAsync("chrome.runtime.sendMessage", reply);
-                    logger.LogInformation(nameof(OnMessageAsync) + ": Sent SW_CLIENT_HELLO to extension pages");
-                }
-                else if (sender?.Tab?.Id is int tabId) {
-                    await _jsRuntime.InvokeVoidAsync("chrome.tabs.sendMessage", tabId, reply);
-                    logger.LogInformation(nameof(OnMessageAsync) + ": Sent SW_CLIENT_HELLO to CS tab {TabId}", tabId);
-                }
-                return;
-            }
+            // CLIENT_SW_WAKE is handled entirely by the JS listener in app.ts (beforeStart).
+            // The JS listener responds immediately via sendResponse, which is sufficient
+            // since its presence in the BW context already proves the service worker is awake.
 
 
 

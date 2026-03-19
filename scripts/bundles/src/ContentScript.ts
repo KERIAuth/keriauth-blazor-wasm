@@ -136,7 +136,7 @@ import {
 
     /**
      * Establish a port connection to the BackgroundWorker.
-     * Polls via CLIENT_SW_HELLO until BW responds with ready=true,
+     * Polls via CLIENT_SW_WAKE until BW responds with awake=true,
      * then creates a port and sends HELLO for session establishment.
      */
     async function connectPort(readyTimeoutMs: number = READY_TIMEOUT_MS): Promise<void> {
@@ -152,8 +152,8 @@ import {
             while (Date.now() < deadline) {
                 attempt++;
                 try {
-                    const response = await chrome.runtime.sendMessage({ t: SendMessageTypes.ClientHello });
-                    if (response?.t === SendMessageTypes.SwHello && response?.ready === true) {
+                    const response = await chrome.runtime.sendMessage({ t: SendMessageTypes.ClientWake });
+                    if (response?.t === SendMessageTypes.SwAwake && response?.ready === true) {
                         console.debug(`${logPrefix} BW ready (poll attempt ${attempt})`);
                         break;
                     }
