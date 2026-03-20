@@ -159,6 +159,10 @@ import {
                     }
                     console.debug(`${logPrefix} BW not ready (attempt ${attempt}, ready=${response?.ready})`);
                 } catch (e) {
+                    const msg = e instanceof Error ? e.message : '';
+                    if (msg.includes('Extension context invalidated')) {
+                        throw e; // Unrecoverable — stop polling immediately
+                    }
                     // SW may still be loading modules (no listener yet)
                     console.debug(`${logPrefix} Poll ${attempt} failed:`, e);
                 }
@@ -334,32 +338,50 @@ import {
         port = null;
         portSessionId = null;
         isPortReady = false;
+
+        // Brief delay to allow Chrome to finish tearing down the extension context
+        // after port disconnect, before probing whether the extension is still functional.
+        setTimeout(() => {
+            let probePromise: Promise<unknown> | null = null;
+            try {
+                probePromise = chrome.runtime.sendMessage({ t: SendMessageTypes.ClientWake });
+            } catch {
+                // Synchronous throw — extension context is gone
+            }
+
+            if (probePromise) {
+                probePromise.then(() => {
+                    // Extension still functional — transient disconnect (SW went idle).
+                    console.debug(`${logPrefix} Extension still functional after port disconnect — will reconnect lazily`);
+                }).catch(() => {
+                    handleExtensionContextInvalidated(error);
+                });
+            } else {
+                handleExtensionContextInvalidated(error);
+            }
+        }, 500);
+    }
+
+    function handleExtensionContextInvalidated(error: { message?: string } | undefined): void {
+        console.log(`${logPrefix} Extension context invalidated - notifying page and prompting reload`, error?.message || '');
         postMessageToPageSignifyExtensionDisconnected();
-
-        // Check if extension was invalidated
-        if (error?.message?.includes('Extension context invalidated')) {
-            console.log(`${logPrefix} Extension context invalidated - prompting reload`);
-            promptAndReloadPage(
-                `The ${PRODUCT_NAME} extension has been updated or reloaded.\n` +
-                "Actions needed:\n" +
-                "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
-                `2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the ${PRODUCT_NAME} extension for easier access.\n\n` +
-                `3) Click the ${PRODUCT_NAME} extension action button to re-authorize this site.`
-            );
-            return;
-        }
-
-        // Don't auto-reconnect. Port will be re-established lazily when a page message needs forwarding.
+        promptAndReloadPage(
+            `The ${PRODUCT_NAME} extension has been unloaded, updated, or reloaded.\n` +
+            "Actions needed:\n" +
+            "1) Click OK to reload this page. In some cases, you may need to close the tab.\n\n" +
+            `2) If the extension action button is not visible, click the puzzle piece icon in the browser toolbar and pin the ${PRODUCT_NAME} extension for easier access.\n\n` +
+            `3) If needed, click the ${PRODUCT_NAME} extension action button to re-authorize this site.`
+        );
     }
 
     function postMessageToPageSignifyExtensionDisconnected(): void {
-        const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string; name: string }> = {
+        const extensionClientMsg: ICsPageMsgDataData<{ extensionId: string; name: string; reason: string }> = {
             source: CsPageMsgTag,
             type: CsBwMsgEnum.POLARIS_SIGNIFY_EXTENSION,
-            data: { extensionId: "", name: `${PRODUCT_NAME} (disconnected)` },
+            data: { extensionId: "", name: `${PRODUCT_NAME} (disconnected)`, reason: "extension-context-invalidated" },
             requestId: '' // may be unsolicited message or with no requestId, so no requestId set in this response
         };
-        postMessageToPage<ICsPageMsgDataData<{ extensionId: string; name: string }>>(extensionClientMsg);
+        postMessageToPage<ICsPageMsgDataData<{ extensionId: string; name: string; reason: string }>>(extensionClientMsg);
     }
 
     /**
@@ -370,7 +392,7 @@ import {
             // Lazy reconnect: attempt to reconnect when a message needs sending
             console.debug(`${logPrefix} Port not ready, attempting reconnect...`);
             try {
-                await connectPort();
+                await connectPort()
             } catch (e) {
                 console.debug(`${logPrefix} Reconnect failed:`, e);
             }
