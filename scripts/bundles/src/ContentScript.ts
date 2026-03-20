@@ -339,24 +339,16 @@ import {
         portSessionId = null;
         isPortReady = false;
 
-        // Brief delay to allow Chrome to finish tearing down the extension context
-        // after port disconnect, before probing whether the extension is still functional.
+        // Delay probe to allow Chrome to finish tearing down the extension context.
+        // Immediately after port disconnect, chrome.runtime APIs may still appear functional
+        // even when the extension is being disabled/uninstalled.
         setTimeout(() => {
-            let probePromise: Promise<unknown> | null = null;
             try {
-                probePromise = chrome.runtime.sendMessage({ t: SendMessageTypes.ClientWake });
+                const probe = chrome.runtime.connect(undefined, { name: '__probe__' });
+                probe.disconnect();
+                // Extension still functional — transient disconnect (SW went idle).
+                console.debug(`${logPrefix} Extension still functional after port disconnect — will reconnect lazily`);
             } catch {
-                // Synchronous throw — extension context is gone
-            }
-
-            if (probePromise) {
-                probePromise.then(() => {
-                    // Extension still functional — transient disconnect (SW went idle).
-                    console.debug(`${logPrefix} Extension still functional after port disconnect — will reconnect lazily`);
-                }).catch(() => {
-                    handleExtensionContextInvalidated(error);
-                });
-            } else {
                 handleExtensionContextInvalidated(error);
             }
         }, 500);
