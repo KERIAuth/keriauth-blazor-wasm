@@ -97,7 +97,8 @@ Final extension package: `Extension/bin/Release/net9.0/browserextension/`
 ## Development Workflow
 
 ### TypeScript-only changes
-- Use `make watch` for automatic rebuilds, or `make build-ts` for manual rebuild
+- Use `make build` even for TypeScript-only changes — the C# build step copies assets into the extension output directory
+- `make build-ts` alone only updates `wwwroot/`; Chrome won't see the changes until `dotnet build` runs
 - Always reload extension in browser after changes
 
 ### C#-only changes

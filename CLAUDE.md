@@ -68,7 +68,7 @@ See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (
 **Quick reference for Claude Code**:
 - Incremental build: `make build`
 - Build + test: `make build && make test`
-- TypeScript only: `make build-ts`
+- TypeScript only: `make build` (not `make build-ts` — Chrome loads from the dotnet build output, not wwwroot)
 - C# only (skip TypeScript): `dotnet build --configuration Release -p:Quick=true`
 - Clean build: `make clean-build`
 - Watch mode: `make watch`
