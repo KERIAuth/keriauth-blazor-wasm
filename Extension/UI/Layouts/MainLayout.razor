@@ -271,7 +271,7 @@
                 </MudNavLink>
                 @if (appCache.IsAuthenticated)
                 {
-                    <MudNavLink Ripple="false" OnClick=Lock Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
+                    <MudNavLink Ripple="false" OnClick="async () => { if(ActiveDrawerVariant == DrawerVariant.Temporary ) IsMenuDrawerOpen = false; await Lock(); }" Icon="@Icons.Material.Filled.Lock" IconColor="Color.Surface">Lock</MudNavLink>
                 }
                 else
                 {
