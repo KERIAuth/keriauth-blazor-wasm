@@ -193,6 +193,11 @@
     height: 3.429rem;
 }
 
+.bt-prefix {
+    font-family: monospace;
+    word-break: break-all;
+}
+
 .bt-identicon {
     border-style: solid;
     border-color: black;

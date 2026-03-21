@@ -279,12 +279,12 @@
                 <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
                     @if (RecipientPrefix is not null)
                     {
-                        <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span style="font-family: monospace; word-break: break-all;">@RecipientPrefix</span></MudText>
+                        <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span class="bt-prefix">@RecipientPrefix</span></MudText>
                     }
 
                     @if (ipexKind == IpexKind.Apply)
                     {
-                        <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@SchemaSaid</span></MudText>
+                        <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span class="bt-prefix">@SchemaSaid</span></MudText>
 
                         @if (Attributes is not null)
                         {
@@ -294,11 +294,11 @@
                     }
                     else if (ipexKind == IpexKind.Agree)
                     {
-                        <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@OfferSaid</span></MudText>
+                        <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span class="bt-prefix">@OfferSaid</span></MudText>
                     }
                     else if (ipexKind == IpexKind.Admit)
                     {
-                        <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span style="font-family: monospace; word-break: break-all;">@GrantSaid</span></MudText>
+                        <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span class="bt-prefix">@GrantSaid</span></MudText>
                     }
                 </MudPaper>
 

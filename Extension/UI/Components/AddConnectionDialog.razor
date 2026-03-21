@@ -157,7 +157,7 @@
             @if (!string.IsNullOrEmpty(DisplayOobi))
             {
                 <MudField Label="Your introduction URL" Variant="Variant.Outlined" Class="mt-3">
-                    <MudText Style="font-family: monospace; font-size: 0.8rem; word-break: break-all;">@DisplayOobi</MudText>
+                    <MudText Style="font-size: 0.8rem;" Class="bt-prefix">@DisplayOobi</MudText>
                 </MudField>
                 <MudButton StartIcon="@(IsCopied ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)"
                            OnClick="CopyOobi"

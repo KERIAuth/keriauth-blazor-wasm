@@ -3,16 +3,9 @@
 @using Extension
 
 <MudStack Row="true" Class="rounded px-0 py-0">
-    @if (StringContent is not null && StringContent.Length != 0)
+    @if (!string.IsNullOrEmpty(StringContent))
     {
-        if (StringContent.Length <= MaxLength)
-        {
-            <span>@StringContent</span>
-        }
-        else
-        {
-            <span>@StringContent.Substring(0, (int)Math.Min(MaxLength/2, Math.Round(StringContent.Length / 2f, MidpointRounding.ToZero)))&hellip;@StringContent.Substring(StringContent.Length-2-(int)MaxLength/2)</span>
-        }
+        @Elide(StringContent, MaxLength, 0)
     }
     @if (IncludeCopyIcon)
     {

@@ -333,11 +333,11 @@
                     {
                         <MudStack Row="true" Style="align-items: center;">
                             <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(_config.ClientAidPrefix)" Class="bt-identicon" />
-                            <MudText Style="overflow-wrap: anywhere;"><b>Client AID Prefix:</b><br />@_config.ClientAidPrefix</MudText>
+                            <MudText Style="overflow-wrap: anywhere;"><b>Client AID Prefix:</b><br /><span class="bt-prefix">@_config.ClientAidPrefix</span></MudText>
                         </MudStack>
                         <MudStack Row="true" Style="align-items: center;">
                             <MudIcon ViewBox="0 0 100 100" Icon="@MakeIdenticon(_config.AgentAidPrefix)" Class="bt-identicon" />
-                            <MudText Style="overflow-wrap: anywhere;"><b>Agent AID Prefix:</b><br />@_config.AgentAidPrefix</MudText>
+                            <MudText Style="overflow-wrap: anywhere;"><b>Agent AID Prefix:</b><br /><span class="bt-prefix">@_config.AgentAidPrefix</span></MudText>
                         </MudStack>
                     }
                 </MudStack>

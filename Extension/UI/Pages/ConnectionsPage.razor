@@ -46,11 +46,6 @@
         appCache?.MyNotifications?.Items?
             .Count(n => !n.IsRead) ?? 0;
 
-    static string ElidePrefix(string? prefix) =>
-        prefix is null ? "" :
-        prefix.Length > 8
-            ? $"{prefix[..4]}...{prefix[^4..]}"
-            : prefix;
 
     string? ProfileNameForPrefix(string? prefix) =>
         prefix is null ? null : appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix)?.Name;

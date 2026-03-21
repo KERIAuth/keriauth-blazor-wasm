@@ -120,9 +120,9 @@
 
     string? GetAidDisplayName(string prefix) {
         var aid = AllAids.FirstOrDefault(a => a.Prefix == prefix);
-        if (aid is not null) return $"{aid.Name} ({prefix[..8]}...)";
+        if (aid is not null) return $"{aid.Name} ({ElideText(prefix, 8, 0)})";
         var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
-        if (conn is not null) return $"{conn.Name} ({prefix[..8]}...)";
+        if (conn is not null) return $"{conn.Name} ({ElideText(prefix, 8, 0)})";
         return prefix;
     }
 
@@ -356,7 +356,7 @@
                            ValueChanged="OnDiscloserChanged" Variant="Variant.Outlined" Placeholder="Select AID">
                     @foreach (var aid in AllAids.Where(a => FilteredDiscloserPrefixes.Contains(a.Prefix)))
                     {
-                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@aid.Prefix[..8]...)</MudSelectItem>
+                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@ElideText(aid.Prefix, 8, 0))</MudSelectItem>
                     }
                 </MudSelect>
 
@@ -365,7 +365,7 @@
                            ToStringFunc="@(p => p is null ? "" : GetAidDisplayName(p) ?? p)">
                     @foreach (var (prefix, name) in FilteredDiscloseeCandidates)
                     {
-                        <MudSelectItem T="string" Value="prefix">@name (@prefix[..8]...)</MudSelectItem>
+                        <MudSelectItem T="string" Value="prefix">@name (@ElideText(prefix, 8, 0))</MudSelectItem>
                     }
                 </MudSelect>
 

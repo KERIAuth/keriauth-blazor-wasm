@@ -91,16 +91,6 @@
 
     bool IsFiltering => FilterRoute is not null || FilterReadStatus is not null;
 
-    static string ElideId(string id) =>
-        id.Length > 12
-            ? $"{id[..6]}...{id[^4..]}"
-            : id;
-
-    static string ElidePrefix(string? prefix) =>
-        prefix is null ? "" :
-        prefix.Length > 8
-            ? $"{prefix[..4]}...{prefix[^4..]}"
-            : prefix;
 
     List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
 
@@ -628,7 +618,7 @@
                             <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route, n)</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
                             <MudTooltip Text="@n.Id" Delay="300">
-                                <MudText Typo="Typo.caption" Style="font-family: monospace;">@ElideId(n.Id)</MudText>
+                                <MudText Typo="Typo.caption">@Elide(n.Id, 6, 4)</MudText>
                             </MudTooltip>
                         </div>
                         @if (!n.IsRead)
