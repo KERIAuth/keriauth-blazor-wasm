@@ -635,7 +635,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Offer step (Discloser sends Offer to Disclosee)
             if (workflow is IpexWorkflow.Offer or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
-                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) {
 
                 _logger.LogInformation("IPEX Offer: Discloser {Discloser} offering to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
                 var offerResult = await _signifyClient.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
@@ -653,7 +654,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Agree step (Disclosee sends Agree to Discloser)
             if (workflow is IpexWorkflow.ApplyOfferAgree
-                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) {
 
                 _logger.LogInformation("IPEX Agree: Disclosee {Disclosee} agreeing with Discloser {Discloser}...", discloseePrefix, discloserPrefix);
                 var agreeResult = await _signifyClient.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
@@ -670,7 +672,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Grant step (Discloser sends Grant to Disclosee)
             if (workflow is IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
-                or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit) {
+                or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) {
 
                 _logger.LogInformation("IPEX Grant: Discloser {Discloser} granting to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
 
@@ -698,7 +701,8 @@ namespace Extension.Services.PrimeDataService {
             }
 
             // Admit step (Disclosee sends Admit to Discloser)
-            if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit) {
+            if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) {
 
                 _logger.LogInformation("IPEX Admit: Disclosee {Disclosee} admitting from Discloser {Discloser}...", discloseePrefix, discloserPrefix);
                 var admitResult = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
@@ -715,7 +719,8 @@ namespace Extension.Services.PrimeDataService {
             // Mark generated notifications as read, except the last step's notification
             // (the last step represents a pending action for the recipient to act on).
             // For complete workflows (ending in Admit), mark everything as read.
-            var isCompleteWorkflow = workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit;
+            var isCompleteWorkflow = workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit;
             var saidsToMarkAsRead = isCompleteWorkflow
                 ? generatedExchangeSaids
                 : new HashSet<string>(generatedExchangeSaids.Where(s => s != lastStepSaid));

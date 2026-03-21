@@ -823,7 +823,8 @@ namespace Extension.Models.Messages.AppBw {
         ApplyOfferAgreeGrant,
         ApplyOfferAgreeGrantAdmit,
         Grant,
-        GrantAdmit
+        GrantAdmit,
+        OfferAgreeGrantAdmit
     }
 
     /// <summary>

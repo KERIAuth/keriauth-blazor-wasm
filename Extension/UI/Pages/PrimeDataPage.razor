@@ -39,8 +39,8 @@
     List<Aid> AllAids => appCache.Aids;
     List<Connection> AllConnections => appCache.MyConnections?.Items ?? [];
 
-    string DiscloserLabel => isPresentation ? "Holder (discloser)" : "Issuer (discloser)";
-    string DiscloseeLabel => isPresentation ? "Verifier (disclosee)" : "Holder (disclosee)";
+    string DiscloserLabel => (isPresentation ? "Holder (discloser)" : "Issuer (discloser)") + (" for offer, grant");
+    string DiscloseeLabel => (isPresentation ? "Verifier (disclosee)" : "Holder (disclosee)") + (" for apply, agree, admit");
 
     // All unique disclosee prefixes reachable from eligible disclosers via connections
     List<(string Prefix, string Name)> DiscloseeCandidates {
@@ -98,7 +98,7 @@
         ipexStatus != StepStatus.Running;
 
     bool IsWorkflowEnabled(IpexWorkflow wf) {
-        bool needsForward = wf is not IpexWorkflow.Apply;
+        bool needsForward = wf is not (IpexWorkflow.Apply or IpexWorkflow.ApplyOfferAgreeGrantAdmit);
         bool needsReverse = wf is not (IpexWorkflow.Offer or IpexWorkflow.Grant);
 
         if (needsForward && !HasConnectionDiscloserToDisclosee) return false;
@@ -107,14 +107,12 @@
     }
 
     static string WorkflowDisplayName(IpexWorkflow wf) => wf switch {
+        IpexWorkflow.Grant => "Grant",
         IpexWorkflow.Apply => "Apply",
         IpexWorkflow.Offer => "Offer",
-        IpexWorkflow.ApplyOffer => "Apply\u279BOffer",
-        IpexWorkflow.ApplyOfferAgree => "Apply\u279BOffer\u279BAgree",
-        IpexWorkflow.ApplyOfferAgreeGrant => "Apply\u279BOffer\u279BAgree\u279BGrant",
-        IpexWorkflow.ApplyOfferAgreeGrantAdmit => "Apply\u279BOffer\u279BAgree\u279BGrant\u279BAdmit",
-        IpexWorkflow.Grant => "Grant",
         IpexWorkflow.GrantAdmit => "Grant\u279BAdmit",
+        IpexWorkflow.OfferAgreeGrantAdmit => "Offer\u279BAgree\u279BGrant\u279BAdmit",
+        IpexWorkflow.ApplyOfferAgreeGrantAdmit => "Apply\u279BOffer\u279BAgree\u279BGrant\u279BAdmit",
         _ => wf.ToString()
     };
 
