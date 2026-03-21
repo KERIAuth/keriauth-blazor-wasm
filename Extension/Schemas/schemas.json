@@ -69,8 +69,7 @@
       "name": "Data Attestation",
       "file": "data-attestation.json",
       "oobiUrls": [
-        "https://schema.provenant.net/oobi/EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft",
-        "http://vlei-server.localhost:7723/oobi/EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft"
+        "https://raw.githubusercontent.com/provenant-dev/public-schema/e3e32eaf03aeedd20ce0bc6f9ef5dc908c07ecb5/attestation/attestation.schema.json"
       ]
     },
     {
@@ -86,7 +85,8 @@
       "name": "Verifiable Credential Schema for State-Endorsed Digital Identity",
       "file": "verifiable-credential-schema-for-data-attestation.json",
       "oobiUrls": [
-        "https://github.com/KERIAuth/public-schema/blob/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json"
+        "https://raw.githubusercontent.com/KERIAuth/public-schema/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json",
+        "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_"
       ]
     }
   ],
