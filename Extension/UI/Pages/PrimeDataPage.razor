@@ -34,7 +34,6 @@
     string? selectedDiscloseePrefix;
     IpexWorkflow? selectedWorkflow;
     string ipexRole = "";
-    List<string> eligibleDiscloserPrefixes = [];
 
     List<Aid> AllAids => appCache.Aids;
     List<Connection> AllConnections => appCache.MyConnections?.Items ?? [];
@@ -42,69 +41,91 @@
     string DiscloserLabel => (isPresentation ? "Holder (discloser)" : "Issuer (discloser)") + (" for offer, grant");
     string DiscloseeLabel => (isPresentation ? "Verifier (disclosee)" : "Holder (disclosee)") + (" for apply, agree, admit");
 
-    // All unique disclosee prefixes reachable from eligible disclosers via connections
-    List<(string Prefix, string Name)> DiscloseeCandidates {
+    // All selectable AIDs: local identifiers + external connection targets
+    List<(string Prefix, string Name, bool IsLocal)> AllSelectableAids {
         get {
-            var eligibleSet = new HashSet<string>(eligibleDiscloserPrefixes);
-            return AllConnections
-                .Where(c => eligibleSet.Contains(c.SenderPrefix))
+            var result = AllAids.Select(a => (a.Prefix, a.Name, IsLocal: true)).ToList();
+            var localPrefixes = new HashSet<string>(AllAids.Select(a => a.Prefix));
+            var external = AllConnections
+                .Where(c => !localPrefixes.Contains(c.ReceiverPrefix))
                 .GroupBy(c => c.ReceiverPrefix)
-                .Select(g => {
-                    var conn = g.OrderByDescending(c => c.ConnectionDate).First();
-                    var localAid = AllAids.FirstOrDefault(a => a.Prefix == conn.ReceiverPrefix);
-                    var name = localAid?.Name ?? conn.Name;
-                    return (conn.ReceiverPrefix, name);
-                })
-                .ToList();
+                .Select(g => (g.Key, g.First().Name, IsLocal: false));
+            result.AddRange(external);
+            return result;
         }
     }
 
-    // Disclosers filtered by selected disclosee (via connections)
-    List<string> FilteredDiscloserPrefixes =>
-        selectedDiscloseePrefix is null
-            ? eligibleDiscloserPrefixes
-            : eligibleDiscloserPrefixes
-                .Where(p => AllConnections.Any(c => c.SenderPrefix == p && c.ReceiverPrefix == selectedDiscloseePrefix))
-                .ToList();
+    bool IsLocalPrefix(string? prefix) => prefix is not null && AllAids.Any(a => a.Prefix == prefix);
 
-    // Disclosees filtered by selected discloser (via connections)
-    List<(string Prefix, string Name)> FilteredDiscloseeCandidates =>
-        selectedDiscloserPrefix is null
-            ? DiscloseeCandidates
-            : DiscloseeCandidates
-                .Where(d => AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == d.Prefix))
-                .ToList();
+    string GetSelectableAidDisplay(string prefix) {
+        var entry = AllSelectableAids.FirstOrDefault(a => a.Prefix == prefix);
+        var name = entry.Name ?? prefix;
+        var suffix = entry.IsLocal ? "" : " (ext)";
+        return $"{name}{suffix} ({ElideText(prefix, 8, 0)})";
+    }
 
-    bool IsDiscloseeExternal =>
-        selectedDiscloseePrefix is not null &&
-        !AllAids.Any(a => a.Prefix == selectedDiscloseePrefix);
+    bool HasConnectionFrom(string? sender, string? receiver) =>
+        sender is not null && receiver is not null &&
+        AllConnections.Any(c => c.SenderPrefix == sender && c.ReceiverPrefix == receiver);
 
-    bool HasConnectionDiscloseeToDiscloser =>
-        selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null &&
-        AllConnections.Any(c => c.SenderPrefix == selectedDiscloseePrefix && c.ReceiverPrefix == selectedDiscloserPrefix);
+    bool HasMutualConnection =>
+        HasConnectionFrom(selectedDiscloserPrefix, selectedDiscloseePrefix) &&
+        HasConnectionFrom(selectedDiscloseePrefix, selectedDiscloserPrefix);
 
-    bool HasConnectionDiscloserToDisclosee =>
-        selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null &&
-        AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == selectedDiscloseePrefix);
+    static bool IsMultiStepWorkflow(IpexWorkflow? wf) => wf is not (
+        IpexWorkflow.Apply or IpexWorkflow.Offer or IpexWorkflow.Grant or null);
 
-    bool HasAnyConnection => HasConnectionDiscloseeToDiscloser || HasConnectionDiscloserToDisclosee;
-    bool HasMutualConnection => HasConnectionDiscloseeToDiscloser && HasConnectionDiscloserToDisclosee;
+    static bool WorkflowIncludesApply(IpexWorkflow? wf) => wf is
+        IpexWorkflow.Apply or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+        or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit;
+
+    static bool WorkflowIncludesOfferOrGrant(IpexWorkflow? wf) => wf is
+        IpexWorkflow.Offer or IpexWorkflow.Grant or IpexWorkflow.ApplyOffer
+        or IpexWorkflow.ApplyOfferAgree or IpexWorkflow.ApplyOfferAgreeGrant
+        or IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
+        or IpexWorkflow.OfferAgreeGrantAdmit;
+
+    // Validation rules: only rules relevant to current selection, with pass/fail
+    List<(string Text, bool IsValid)> ValidationRules {
+        get {
+            var rules = new List<(string, bool)>();
+            if (selectedDiscloserPrefix is null || selectedDiscloseePrefix is null || selectedWorkflow is null)
+                return rules;
+
+            rules.Add(("Discloser and disclosee must not be the same",
+                selectedDiscloserPrefix != selectedDiscloseePrefix));
+
+            if (IsMultiStepWorkflow(selectedWorkflow)) {
+                rules.Add(("Multi-step workflows require both AIDs to be local profiles",
+                    IsLocalPrefix(selectedDiscloserPrefix) && IsLocalPrefix(selectedDiscloseePrefix)));
+                rules.Add(("Multi-step workflows require mutual connections between AIDs",
+                    HasMutualConnection));
+            }
+            else {
+                // Single-step: check the needed connection direction
+                if (WorkflowIncludesApply(selectedWorkflow)) {
+                    rules.Add(("Disclosee must have connection to discloser (for apply)",
+                        HasConnectionFrom(selectedDiscloseePrefix, selectedDiscloserPrefix)));
+                }
+                if (WorkflowIncludesOfferOrGrant(selectedWorkflow)) {
+                    rules.Add(("Discloser must have connection to disclosee (for offer, grant)",
+                        HasConnectionFrom(selectedDiscloserPrefix, selectedDiscloseePrefix)));
+                }
+            }
+
+            return rules;
+        }
+    }
+
+    bool AllRulesPass => ValidationRules.Count == 0 || ValidationRules.All(r => r.IsValid);
 
     bool IpexGoEnabled =>
         !string.IsNullOrWhiteSpace(ipexRole) &&
         selectedWorkflow is not null &&
         selectedDiscloserPrefix is not null &&
         selectedDiscloseePrefix is not null &&
+        AllRulesPass &&
         ipexStatus != StepStatus.Running;
-
-    bool IsWorkflowEnabled(IpexWorkflow wf) {
-        bool needsForward = wf is not (IpexWorkflow.Apply or IpexWorkflow.ApplyOfferAgreeGrantAdmit);
-        bool needsReverse = wf is not (IpexWorkflow.Offer or IpexWorkflow.Grant);
-
-        if (needsForward && !HasConnectionDiscloserToDisclosee) return false;
-        if (needsReverse && !HasConnectionDiscloseeToDiscloser && !IsDiscloseeExternal) return false;
-        return true;
-    }
 
     static string WorkflowDisplayName(IpexWorkflow wf) => wf switch {
         IpexWorkflow.Grant => "Grant",
@@ -116,78 +137,47 @@
         _ => wf.ToString()
     };
 
-    string? GetAidDisplayName(string prefix) {
-        var aid = AllAids.FirstOrDefault(a => a.Prefix == prefix);
-        if (aid is not null) return $"{aid.Name} ({ElideText(prefix, 8, 0)})";
-        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
-        if (conn is not null) return $"{conn.Name} ({ElideText(prefix, 8, 0)})";
-        return prefix;
-    }
-
     protected override async Task OnInitializedAsync()
     {
         await this.SubscribeToAppCache(appCache);
         logger.LogInformation("OnInitializedAsync");
         ipexRole = GenerateRandomRole();
-        await FetchEligibleDisclosers();
+        selectedWorkflow = IpexWorkflow.Apply;
+        SelectDefaults();
+    }
+
+    void SelectDefaults() {
+        var aids = AllSelectableAids;
+        // Default discloser: first external, or first AID
+        var firstExternal = aids.FirstOrDefault(a => !a.IsLocal);
+        var firstLocal = aids.FirstOrDefault(a => a.IsLocal);
+        selectedDiscloserPrefix = firstExternal.Prefix ?? firstLocal.Prefix;
+        // Default disclosee: first local AID different from discloser
+        selectedDiscloseePrefix = aids
+            .Where(a => a.IsLocal && a.Prefix != selectedDiscloserPrefix)
+            .Select(a => a.Prefix)
+            .FirstOrDefault() ?? firstLocal.Prefix;
     }
 
     static string GenerateRandomRole() {
         return Random.Shared.Next(1000, 10000).ToString();
     }
 
-    async Task FetchEligibleDisclosers() {
-        var workflow = selectedWorkflow ?? IpexWorkflow.Apply;
-        try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestIpexEligibleDisclosers,
-                new { payload = new IpexEligibleDisclosersPayload(isPresentation, workflow) },
-                TimeSpan.FromSeconds(30));
-
-            if (response.Ok && response.Result is JsonElement jsonEl) {
-                var result = JsonSerializer.Deserialize<IpexEligibleDisclosersResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging);
-                if (result is not null && result.Success) {
-                    eligibleDiscloserPrefixes = result.Prefixes;
-                    if (selectedDiscloserPrefix is not null && !eligibleDiscloserPrefixes.Contains(selectedDiscloserPrefix)) {
-                        selectedDiscloserPrefix = null;
-                    }
-                }
-            }
-        }
-        catch (Exception ex) {
-            logger.LogWarning(ex, "Failed to fetch eligible disclosers");
-        }
-        StateHasChanged();
-    }
-
-    async Task OnIsPresentationChanged(bool value) {
+    void OnIsPresentationChanged(bool value) {
         isPresentation = value;
-        selectedDiscloserPrefix = null;
-        selectedDiscloseePrefix = null;
-        selectedWorkflow = null;
         ipexRole = isPresentation ? "" : GenerateRandomRole();
-        await FetchEligibleDisclosers();
     }
 
-    async Task OnWorkflowChanged(IpexWorkflow? value) {
+    void OnWorkflowChanged(IpexWorkflow? value) {
         selectedWorkflow = value;
-        await FetchEligibleDisclosers();
     }
 
     void OnDiscloserChanged(string? value) {
         selectedDiscloserPrefix = value;
-        if (selectedDiscloseePrefix is not null && value is not null &&
-            !AllConnections.Any(c => c.SenderPrefix == value && c.ReceiverPrefix == selectedDiscloseePrefix))
-            selectedDiscloseePrefix = null;
-        selectedWorkflow = null;
     }
 
     void OnDiscloseeChanged(string? value) {
         selectedDiscloseePrefix = value;
-        if (selectedDiscloserPrefix is not null && value is not null &&
-            !AllConnections.Any(c => c.SenderPrefix == selectedDiscloserPrefix && c.ReceiverPrefix == value))
-            selectedDiscloserPrefix = null;
-        selectedWorkflow = null;
     }
 
     async Task OnGo()
@@ -338,12 +328,6 @@
             <MudText Class="bt-pref-group-label0">
                 Prime IPEX Cred Issuance Workflows (ECR)
             </MudText>
-            <MudText Typo="Typo.body2" Class="ml-5">
-                Note, the available disclosers, disclosees, and workflows depend on existing connections.
-                Some workflows require mutual connections between the selected AIDs.
-                For workflows beyond Apply, the discloser must hold the appropriate credential
-                (ECR Auth for issuance, ECR for presentation).
-            </MudText>
             <MudStack Class="ml-5" Spacing="2">
                 <MudRadioGroup T="bool" Value="isPresentation" ValueChanged="OnIsPresentationChanged">
                     <MudRadio T="bool" Value="false" Color="Color.Primary">Credential Issuance</MudRadio>
@@ -351,66 +335,69 @@
                 </MudRadioGroup>
 
                 <MudSelect T="string" Label="@DiscloserLabel" Value="selectedDiscloserPrefix"
-                           ValueChanged="OnDiscloserChanged" Variant="Variant.Outlined" Placeholder="Select AID">
-                    @foreach (var aid in AllAids.Where(a => FilteredDiscloserPrefixes.Contains(a.Prefix)))
+                           ValueChanged="OnDiscloserChanged" Variant="Variant.Outlined" Placeholder="Select AID"
+                           ToStringFunc="@(p => p is null ? "" : GetSelectableAidDisplay(p))">
+                    @foreach (var (prefix, name, isLocal) in AllSelectableAids)
                     {
-                        <MudSelectItem T="string" Value="aid.Prefix">@aid.Name (@ElideText(aid.Prefix, 8, 0))</MudSelectItem>
+                        <MudSelectItem T="string" Value="prefix">@name@(isLocal ? "" : " (ext)") (@ElideText(prefix, 8, 0))</MudSelectItem>
                     }
                 </MudSelect>
 
                 <MudSelect T="string" Label="@DiscloseeLabel" Value="selectedDiscloseePrefix"
                            ValueChanged="OnDiscloseeChanged" Variant="Variant.Outlined" Placeholder="Select AID"
-                           ToStringFunc="@(p => p is null ? "" : GetAidDisplayName(p) ?? p)">
-                    @foreach (var (prefix, name) in FilteredDiscloseeCandidates)
+                           ToStringFunc="@(p => p is null ? "" : GetSelectableAidDisplay(p))">
+                    @foreach (var (prefix, name, isLocal) in AllSelectableAids)
                     {
-                        <MudSelectItem T="string" Value="prefix">@name (@ElideText(prefix, 8, 0))</MudSelectItem>
+                        <MudSelectItem T="string" Value="prefix">@name@(isLocal ? "" : " (ext)") (@ElideText(prefix, 8, 0))</MudSelectItem>
                     }
                 </MudSelect>
 
-                @if (selectedDiscloserPrefix is not null && selectedDiscloseePrefix is not null)
+                <MudTextField T="string" Label="Role" @bind-Value="ipexRole" Variant="Variant.Outlined"
+                              Required="true" RequiredError="Role is required" />
+
+                <MudSelect T="IpexWorkflow?" Label="Run workflow" Value="selectedWorkflow"
+                           ValueChanged="OnWorkflowChanged" Variant="Variant.Outlined" Placeholder="Select workflow">
+                    @foreach (var wf in Enum.GetValues<IpexWorkflow>())
+                    {
+                        <MudSelectItem T="IpexWorkflow?" Value="wf">
+                            @WorkflowDisplayName(wf)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (ValidationRules.Count > 0)
                 {
-                    @if (!HasAnyConnection)
-                    {
-                        <MudAlert Severity="Severity.Warning" Dense="true">
-                            No connection exists in either direction between the selected AIDs.
-                        </MudAlert>
-                    }
-                    else
-                    {
-                        <MudTextField T="string" Label="Role" @bind-Value="ipexRole" Variant="Variant.Outlined"
-                                      Required="true" RequiredError="Role is required" />
-
-                        <MudSelect T="IpexWorkflow?" Label="Run workflow" Value="selectedWorkflow"
-                                   ValueChanged="OnWorkflowChanged" Variant="Variant.Outlined" Placeholder="Select workflow">
-                            @foreach (var wf in Enum.GetValues<IpexWorkflow>())
-                            {
-                                <MudSelectItem T="IpexWorkflow?" Value="wf" Disabled="@(!IsWorkflowEnabled(wf))">
-                                    @WorkflowDisplayName(wf)
-                                </MudSelectItem>
-                            }
-                        </MudSelect>
-
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       OnClick="OnIpexGo" Disabled="@(!IpexGoEnabled)">
-                                Go
-                            </MudButton>
-                            @if (ipexStatus == StepStatus.Running)
-                            {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                            }
-                            @if (ipexStatus == StepStatus.Success)
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
-                            }
-                            @if (ipexStatus == StepStatus.Error)
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Title="@ipexError" />
-                                <MudText Color="Color.Error" Typo="Typo.body2">@ipexError</MudText>
-                            }
-                        </MudStack>
-                    }
+                    <MudStack Spacing="0" Class="mt-1">
+                        @foreach (var (text, isValid) in ValidationRules)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@(isValid ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                         Color="@(isValid ? Color.Success : Color.Error)" Size="Size.Small" />
+                                <MudText Typo="Typo.body2" Color="@(isValid ? Color.Default : Color.Error)">@text</MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
                 }
+
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="OnIpexGo" Disabled="@(!IpexGoEnabled)">
+                        Go
+                    </MudButton>
+                    @if (ipexStatus == StepStatus.Running)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    }
+                    @if (ipexStatus == StepStatus.Success)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                    }
+                    @if (ipexStatus == StepStatus.Error)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Title="@ipexError" />
+                        <MudText Color="Color.Error" Typo="Typo.body2">@ipexError</MudText>
+                    }
+                </MudStack>
             </MudStack>
 
         </div>

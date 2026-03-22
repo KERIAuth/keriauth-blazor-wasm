@@ -1460,6 +1460,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIpexAgreeRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIpexOffer:
+                    await HandleAppRequestIpexOfferRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestIpexGrant:
+                    await HandleAppRequestIpexGrantRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestPollNotifications:
                     // Start burst only if not already active
                     if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
@@ -3170,6 +3178,265 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexAgreeResponsePayload(false, Error: ex.Message));
         }
+    }
+
+    private async Task HandleAppRequestIpexOfferRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexOfferResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var offerRequest = JsonSerializer.Deserialize<IpexOfferRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (offerRequest is null || string.IsNullOrEmpty(offerRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(offerRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(offerRequest.ApplySaid)
+                || string.IsNullOrEmpty(offerRequest.EcrRole)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexOfferResponsePayload(false, Error: "Invalid or missing offer parameters"));
+                return;
+            }
+
+            var senderPrefix = offerRequest.SenderNameOrPrefix;
+            var recipientPrefix = offerRequest.RecipientPrefix;
+
+            // Resolve sender AID name
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexOfferResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) +
+                ": sender={Sender} ({SenderName}), recipient={Recipient}, applySaid={ApplySaid}, role={Role}",
+                senderPrefix, senderName, recipientPrefix, offerRequest.ApplySaid, offerRequest.EcrRole);
+
+            // Ensure ECR schema is resolved
+            if (!await EnsureSchemaResolvedAsync(VleiCredentialHelper.EcrSchemaSaid, nameof(HandleAppRequestIpexOfferRpcAsync))) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexOfferResponsePayload(false, Error: "Failed to resolve ECR schema"));
+                return;
+            }
+
+            using (_signifyClientService.BeginLongOperation()) {
+                // Look up ECR Auth credential held by sender
+                var credsResult = await _signifyClientService.GetCredentials();
+                if (credsResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: $"Failed to get credentials: {credsResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var ecrAuthCred = VleiCredentialHelper.FindEcrAuthCredential(credsResult.Value, senderPrefix);
+
+                if (ecrAuthCred is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: $"Sender {senderPrefix} does not hold an ECR Auth credential"));
+                    return;
+                }
+                var ecrAuthSaid = ecrAuthCred.GetValueByPath("sad.d")?.Value?.ToString()!;
+                logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Found ECR Auth credential: said={Said}", ecrAuthSaid);
+
+                // Create registry
+                var registryName = $"{senderName}_ecr_offer_registry";
+                var registryResult = await _signifyClientService.CreateRegistryIfNotExists(senderName, registryName);
+                if (registryResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
+                    return;
+                }
+
+                // Issue ECR credential
+                var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData(offerRequest.EcrRole);
+                var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthSaid);
+                var ecrRules = VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer);
+
+                logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Issuing ECR credential...");
+                var issueResult = await _signifyClientService.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                    IssuerAidNameOrPrefix: senderName,
+                    RegistryName: registryName,
+                    Schema: VleiCredentialHelper.EcrSchemaSaid,
+                    HolderPrefix: recipientPrefix,
+                    CredData: ecrCredData,
+                    CredEdge: ecrEdge,
+                    CredRules: ecrRules,
+                    Private: true
+                ));
+
+                if (issueResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var credentialSaid = issueResult.Value["said"]?.StringValue;
+                if (credentialSaid is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: "Issued credential has no SAID"));
+                    return;
+                }
+                logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": ECR credential issued: said={Said}", credentialSaid);
+
+                // Send IPEX Offer
+                logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Sending IPEX offer...");
+                var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                    SenderNameOrPrefix: senderPrefix,
+                    RecipientPrefix: recipientPrefix,
+                    CredentialSaid: credentialSaid,
+                    ApplySaid: offerRequest.ApplySaid
+                ));
+
+                if (offerResult.IsSuccess) {
+                    var offerSaid = offerResult.Value["offerSaid"]?.StringValue;
+                    logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Offer submitted: offerSaid={OfferSaid}", offerSaid);
+                    await _notificationPollingService.PollOnDemandAsync();
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(true));
+                }
+                else {
+                    var errorMsg = offerResult.Errors.Count > 0 ? offerResult.Errors[0].Message : "IPEX offer failed";
+                    logger.LogWarning(nameof(HandleAppRequestIpexOfferRpcAsync) + ": {Error}", errorMsg);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexOfferResponsePayload(false, Error: errorMsg));
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexOfferRpcAsync) + ": Error during IPEX offer");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexOfferResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestIpexGrantRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var grantRequest = JsonSerializer.Deserialize<IpexGrantRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (grantRequest is null || string.IsNullOrEmpty(grantRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(grantRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(grantRequest.AgreeSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Invalid or missing grant parameters"));
+                return;
+            }
+
+            var senderPrefix = grantRequest.SenderNameOrPrefix;
+            var recipientPrefix = grantRequest.RecipientPrefix;
+
+            // Resolve sender AID name
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
+                ": sender={Sender} ({SenderName}), recipient={Recipient}, agreeSaid={AgreeSaid}",
+                senderPrefix, senderName, recipientPrefix, grantRequest.AgreeSaid);
+
+            // Get the agree exchange to find the prior offer SAID
+            var agreeExchangeResult = await _signifyClientService.GetExchange(grantRequest.AgreeSaid);
+            if (agreeExchangeResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Failed to get agree exchange: {agreeExchangeResult.Errors[0].Message}"));
+                return;
+            }
+
+            var agreeView = ExchangeView.FromRecursiveDictionary(agreeExchangeResult.Value);
+            var offerSaid = agreeView.P;
+            if (string.IsNullOrEmpty(offerSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Agree exchange has no prior offer reference"));
+                return;
+            }
+
+            // Get the prior offer exchange to find the credential SAID
+            var offerExchangeResult = await _signifyClientService.GetExchange(offerSaid);
+            if (offerExchangeResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Failed to get prior offer exchange: {offerExchangeResult.Errors[0].Message}"));
+                return;
+            }
+
+            var offerView = ExchangeView.FromRecursiveDictionary(offerExchangeResult.Value);
+            var credentialSaid = offerView.E?.GetValueByPath("acdc.d")?.Value?.ToString();
+            if (string.IsNullOrEmpty(credentialSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Could not find credential SAID in prior offer"));
+                return;
+            }
+
+            logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
+                ": Found credential SAID={CredSaid} from offer={OfferSaid}", credentialSaid, offerSaid);
+
+            using (_signifyClientService.BeginLongOperation()) {
+                var grantResult = await _signifyClientService.GrantReceivedCredential(
+                    senderName, credentialSaid, recipientPrefix);
+
+                if (grantResult.IsSuccess) {
+                    var grantSaid = grantResult.Value["grantSaid"]?.StringValue;
+                    logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
+                        ": Grant submitted: grantSaid={GrantSaid}", grantSaid);
+                    await _notificationPollingService.PollOnDemandAsync();
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexGrantResponsePayload(true));
+                }
+                else {
+                    var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+                    logger.LogWarning(nameof(HandleAppRequestIpexGrantRpcAsync) + ": {Error}", errorMsg);
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexGrantResponsePayload(false, Error: errorMsg));
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexGrantRpcAsync) + ": Error during IPEX grant");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private static RecursiveDictionary BuildVleiRules(string? privacyText = null) {
+        var rules = new RecursiveDictionary();
+        rules["d"] = new RecursiveValue { StringValue = "" };
+        var usage = new RecursiveDictionary();
+        usage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
+        rules["usageDisclaimer"] = new RecursiveValue { Dictionary = usage };
+        var issuance = new RecursiveDictionary();
+        issuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
+        rules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = issuance };
+        if (privacyText is not null) {
+            var privacy = new RecursiveDictionary();
+            privacy["l"] = new RecursiveValue { StringValue = privacyText };
+            rules["privacyDisclaimer"] = new RecursiveValue { Dictionary = privacy };
+        }
+        return rules;
     }
 
     /// <summary>

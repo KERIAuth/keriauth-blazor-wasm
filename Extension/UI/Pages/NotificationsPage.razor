@@ -14,6 +14,7 @@
 @inject ISnackbar snackbar
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
+@inject IDialogService dialogService
 
 @code {
     bool IsProcessing { get; set; }
@@ -227,6 +228,12 @@
     bool IsAgreeing { get; set; }
     bool IsAlreadyAgreed { get; set; }
     HashSet<string> _agreedOfferSaids = [];
+    bool IsOffering { get; set; }
+    bool IsAlreadyOffered { get; set; }
+    HashSet<string> _offeredApplySaids = [];
+    bool IsGranting { get; set; }
+    bool IsAlreadyGranted { get; set; }
+    HashSet<string> _grantedAgreeSaids = [];
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -271,6 +278,12 @@
         IsAlreadyAgreed = notification.Route == "/exn/ipex/offer"
             && notification.ExchangeSaid is not null
             && _agreedOfferSaids.Contains(notification.ExchangeSaid);
+        IsAlreadyOffered = notification.Route == "/exn/ipex/apply"
+            && notification.ExchangeSaid is not null
+            && _offeredApplySaids.Contains(notification.ExchangeSaid);
+        IsAlreadyGranted = notification.Route == "/exn/ipex/agree"
+            && notification.ExchangeSaid is not null
+            && _grantedAgreeSaids.Contains(notification.ExchangeSaid);
         IsLoadingPrior = false;
 
         if (notification.ExchangeSaid is null) {
@@ -446,6 +459,142 @@
         }
         finally {
             IsAgreeing = false;
+        }
+    }
+
+    async Task OfferCredential(Notification notification) {
+        if (IsOffering || ExpandedExchangeData is null) return;
+
+        var view = ExpandedExchangeData.Value;
+
+        // Show confirmation dialog
+        var parameters = new DialogParameters<OfferCredentialDialog>
+        {
+            { x => x.ApplyExchange, view }
+        };
+        var options = new DialogOptions {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+        var dialog = await dialogService.ShowAsync<OfferCredentialDialog>("Offer Credential", parameters, options);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is null || dialogResult.Canceled) return;
+
+        // Extract Apply data: I = applicant (holder), Rp = our AID (issuer)
+        var applicantPrefix = view.I;
+        var ourPrefix = view.Rp;
+        var applySaid = notification.ExchangeSaid;
+
+        // Extract role from Apply attributes
+        var ecrRole = view.A?.GetValueByPath("a.engagementContextRole")?.Value?.ToString();
+
+        if (ourPrefix is null || applicantPrefix is null || applySaid is null || ecrRole is null) {
+            snackbar.Add("Missing data from Apply exchange", Severity.Error);
+            return;
+        }
+
+        IsOffering = true;
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexOffer,
+                new { payload = new IpexOfferRequestPayload(
+                    SenderNameOrPrefix: ourPrefix,
+                    RecipientPrefix: applicantPrefix,
+                    ApplySaid: applySaid,
+                    EcrRole: ecrRole) },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!response.Ok) {
+                snackbar.Add($"Offer failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var offerResult = response.Result is JsonElement offerJsonEl
+                ? JsonSerializer.Deserialize<IpexOfferResponsePayload>(offerJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (offerResult is not null && offerResult.Success) {
+                if (notification.ExchangeSaid is not null) _offeredApplySaids.Add(notification.ExchangeSaid);
+                IsAlreadyOffered = true;
+                snackbar.Add("Credential offered", Severity.Success);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
+            }
+            else {
+                snackbar.Add($"Offer failed: {offerResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX offer");
+            snackbar.Add("Error offering credential", Severity.Error);
+        }
+        finally {
+            IsOffering = false;
+        }
+    }
+
+    async Task GrantCredential(Notification notification) {
+        if (IsGranting || ExpandedExchangeData is null) return;
+
+        var view = ExpandedExchangeData.Value;
+        var agreeSenderPrefix = view.I;
+        var ourPrefix = view.Rp;
+
+        if (ourPrefix is null || !appCache.Aids.Any(a => a.Prefix == ourPrefix)) {
+            snackbar.Add("Could not find matching AID for this agree", Severity.Error);
+            return;
+        }
+
+        if (notification.ExchangeSaid is null || agreeSenderPrefix is null) {
+            snackbar.Add("Missing exchange data for grant", Severity.Error);
+            return;
+        }
+
+        IsGranting = true;
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexGrant,
+                new { payload = new IpexGrantRequestPayload(
+                    SenderNameOrPrefix: ourPrefix,
+                    RecipientPrefix: agreeSenderPrefix,
+                    AgreeSaid: notification.ExchangeSaid) },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!response.Ok) {
+                snackbar.Add($"Grant failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var grantResult = response.Result is JsonElement grantJsonEl
+                ? JsonSerializer.Deserialize<IpexGrantResponsePayload>(grantJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (grantResult is not null && grantResult.Success) {
+                if (notification.ExchangeSaid is not null) _grantedAgreeSaids.Add(notification.ExchangeSaid);
+                IsAlreadyGranted = true;
+                snackbar.Add("Credential granted", Severity.Success);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
+            }
+            else {
+                snackbar.Add($"Grant failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX grant");
+            snackbar.Add("Error granting credential", Severity.Error);
+        }
+        finally {
+            IsGranting = false;
         }
     }
 
@@ -653,6 +802,12 @@
                                                                 OnAgree="@(() => AgreeToOffer(n))"
                                                                 IsAgreeing="@IsAgreeing"
                                                                 IsAlreadyAgreed="@IsAlreadyAgreed"
+                                                                OnOfferIssuance="@(() => OfferCredential(n))"
+                                                                IsOffering="@IsOffering"
+                                                                IsAlreadyOffered="@IsAlreadyOffered"
+                                                                OnGrant="@(() => GrantCredential(n))"
+                                                                IsGranting="@IsGranting"
+                                                                IsAlreadyGranted="@IsAlreadyGranted"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>

@@ -31,6 +31,24 @@
     [Parameter]
     public bool IsLoadingPrior { get; set; }
 
+    [Parameter]
+    public EventCallback OnOfferIssuance { get; set; }
+
+    [Parameter]
+    public bool IsOffering { get; set; }
+
+    [Parameter]
+    public bool IsAlreadyOffered { get; set; }
+
+    [Parameter]
+    public EventCallback OnGrant { get; set; }
+
+    [Parameter]
+    public bool IsGranting { get; set; }
+
+    [Parameter]
+    public bool IsAlreadyGranted { get; set; }
+
     string? SenderAid => Exchange.I;
     string? RecipientAid => Exchange.Rp;
     string? ExchangeSaid => Exchange.D;
@@ -49,7 +67,6 @@
     }
 
     // Stub handlers for unimplemented IPEX actions
-    Task HandleOfferIssuance() => Task.CompletedTask;
     Task HandleOfferPresentation() => Task.CompletedTask;
     Task HandleGrant() => Task.CompletedTask;
     Task HandleSpurn() => Task.CompletedTask;
@@ -71,21 +88,43 @@
         @switch (Route)
         {
             case "/exn/ipex/apply":
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.LocalOffer" Disabled="true"
-                               OnClick="HandleOfferIssuance">Offer New Credential</MudButton>
-                </MudTooltip>
+                @if (IsAlreadyOffered)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                             Icon="@Icons.Material.Filled.LocalOffer">Credential Offered</MudChip>
+                }
+                else if (OnOfferIssuance.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.LocalOffer"
+                               OnClick="OnOfferIssuance"
+                               Disabled="@IsOffering">
+                        @if (IsOffering)
+                        {
+                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Offering...</text>
+                        }
+                        else
+                        {
+                            <text>Offer New Credential</text>
+                        }
+                    </MudButton>
+                }
                 <MudTooltip Text="Not yet implemented">
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
                                StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
                                OnClick="HandleOfferPresentation">Offer Presentation</MudButton>
                 </MudTooltip>
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                               OnClick="HandleSpurn">Reject</MudButton>
-                </MudTooltip>
+                @if (!IsAlreadyOffered)
+                {
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                                   OnClick="HandleSpurn">Reject</MudButton>
+                    </MudTooltip>
+                }
                 break;
 
             case "/exn/ipex/offer":
@@ -121,16 +160,35 @@
                 break;
 
             case "/exn/ipex/agree":
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.CardGiftcard" Disabled="true"
-                               OnClick="HandleGrant">Grant</MudButton>
-                </MudTooltip>
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                               OnClick="HandleSpurn">Reject</MudButton>
-                </MudTooltip>
+                @if (IsAlreadyGranted)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                             Icon="@Icons.Material.Filled.CardGiftcard">Credential Granted</MudChip>
+                }
+                else if (OnGrant.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CardGiftcard"
+                               OnClick="OnGrant"
+                               Disabled="@IsGranting">
+                        @if (IsGranting)
+                        {
+                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <text>Granting...</text>
+                        }
+                        else
+                        {
+                            <text>Grant</text>
+                        }
+                    </MudButton>
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
+                                   OnClick="HandleSpurn">Reject</MudButton>
+                    </MudTooltip>
+                }
                 break;
 
             case "/exn/ipex/grant":

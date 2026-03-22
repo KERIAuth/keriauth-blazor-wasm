@@ -217,7 +217,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: leResult.Value.Prefix,
                 CredData: leCredData,
                 CredEdge: leCredEdge,
-                CredRules: BuildVleiRules()
+                CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 18a", "LE credential");
             if (leCredIssued.IsFailed) return FailResponse(leCredIssued.Errors[0].Message);
 
@@ -296,7 +296,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: oorAuthCredData,
                 CredEdge: oorAuthEdge,
-                CredRules: BuildVleiRules()
+                CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 24a", "OOR Auth credential");
             if (oorAuthIssued.IsFailed) return FailResponse(oorAuthIssued.Errors[0].Message);
 
@@ -341,7 +341,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: personResult.Value.Prefix,
                 CredData: oorCredData,
                 CredEdge: oorEdge,
-                CredRules: BuildVleiRules()
+                CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 26a", "OOR credential");
             if (oorIssued.IsFailed) return FailResponse(oorIssued.Errors[0].Message);
 
@@ -391,7 +391,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: ecrAuthCredData,
                 CredEdge: ecrAuthEdge,
-                CredRules: BuildVleiRules("Privacy Considerations are applicable to QVI ECR AUTH vLEI Credentials.  It is the sole responsibility of QVIs as Issuees of QVI ECR AUTH vLEI Credentials to present these Credentials in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification.  https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.")
+                CredRules: VleiCredentialHelper.BuildVleiRules("Privacy Considerations are applicable to QVI ECR AUTH vLEI Credentials.  It is the sole responsibility of QVIs as Issuees of QVI ECR AUTH vLEI Credentials to present these Credentials in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification.  https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.")
             ), "Step 29a", "ECR Auth credential");
             if (ecrAuthIssued.IsFailed) return FailResponse(ecrAuthIssued.Errors[0].Message);
 
@@ -416,18 +416,8 @@ namespace Extension.Services.PrimeDataService {
             generatedExchangeSaids.Add(step30.Value);
 
             // Step 31a: QVI issues ECR credential to Person (private)
-            var ecrCredData = new RecursiveDictionary();
-            ecrCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
-            ecrCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
-            ecrCredData["engagementContextRole"] = new RecursiveValue { StringValue = "Project Manager" };
-
-            var ecrEdge = new RecursiveDictionary();
-            ecrEdge["d"] = new RecursiveValue { StringValue = "" };
-            var ecrAuthRef = new RecursiveDictionary();
-            ecrAuthRef["n"] = new RecursiveValue { StringValue = ecrAuthIssued.Value.Said };
-            ecrAuthRef["s"] = new RecursiveValue { StringValue = EcrAuthSchemaSaid };
-            ecrAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
-            ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
+            var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData("Project Manager");
+            var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthIssued.Value.Said);
 
             var ecrIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: qviName,
@@ -436,7 +426,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: personResult.Value.Prefix,
                 CredData: ecrCredData,
                 CredEdge: ecrEdge,
-                CredRules: BuildVleiRules("It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification."),
+                CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer),
                 Private: true
             ), "Step 31a", "ECR credential");
             if (ecrIssued.IsFailed) return FailResponse(ecrIssued.Errors[0].Message);
@@ -473,8 +463,8 @@ namespace Extension.Services.PrimeDataService {
         private const string LeSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
         private const string OorAuthSchemaSaid = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
         private const string OorSchemaSaid = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
-        private const string EcrAuthSchemaSaid = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g";
-        private const string EcrSchemaSaid = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
+        private const string EcrAuthSchemaSaid = VleiCredentialHelper.EcrAuthSchemaSaid;
+        private const string EcrSchemaSaid = VleiCredentialHelper.EcrSchemaSaid;
 
         /// <summary>
         /// Returns AID prefixes eligible to be the Discloser for a given IPEX workflow.
@@ -553,9 +543,7 @@ namespace Extension.Services.PrimeDataService {
                     var credsResult = await _signifyClient.GetCredentials();
                     if (credsResult.IsFailed) return FailIpexResponse($"Failed to get credentials: {credsResult.Errors[0].Message}");
 
-                    var ecrAuthCred = credsResult.Value.FirstOrDefault(c =>
-                        c.GetValueByPath("sad.s")?.Value?.ToString() == EcrAuthSchemaSaid &&
-                        c.GetValueByPath("sad.a.i")?.Value?.ToString() == discloserPrefix);
+                    var ecrAuthCred = VleiCredentialHelper.FindEcrAuthCredential(credsResult.Value, discloserPrefix);
 
                     if (ecrAuthCred is null) {
                         return FailIpexResponse($"Discloser {discloserPrefix} does not hold an ECR Auth credential for issuance");
@@ -572,18 +560,8 @@ namespace Extension.Services.PrimeDataService {
                     if (registryResult.IsFailed) return FailIpexResponse(registryResult.Errors[0].Message);
 
                     // Issue ECR credential with ECR Auth edge
-                    var ecrCredData = new RecursiveDictionary();
-                    ecrCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
-                    ecrCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
-                    ecrCredData["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
-
-                    var ecrEdge = new RecursiveDictionary();
-                    ecrEdge["d"] = new RecursiveValue { StringValue = "" };
-                    var ecrAuthRef = new RecursiveDictionary();
-                    ecrAuthRef["n"] = new RecursiveValue { StringValue = ecrAuthSaid };
-                    ecrAuthRef["s"] = new RecursiveValue { StringValue = EcrAuthSchemaSaid };
-                    ecrAuthRef["o"] = new RecursiveValue { StringValue = "I2I" };
-                    ecrEdge["auth"] = new RecursiveValue { Dictionary = ecrAuthRef };
+                    var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData(payload.EcrRole);
+                    var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthSaid);
 
                     issuedCred = (await IssueCredentialStep(new IssueAndGetCredentialArgs(
                         IssuerAidNameOrPrefix: discloserName,
@@ -592,7 +570,7 @@ namespace Extension.Services.PrimeDataService {
                         HolderPrefix: discloseePrefix,
                         CredData: ecrCredData,
                         CredEdge: ecrEdge,
-                        CredRules: BuildVleiRules("It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification."),
+                        CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer),
                         Private: true
                     ), "IPEX issue", "ECR credential")).ValueOrDefault;
 
@@ -922,23 +900,6 @@ namespace Extension.Services.PrimeDataService {
             var grantSaid = result.Value["grantSaid"].StringValue!;
             _logger.LogInformation("{CredLabel} presented: grantSaid={GrantSaid}", credLabel, grantSaid);
             return Result.Ok(grantSaid);
-        }
-
-        private static RecursiveDictionary BuildVleiRules(string? privacyText = null) {
-            var rules = new RecursiveDictionary();
-            rules["d"] = new RecursiveValue { StringValue = "" };
-            var usage = new RecursiveDictionary();
-            usage["l"] = new RecursiveValue { StringValue = "Usage of a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, does not assert that the Legal Entity is trustworthy, honest, reputable in its business dealings, safe to do business with, or compliant with any laws or that an implied or expressly intended purpose will be fulfilled." };
-            rules["usageDisclaimer"] = new RecursiveValue { Dictionary = usage };
-            var issuance = new RecursiveDictionary();
-            issuance["l"] = new RecursiveValue { StringValue = "All information in a valid, unexpired, and non-revoked vLEI Credential, as defined in the associated Ecosystem Governance Framework, is accurate as of the date the validation process was complete. The vLEI Credential has been issued to the legal entity or person named in the vLEI Credential as the subject; and the qualified vLEI Issuer exercised reasonable care to perform the validation process set forth in the vLEI Ecosystem Governance Framework." };
-            rules["issuanceDisclaimer"] = new RecursiveValue { Dictionary = issuance };
-            if (privacyText is not null) {
-                var privacy = new RecursiveDictionary();
-                privacy["l"] = new RecursiveValue { StringValue = privacyText };
-                rules["privacyDisclaimer"] = new RecursiveValue { Dictionary = privacy };
-            }
-            return rules;
         }
 
         private async Task WaitForNotificationsAndMarkAsReadStep(HashSet<string> expectedExchangeSaids, string stepLabel) {
