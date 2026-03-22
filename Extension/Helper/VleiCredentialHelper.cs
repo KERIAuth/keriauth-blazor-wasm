@@ -2,11 +2,20 @@ namespace Extension.Helper;
 
 public static class VleiCredentialHelper
 {
-    public const string EcrSchemaSaid = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
+    // Note: schemas.json may have a redundant list of these SAIDs (for .ts usage)
+    public const string SchemaOobiBaseUrl = "https://schema.testnet.gleif.org:7723/oobi/";
+    public const string QviSchemaSaid = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
+    public const string LeSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
+    public const string OorAuthSchemaSaid = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
+    public const string OorSchemaSaid = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
     public const string EcrAuthSchemaSaid = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g";
+    public const string EcrSchemaSaid = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
 
+    // TODO P2 pull these disclaimers from the credential file?
     public const string EcrPrivacyDisclaimer =
         "It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.";
+    public const string EcrAuthPrivacyDisclaimer =
+        "Privacy Considerations are applicable to QVI ECR AUTH vLEI Credentials.  It is the sole responsibility of QVIs as Issuees of QVI ECR AUTH vLEI Credentials to present these Credentials in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification.  https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.";
 
     public static RecursiveDictionary BuildVleiRules(string? privacyText = null) {
         var rules = new RecursiveDictionary();

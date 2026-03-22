@@ -391,7 +391,7 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: ecrAuthCredData,
                 CredEdge: ecrAuthEdge,
-                CredRules: VleiCredentialHelper.BuildVleiRules("Privacy Considerations are applicable to QVI ECR AUTH vLEI Credentials.  It is the sole responsibility of QVIs as Issuees of QVI ECR AUTH vLEI Credentials to present these Credentials in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification.  https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.")
+                CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrAuthPrivacyDisclaimer)
             ), "Step 29a", "ECR Auth credential");
             if (ecrAuthIssued.IsFailed) return FailResponse(ecrAuthIssued.Errors[0].Message);
 
@@ -458,11 +458,11 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok(new PrimeDataGoResponse(true));
         }
 
-        private const string SchemaOobiBaseUrl = "https://schema.testnet.gleif.org:7723/oobi/";
-        private const string QviSchemaSaid = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
-        private const string LeSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
-        private const string OorAuthSchemaSaid = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
-        private const string OorSchemaSaid = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
+        private const string SchemaOobiBaseUrl = VleiCredentialHelper.SchemaOobiBaseUrl;
+        private const string QviSchemaSaid = VleiCredentialHelper.QviSchemaSaid;
+        private const string LeSchemaSaid = VleiCredentialHelper.LeSchemaSaid;
+        private const string OorAuthSchemaSaid = VleiCredentialHelper.OorAuthSchemaSaid;
+        private const string OorSchemaSaid = VleiCredentialHelper.OorSchemaSaid;
         private const string EcrAuthSchemaSaid = VleiCredentialHelper.EcrAuthSchemaSaid;
         private const string EcrSchemaSaid = VleiCredentialHelper.EcrSchemaSaid;
 
