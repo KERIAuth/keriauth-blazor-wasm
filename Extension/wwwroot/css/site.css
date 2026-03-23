@@ -49,9 +49,14 @@
     overflow-wrap: break-word;
 }
 
+.mud-navmenu.mud-navmenu-default .mud-nav-link {
+    border-left: 4px solid transparent;
+}
+
 .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
     color: #eaff00;
     background-color: #373737;
+    border-left: 4px solid var(--mud-palette-primary);
 }
 
 .mud-nav-link.active:not(.mud-nav-link-disabled) {
