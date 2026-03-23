@@ -84,7 +84,11 @@
         };
 
         // First ask: Invite or Receive Invite?
-        var choiceParams = new DialogParameters();
+        var choiceParams = new DialogParameters
+        {
+            { nameof(ConnectionChoiceDialog.Prefix), appCache.SelectedPrefix ?? "" },
+            { nameof(ConnectionChoiceDialog.Name), ProfileNameForPrefix(appCache.SelectedPrefix) }
+        };
         var choiceDialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add Connection", choiceParams, options);
         var choiceResult = await choiceDialog.Result;
         if (choiceResult is null || choiceResult.Canceled) return;

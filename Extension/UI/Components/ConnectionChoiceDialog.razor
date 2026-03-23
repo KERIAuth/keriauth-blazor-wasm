@@ -1,6 +1,9 @@
 @code {
     [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
 
+    [Parameter] public string Prefix { get; set; } = "";
+    [Parameter] public string? Name { get; set; }
+
     private void SelectInvite() => MudDialog?.Close(DialogResult.Ok("invite"));
     private void SelectReceive() => MudDialog?.Close(DialogResult.Ok("receive"));
     private void Cancel() => MudDialog?.Cancel();
@@ -8,30 +11,41 @@
 
 <MudDialog>
     <DialogContent>
-        <MudText Typo="Typo.body1" Class="mb-3">Establishing a mutual connection with another party requires each to<br/>
-        a) share an introduction (as a string or QR code) called an OOBI, and<br/>
-        b) get and resolve the other's introduction.
+        <AidPrefixDisplay Prefix="@Prefix" Name="@Name" ShowCopyButton="false" />    
+        <MudText Typo="Typo.body1" Class="mb-3 mt-3">
+            Establishing a mutual connection between your active profile (above) and another party requires each to:
         </MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">
-        Once you get and resolve their introduction, a new outbound connection will appear in your Connections list.</MudText>
-        <MudStack Spacing="2">
-            <MudButton OnClick="SelectInvite"
-                       Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.Share">
-                Share my Introduction
-            </MudButton>
-            <MudButton OnClick="SelectReceive"
-                       Variant="Variant.Outlined"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.ContentPaste">
-                Get and Resolve their Introduction
-            </MudButton>
-        </MudStack>
+
+        <MudText Typo="Typo.body1" Class="mb-3 mt-3">
+            1) share one's introduction (as a string or QR code), and
+        </MudText>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <MudButton OnClick="SelectInvite"
+            Variant="Variant.Outlined"
+            Color="Color.Primary"
+            Style="margin-left: 16px; text-transform: none;">
+            Share my introduction
+        </MudButton>
+        </div>
+
+        <MudText Typo="Typo.body1" Class="mb-3 mt-3">
+            2) get and resolve the other's introduction, after which a new outbound connection will appear in one's Connections list.
+        </MudText>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <MudButton OnClick="SelectReceive"
+            Variant="Variant.Outlined"
+            Color="Color.Primary"
+            Style="margin-left: 16px; text-transform: none;">
+            Get and resolve their introduction
+        </MudButton>
+        </div>
+
     </DialogContent>
+    @*
     <DialogActions>
-        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Text">Close</MudButton>
     </DialogActions>
+    *@
 </MudDialog>
