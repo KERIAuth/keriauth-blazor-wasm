@@ -752,7 +752,7 @@
 
             @foreach (var n in FilteredNotifications)
             {
-                <MudCard Elevation="0" Class="py-0 my-1" Style="@(n.IsRead ? "opacity: 0.6;" : "")">
+                <MudCard Elevation="0" Class="py-0 my-1">
                     <div class="d-flex" style="align-items: center; padding: 8px 4px; cursor: pointer;"
                          @onclick="@(() => ToggleNotificationDetail(n))">
                         <AidPrefixDisplay Prefix="@(n.SenderPrefix ?? "")"
@@ -772,7 +772,7 @@
                         </div>
                         @if (!n.IsRead)
                         {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">New</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">Unread</MudChip>
                         }
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             @if (!n.IsRead)
