@@ -75,15 +75,20 @@
     static bool IsMultiStepWorkflow(IpexWorkflow? wf) => wf is not (
         IpexWorkflow.Apply or IpexWorkflow.Offer or IpexWorkflow.Grant or null);
 
+    static bool WorkflowIncludesApplyGrant(IpexWorkflow? wf) => wf is
+        IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit;
+
     static bool WorkflowIncludesApply(IpexWorkflow? wf) => wf is
         IpexWorkflow.Apply or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
-        or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit;
+        or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+        or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit;
 
     static bool WorkflowIncludesOfferOrGrant(IpexWorkflow? wf) => wf is
         IpexWorkflow.Offer or IpexWorkflow.Grant or IpexWorkflow.ApplyOffer
         or IpexWorkflow.ApplyOfferAgree or IpexWorkflow.ApplyOfferAgreeGrant
         or IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
-        or IpexWorkflow.OfferAgreeGrantAdmit;
+        or IpexWorkflow.OfferAgreeGrantAdmit
+        or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit;
 
     // Validation rules: only rules relevant to current selection, with pass/fail
     List<(string Text, bool IsValid)> ValidationRules {
@@ -134,6 +139,8 @@
         IpexWorkflow.GrantAdmit => "Grant\u279BAdmit",
         IpexWorkflow.OfferAgreeGrantAdmit => "Offer\u279BAgree\u279BGrant\u279BAdmit",
         IpexWorkflow.ApplyOfferAgreeGrantAdmit => "Apply\u279BOffer\u279BAgree\u279BGrant\u279BAdmit",
+        IpexWorkflow.ApplyGrant => "Apply\u279BGrant",
+        IpexWorkflow.ApplyGrantAdmit => "Apply\u279BGrant\u279BAdmit",
         _ => wf.ToString()
     };
 

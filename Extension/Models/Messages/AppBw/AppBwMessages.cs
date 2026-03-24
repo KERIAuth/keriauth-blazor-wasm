@@ -825,7 +825,9 @@ namespace Extension.Models.Messages.AppBw {
     public record IpexGrantRequestPayload(
         [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
         [property: JsonPropertyName("recipient")] string RecipientPrefix,
-        [property: JsonPropertyName("agreeSaid")] string AgreeSaid
+        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null,
+        [property: JsonPropertyName("applySaid")] string? ApplySaid = null,
+        [property: JsonPropertyName("ecrRole")] string? EcrRole = null
     );
 
     public record IpexGrantResponsePayload(
@@ -855,6 +857,8 @@ namespace Extension.Models.Messages.AppBw {
         ApplyOfferAgree,
         ApplyOfferAgreeGrant,
         ApplyOfferAgreeGrantAdmit,
+        ApplyGrant,
+        ApplyGrantAdmit,
         Grant,
         GrantAdmit,
         OfferAgreeGrantAdmit

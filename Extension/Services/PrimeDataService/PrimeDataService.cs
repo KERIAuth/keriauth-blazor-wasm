@@ -578,7 +578,8 @@ namespace Extension.Services.PrimeDataService {
 
             // Apply step (Disclosee sends Apply to Discloser)
             if (workflow is IpexWorkflow.Apply or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
-                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit) {
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) {
 
                 var attributes = new RecursiveDictionary();
                 attributes["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
@@ -651,7 +652,8 @@ namespace Extension.Services.PrimeDataService {
             // Grant step (Discloser sends Grant to Disclosee)
             if (workflow is IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit
-                or IpexWorkflow.OfferAgreeGrantAdmit) {
+                or IpexWorkflow.OfferAgreeGrantAdmit
+                or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) {
 
                 if (payload.IsPresentation) {
                     var grantResult = await PresentStep(discloserPrefix, credentialSaid!, discloseePrefix, "IPEX grant");
@@ -674,7 +676,7 @@ namespace Extension.Services.PrimeDataService {
 
                 // Wait for Grant notification before proceeding to Admit
                 if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
-                    or IpexWorkflow.OfferAgreeGrantAdmit) {
+                    or IpexWorkflow.OfferAgreeGrantAdmit or IpexWorkflow.ApplyGrantAdmit) {
                     await WaitForNotificationsAndMarkAsReadStep(
                         new HashSet<string> { grantSaid! }, "Grant propagation");
                 }
@@ -682,7 +684,7 @@ namespace Extension.Services.PrimeDataService {
 
             // Admit step (Disclosee sends Admit to Discloser)
             if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
-                or IpexWorkflow.OfferAgreeGrantAdmit) {
+                or IpexWorkflow.OfferAgreeGrantAdmit or IpexWorkflow.ApplyGrantAdmit) {
 
                 var admitResult = await AdmitStep(new IpexAdmitSubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
@@ -697,7 +699,7 @@ namespace Extension.Services.PrimeDataService {
             // Mark the last step's notification as read for complete workflows (ending in Admit).
             // For partial workflows, the last step's notification stays unread (pending action).
             var isCompleteWorkflow = workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
-                or IpexWorkflow.OfferAgreeGrantAdmit;
+                or IpexWorkflow.OfferAgreeGrantAdmit or IpexWorkflow.ApplyGrantAdmit;
             if (isCompleteWorkflow && lastStepSaid is not null) {
                 await WaitForNotificationsAndMarkAsReadStep(
                     new HashSet<string> { lastStepSaid }, "Final step cleanup");

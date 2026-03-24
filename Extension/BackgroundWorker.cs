@@ -3338,83 +3338,217 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 payload.Value.GetRawText(), JsonOptions.CamelCase);
 
             if (grantRequest is null || string.IsNullOrEmpty(grantRequest.SenderNameOrPrefix)
-                || string.IsNullOrEmpty(grantRequest.RecipientPrefix)
-                || string.IsNullOrEmpty(grantRequest.AgreeSaid)) {
+                || string.IsNullOrEmpty(grantRequest.RecipientPrefix)) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: "Invalid or missing grant parameters"));
                 return;
             }
 
-            var senderPrefix = grantRequest.SenderNameOrPrefix;
-            var recipientPrefix = grantRequest.RecipientPrefix;
-
-            // Resolve sender AID name
-            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
-            if (senderNameResult.IsFailed) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
-                return;
+            if (!string.IsNullOrEmpty(grantRequest.ApplySaid)) {
+                await HandleGrantFromApplyAsync(portId, request, grantRequest);
             }
-            var senderName = senderNameResult.Value;
-
-            logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
-                ": sender={Sender} ({SenderName}), recipient={Recipient}, agreeSaid={AgreeSaid}",
-                senderPrefix, senderName, recipientPrefix, grantRequest.AgreeSaid);
-
-            // Get the agree exchange to find the prior offer SAID
-            var agreeExchangeResult = await _signifyClientService.GetExchange(grantRequest.AgreeSaid);
-            if (agreeExchangeResult.IsFailed) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: $"Failed to get agree exchange: {agreeExchangeResult.Errors[0].Message}"));
-                return;
-            }
-
-            var agreeView = ExchangeView.FromRecursiveDictionary(agreeExchangeResult.Value);
-            var offerSaid = agreeView.P;
-            if (string.IsNullOrEmpty(offerSaid)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: "Agree exchange has no prior offer reference"));
-                return;
-            }
-
-            // Get the prior offer exchange to find the credential SAID
-            var offerExchangeResult = await _signifyClientService.GetExchange(offerSaid);
-            if (offerExchangeResult.IsFailed) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: $"Failed to get prior offer exchange: {offerExchangeResult.Errors[0].Message}"));
-                return;
-            }
-
-            var offerView = ExchangeView.FromRecursiveDictionary(offerExchangeResult.Value);
-            var credentialSaid = offerView.E?.GetValueByPath("acdc.d")?.Value?.ToString();
-            if (string.IsNullOrEmpty(credentialSaid)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: "Could not find credential SAID in prior offer"));
-                return;
-            }
-
-            logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
-                ": Found credential SAID={CredSaid} from offer={OfferSaid}", credentialSaid, offerSaid);
-
-            var grantResult = await _primeDataService.PresentStep(
-                senderName, credentialSaid, recipientPrefix, nameof(HandleAppRequestIpexGrantRpcAsync));
-
-            if (grantResult.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(true));
+            else if (!string.IsNullOrEmpty(grantRequest.AgreeSaid)) {
+                await HandleGrantFromAgreeAsync(portId, request, grantRequest);
             }
             else {
-                var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
-                logger.LogWarning(nameof(HandleAppRequestIpexGrantRpcAsync) + ": {Error}", errorMsg);
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: errorMsg));
+                    result: new IpexGrantResponsePayload(false, Error: "Either applySaid or agreeSaid must be provided"));
             }
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppRequestIpexGrantRpcAsync) + ": Error during IPEX grant");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Grant a newly issued credential in response to an apply (abbreviated apply→grant flow).
+    /// Issues ECR credential using sender's ECR Auth, then grants it to the applicant.
+    /// </summary>
+    private async Task HandleGrantFromApplyAsync(string portId, RpcRequest request, IpexGrantRequestPayload grantRequest) {
+        var senderPrefix = grantRequest.SenderNameOrPrefix;
+        var recipientPrefix = grantRequest.RecipientPrefix;
+
+        if (string.IsNullOrEmpty(grantRequest.EcrRole)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: "ecrRole is required for grant from apply"));
+            return;
+        }
+
+        var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+        if (senderNameResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+            return;
+        }
+        var senderName = senderNameResult.Value;
+
+        logger.LogInformation(nameof(HandleGrantFromApplyAsync) +
+            ": sender={Sender} ({SenderName}), recipient={Recipient}, applySaid={ApplySaid}, role={Role}",
+            senderPrefix, senderName, recipientPrefix, grantRequest.ApplySaid, grantRequest.EcrRole);
+
+        if (!await EnsureSchemaResolvedAsync(VleiCredentialHelper.EcrSchemaSaid, nameof(HandleGrantFromApplyAsync))) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: "Failed to resolve ECR schema"));
+            return;
+        }
+
+        using (_signifyClientService.BeginLongOperation()) {
+            // Look up ECR Auth credential held by sender
+            var credsResult = await _signifyClientService.GetCredentials();
+            if (credsResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credsResult.Errors[0].Message}"));
+                return;
+            }
+
+            var ecrAuthCred = VleiCredentialHelper.FindEcrAuthCredential(credsResult.Value, senderPrefix);
+            if (ecrAuthCred is null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Sender {senderPrefix} does not hold an ECR Auth credential"));
+                return;
+            }
+            var ecrAuthSaid = ecrAuthCred.GetValueByPath("sad.d")?.Value?.ToString()!;
+            logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Found ECR Auth credential: said={Said}", ecrAuthSaid);
+
+            // Create registry
+            var registryName = $"{senderName}_ecr_grant_registry";
+            var registryResult = await _signifyClientService.CreateRegistryIfNotExists(senderName, registryName);
+            if (registryResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
+                return;
+            }
+
+            // Issue ECR credential
+            var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData(grantRequest.EcrRole);
+            var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthSaid);
+            var ecrRules = VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer);
+
+            logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Issuing ECR credential...");
+            var issueResult = await _signifyClientService.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                IssuerAidNameOrPrefix: senderName,
+                RegistryName: registryName,
+                Schema: VleiCredentialHelper.EcrSchemaSaid,
+                HolderPrefix: recipientPrefix,
+                CredData: ecrCredData,
+                CredEdge: ecrEdge,
+                CredRules: ecrRules,
+                Private: true
+            ));
+
+            if (issueResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                return;
+            }
+
+            var acdc = issueResult.Value["acdc"]?.Dictionary;
+            var anc = issueResult.Value["anc"]?.Dictionary;
+            var iss = issueResult.Value["iss"]?.Dictionary;
+            var credSaid = issueResult.Value["said"]?.StringValue;
+
+            if (acdc is null || anc is null || iss is null || credSaid is null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Issued credential missing required fields"));
+                return;
+            }
+            logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": ECR credential issued: said={Said}", credSaid);
+
+            // Grant the credential
+            logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Sending IPEX grant...");
+            var grantResult = await _primeDataService.GrantStep(new IpexGrantSubmitArgs(
+                SenderNameOrPrefix: senderPrefix,
+                RecipientPrefix: recipientPrefix,
+                Acdc: acdc,
+                Anc: anc,
+                Iss: iss
+            ), nameof(HandleGrantFromApplyAsync));
+
+            if (grantResult.IsSuccess) {
+                logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Grant submitted: grantSaid={GrantSaid}", grantResult.Value);
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(true));
+            }
+            else {
+                var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+                logger.LogWarning(nameof(HandleGrantFromApplyAsync) + ": {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: errorMsg));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Grant (present) an existing credential in response to an agree (agree→grant flow).
+    /// Traces agree→offer→credential, then presents the credential.
+    /// </summary>
+    private async Task HandleGrantFromAgreeAsync(string portId, RpcRequest request, IpexGrantRequestPayload grantRequest) {
+        var senderPrefix = grantRequest.SenderNameOrPrefix;
+        var recipientPrefix = grantRequest.RecipientPrefix;
+
+        var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+        if (senderNameResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+            return;
+        }
+        var senderName = senderNameResult.Value;
+
+        logger.LogInformation(nameof(HandleGrantFromAgreeAsync) +
+            ": sender={Sender} ({SenderName}), recipient={Recipient}, agreeSaid={AgreeSaid}",
+            senderPrefix, senderName, recipientPrefix, grantRequest.AgreeSaid);
+
+        // Get the agree exchange to find the prior offer SAID
+        var agreeExchangeResult = await _signifyClientService.GetExchange(grantRequest.AgreeSaid!);
+        if (agreeExchangeResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: $"Failed to get agree exchange: {agreeExchangeResult.Errors[0].Message}"));
+            return;
+        }
+
+        var agreeView = ExchangeView.FromRecursiveDictionary(agreeExchangeResult.Value);
+        var offerSaid = agreeView.P;
+        if (string.IsNullOrEmpty(offerSaid)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: "Agree exchange has no prior offer reference"));
+            return;
+        }
+
+        // Get the prior offer exchange to find the credential SAID
+        var offerExchangeResult = await _signifyClientService.GetExchange(offerSaid);
+        if (offerExchangeResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: $"Failed to get prior offer exchange: {offerExchangeResult.Errors[0].Message}"));
+            return;
+        }
+
+        var offerView = ExchangeView.FromRecursiveDictionary(offerExchangeResult.Value);
+        var credentialSaid = offerView.E?.GetValueByPath("acdc.d")?.Value?.ToString();
+        if (string.IsNullOrEmpty(credentialSaid)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: "Could not find credential SAID in prior offer"));
+            return;
+        }
+
+        logger.LogInformation(nameof(HandleGrantFromAgreeAsync) +
+            ": Found credential SAID={CredSaid} from offer={OfferSaid}", credentialSaid, offerSaid);
+
+        var grantResult = await _primeDataService.PresentStep(
+            senderName, credentialSaid, recipientPrefix, nameof(HandleGrantFromAgreeAsync));
+
+        if (grantResult.IsSuccess) {
+            await _notificationPollingService.PollOnDemandAsync();
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(true));
+        }
+        else {
+            var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+            logger.LogWarning(nameof(HandleGrantFromAgreeAsync) + ": {Error}", errorMsg);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: errorMsg));
         }
     }
 

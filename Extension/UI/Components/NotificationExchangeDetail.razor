@@ -93,32 +93,61 @@
                     <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
                              Icon="@Icons.Material.Filled.LocalOffer">Credential Offered</MudChip>
                 }
-                else if (OnOfferIssuance.HasDelegate)
+                else if (IsAlreadyGranted)
                 {
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.LocalOffer"
-                               OnClick="OnOfferIssuance"
-                               Disabled="@IsOffering">
-                        @if (IsOffering)
-                        {
-                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Offering...</text>
-                        }
-                        else
-                        {
-                            <text>Offer New Credential</text>
-                        }
-                    </MudButton>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                             Icon="@Icons.Material.Filled.CardGiftcard">Credential Granted</MudChip>
                 }
-                <MudTooltip Text="Not yet implemented">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
-                               OnClick="HandleOfferPresentation">Offer Presentation</MudButton>
-                </MudTooltip>
-                @if (!IsAlreadyOffered)
+                else
                 {
+                    @if (OnOfferIssuance.HasDelegate)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.LocalOffer"
+                                   OnClick="OnOfferIssuance"
+                                   Disabled="@(IsOffering || IsGranting)">
+                            @if (IsOffering)
+                            {
+                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Offering...</text>
+                            }
+                            else
+                            {
+                                <text>Offer Credential</text>
+                            }
+                        </MudButton>
+                    }
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
+                                   OnClick="HandleOfferPresentation">Offer Presentation</MudButton>
+                    </MudTooltip>
+                    @if (OnGrant.HasDelegate)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.CardGiftcard"
+                                   OnClick="OnGrant"
+                                   Disabled="@(IsGranting || IsOffering)">
+                            @if (IsGranting)
+                            {
+                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Granting...</text>
+                            }
+                            else
+                            {
+                                <text>Grant Credential</text>
+                            }
+                        </MudButton>
+                    }
+                    <MudTooltip Text="Not yet implemented">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
+                                   OnClick="HandleGrant">Grant Presentation</MudButton>
+                    </MudTooltip>
                     <MudTooltip Text="Not yet implemented">
                         <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
                                    StartIcon="@Icons.Material.Filled.Block" Disabled="true"

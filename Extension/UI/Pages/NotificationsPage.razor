@@ -234,6 +234,7 @@
     bool IsGranting { get; set; }
     bool IsAlreadyGranted { get; set; }
     HashSet<string> _grantedAgreeSaids = [];
+    HashSet<string> _grantedApplySaids = [];
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -281,9 +282,9 @@
         IsAlreadyOffered = notification.Route == "/exn/ipex/apply"
             && notification.ExchangeSaid is not null
             && _offeredApplySaids.Contains(notification.ExchangeSaid);
-        IsAlreadyGranted = notification.Route == "/exn/ipex/agree"
-            && notification.ExchangeSaid is not null
-            && _grantedAgreeSaids.Contains(notification.ExchangeSaid);
+        IsAlreadyGranted = notification.ExchangeSaid is not null
+            && ((notification.Route == "/exn/ipex/agree" && _grantedAgreeSaids.Contains(notification.ExchangeSaid))
+                || (notification.Route == "/exn/ipex/apply" && _grantedApplySaids.Contains(notification.ExchangeSaid)));
         IsLoadingPrior = false;
 
         if (notification.ExchangeSaid is null) {
@@ -537,6 +538,75 @@
         }
         finally {
             IsOffering = false;
+        }
+    }
+
+    async Task GrantFromNotification(Notification notification) {
+        if (notification.Route == "/exn/ipex/apply") {
+            await GrantCredentialFromApply(notification);
+        } else {
+            await GrantCredential(notification);
+        }
+    }
+
+    async Task GrantCredentialFromApply(Notification notification) {
+        if (IsGranting || ExpandedExchangeData is null) return;
+
+        var view = ExpandedExchangeData.Value;
+        var applicantPrefix = view.I;
+        var ourPrefix = view.Rp;
+        var applySaid = notification.ExchangeSaid;
+        var ecrRole = view.A?.GetValueByPath("a.engagementContextRole")?.Value?.ToString();
+
+        if (ourPrefix is null || applicantPrefix is null || applySaid is null || ecrRole is null) {
+            snackbar.Add("Missing data from Apply exchange", Severity.Error);
+            return;
+        }
+
+        if (!appCache.Aids.Any(a => a.Prefix == ourPrefix)) {
+            snackbar.Add("Could not find matching AID for this apply", Severity.Error);
+            return;
+        }
+
+        IsGranting = true;
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexGrant,
+                new { payload = new IpexGrantRequestPayload(
+                    SenderNameOrPrefix: ourPrefix,
+                    RecipientPrefix: applicantPrefix,
+                    ApplySaid: applySaid,
+                    EcrRole: ecrRole) },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!response.Ok) {
+                snackbar.Add($"Grant failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var grantResult = response.Result is JsonElement grantJsonEl
+                ? JsonSerializer.Deserialize<IpexGrantResponsePayload>(grantJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (grantResult is not null && grantResult.Success) {
+                if (notification.ExchangeSaid is not null) _grantedApplySaids.Add(notification.ExchangeSaid);
+                IsAlreadyGranted = true;
+                snackbar.Add("Credential granted", Severity.Success);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
+            }
+            else {
+                snackbar.Add($"Grant failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX grant from apply");
+            snackbar.Add("Error granting credential", Severity.Error);
+        }
+        finally {
+            IsGranting = false;
         }
     }
 
@@ -805,7 +875,7 @@
                                                                 OnOfferIssuance="@(() => OfferCredential(n))"
                                                                 IsOffering="@IsOffering"
                                                                 IsAlreadyOffered="@IsAlreadyOffered"
-                                                                OnGrant="@(() => GrantCredential(n))"
+                                                                OnGrant="@(() => GrantFromNotification(n))"
                                                                 IsGranting="@IsGranting"
                                                                 IsAlreadyGranted="@IsAlreadyGranted"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
