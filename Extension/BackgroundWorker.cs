@@ -4989,9 +4989,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (string.IsNullOrEmpty(config.AdminUrl)) {
                 return Result.Fail("Admin URL not configured");
             }
+
+            /*
             if (string.IsNullOrEmpty(config.BootUrl)) {
                 return Result.Fail("Boot URL not configured");
             }
+            */
 
             // Retrieve passcode from memory (never from storage)
             var passcode = _sessionManager.GetPasscode();
