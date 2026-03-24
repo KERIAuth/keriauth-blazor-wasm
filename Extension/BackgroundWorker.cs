@@ -2443,6 +2443,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
             else {
+                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Performing Connect (IsNewAgent={IsNew}, IsConnected={IsConn}, hasPending={HasPending})",
+                    connectRequest.IsNewAgent, _signifyClientService.IsConnected, _pendingConnectTask is not null);
+
                 // Cancel any active burst before connecting — Connect() resets the JS client,
                 // and in-flight polling calls would hit "Client not connected"
                 _notificationPollingCts?.Cancel();
@@ -4967,6 +4970,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<Result> TryConnectSignifyClientAsync() {
         try {
+            // Skip if already connected — a concurrent BootAndConnect (new agent flow)
+            // may have already established the connection, and reconnecting would
+            // destructively reset the JS _client to null.
+            if (_signifyClientService.IsConnected) {
+                logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": Already connected, skipping redundant connect");
+                return Result.Ok();
+            }
+
             // Get preferences to find the selected config digest
             var prefsResult = await _storageService.GetItem<Preferences>();
             if (prefsResult.IsFailed || prefsResult.Value == null) {
@@ -5010,7 +5021,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _notificationPollingCts?.Cancel();
 
             // Connect to KERIA
-            logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connecting to {AdminUrl}", config.AdminUrl);
+            logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connecting to {AdminUrl} (IsConnected={IsConnected}, hasPendingConnect={HasPending})",
+                config.AdminUrl, _signifyClientService.IsConnected, _pendingConnectTask is not null);
             Result<State> connectResult;
             using (_signifyClientService.BeginLongOperation()) {
                 connectResult = await _signifyClientService.Connect(

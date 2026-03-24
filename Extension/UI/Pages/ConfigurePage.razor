@@ -939,7 +939,7 @@
                                       AutoFocus="@ShouldFocusPasscode"
                                       Style="flex-grow: 1;" />
                     </MudStack>
-                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured || IsPasscodeUsed)" Color="Color.Primary">Connect</MudButton>
+                    <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(!IsValidNewInfo || IsKeriaConfigured || IsPasscodeUsed || IsFlowStarted)" Color="Color.Primary">Connect</MudButton>
                 }
                 else // create a new passcode
                 {
@@ -979,7 +979,7 @@
                         @if (configuredPasscodeModel.Passcode == RandomPasscode)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success"></MudIcon>
-                            <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo || IsPasscodeUsed)" Color="Color.Primary">Connect</MudButton>
+                            <MudButton @ref="connectButton" Variant="Variant.Filled" Style="width:fit-content;" OnClick="UnifiedOnboardingFlow" Disabled="@(IsKeriaConfigured || !IsValidNewInfo || IsPasscodeUsed || IsFlowStarted)" Color="Color.Primary">Connect</MudButton>
                         }
                         else if (!string.IsNullOrEmpty(configuredPasscodeModel.Passcode))
                         {

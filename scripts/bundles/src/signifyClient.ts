@@ -195,12 +195,9 @@ export const test = async (): Promise<string> => {
 };
 
 const validateClient = async (): Promise<SignifyClient> => {
-    if (!_client || !_client.agent) {
-        // Client not connected — C# must re-establish the connection via connect().
-        // The passcode is held only in C# memory (SessionManager._passcode) and is never
-        // persisted to chrome.storage.session, so reconnection from TypeScript alone is
-        // not possible. Callers should treat this as a "not connected" error.
-        throw new Error('signifyClient: validateClient - Client not connected');
+    if (!_client || !_client.agent || !_client.manager) {
+        const reason = !_client ? 'client is null' : !_client.agent ? 'agent is null' : 'manager is null';
+        throw new Error(`signifyClient: validateClient - Client not connected (${reason})`);
     }
     return _client;
 };
@@ -210,6 +207,8 @@ const validateClient = async (): Promise<SignifyClient> => {
  * Should be called on cancellation or timeout to ensure clean state
  */
 export const disconnect = (): void => {
+    const hadClient = _client !== null;
+    console.info(`signifyClient: disconnect called (hadExistingClient=${hadClient})`);
     _client = null;
 };
 
@@ -356,6 +355,8 @@ export const bootAndConnect = async (
     bootUrl: string,
     passcode: string
 ): Promise<string> => {
+    const hadClient = _client !== null;
+    console.info(`signifyClient: bootAndConnect called (hadExistingClient=${hadClient})`);
     _client = null;
     try {
         await ready();
@@ -405,6 +406,7 @@ const connectSignifyClient = async (): Promise<void> => {
         throw new Error('SignifyClient not initialized');
     }
 
+    console.info('signifyClient: connectSignifyClient - calling _client.connect()...');
     await _client.connect().catch((error: unknown) => {
         if (!(error instanceof Error)) {
             throw error;
@@ -424,6 +426,16 @@ const connectSignifyClient = async (): Promise<void> => {
         // Agent was booted but cannot connect (possibly wrong passcode or corrupted state)
         throw new Error('Agent booted but cannot connect', { cause: error });
     });
+
+    // Validate that connect() actually initialized agent and manager.
+    // signify-ts connect() can return without error but leave these null
+    // (e.g., ESSR decryption issues with KERIA responses).
+    const hasAgent = !!_client?.agent;
+    const hasManager = !!_client?.manager;
+    console.info(`signifyClient: connectSignifyClient - _client.connect() completed (agent=${hasAgent}, manager=${hasManager})`);
+    if (!hasAgent || !hasManager) {
+        throw new Error(`Connect completed but client not fully initialized (agent=${hasAgent}, manager=${hasManager})`);
+    }
 };
 
 /** Default retry interval for connection attempts (ms) */
@@ -446,6 +458,8 @@ export const connect = async (
     retryInterval: number = DEFAULT_CONNECT_RETRY_INTERVAL,
     maxRetries: number = MAX_CONNECT_RETRIES
 ): Promise<string> => {
+    const hadClient = _client !== null;
+    console.info(`signifyClient: connect called (hadExistingClient=${hadClient})`);
     _client = null;
     try {
         await ready();
