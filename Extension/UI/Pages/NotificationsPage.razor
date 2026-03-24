@@ -797,16 +797,18 @@
             {
                 <MudStack Row="true" Spacing="2" Class="mt-1">
                     <MudSelect T="string" Label="Route" Value="@FilterRoute" ValueChanged="@(v => FilterRoute = v)"
-                               Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                                Style="min-width: 160px;">
+                        <MudSelectItem T="string" Value="@((string?)null)">All</MudSelectItem>
                         @foreach (var route in AvailableRoutes)
                         {
                             <MudSelectItem T="string" Value="@route">@RouteLabel(route)</MudSelectItem>
                         }
                     </MudSelect>
                     <MudSelect T="bool?" Label="Status" Value="@FilterReadStatus" ValueChanged="@(v => FilterReadStatus = v)"
-                               Clearable="true" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                                Style="min-width: 120px;">
+                        <MudSelectItem T="bool?" Value="@((bool?)null)">All</MudSelectItem>
                         <MudSelectItem T="bool?" Value="@((bool?)false)">Unread</MudSelectItem>
                         <MudSelectItem T="bool?" Value="@((bool?)true)">Read</MudSelectItem>
                     </MudSelect>
