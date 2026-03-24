@@ -3447,14 +3447,18 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<bool> EnsureSchemaResolvedAsync(string schemaSaid, string callerName) {
         try {
-            // TODO P3: Consider caching within the current KeriaConnectConfig the list of known schemas
-            // (based on our last inquiry for these). This would be a performance optimization to avoid
-            // repeated GetSchema calls to KERIA for schemas we already know are resolved.
+            // Fast path: check session cache of previously resolved schemas
+            var cachedResult = await _storageService.GetItem<ResolvedSchemas>(StorageArea.Session);
+            if (cachedResult.IsSuccess && cachedResult.Value?.Saids.Contains(schemaSaid) == true) {
+                logger.LogDebug("{Caller}: Schema {SchemaSaid} found in session cache", callerName, schemaSaid);
+                return true;
+            }
 
-            // Fast path: check if schema is already in KERIA
+            // Check if schema is already in KERIA
             var existingSchema = await _signifyClientService.GetSchema(schemaSaid);
             if (existingSchema.IsSuccess) {
                 logger.LogDebug("{Caller}: Schema {SchemaSaid} already resolved in KERIA", callerName, schemaSaid);
+                await AddToResolvedSchemaCacheAsync(schemaSaid);
                 return true;
             }
 
@@ -3493,6 +3497,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             if (verifyResult.IsSuccess) {
                                 logger.LogInformation("{Caller}: Successfully loaded and verified schema {SchemaSaid} from {Oobi} (attempt {Attempt})",
                                     callerName, schemaSaid, schemaOobi, attempt);
+                                await AddToResolvedSchemaCacheAsync(schemaSaid);
                                 return true;
                             }
                             if (attempt < maxRetries) {
@@ -3535,6 +3540,20 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         var allSchemas = _schemaService.GetAllSchemas();
         foreach (var schema in allSchemas) {
             await EnsureSchemaResolvedAsync(schema.Said, callerName);
+        }
+    }
+
+    private async Task AddToResolvedSchemaCacheAsync(string schemaSaid) {
+        try {
+            var existing = await _storageService.GetItem<ResolvedSchemas>(StorageArea.Session);
+            var saids = existing.IsSuccess && existing.Value is not null
+                ? new HashSet<string>(existing.Value.Saids)
+                : new HashSet<string>();
+            saids.Add(schemaSaid);
+            await _storageService.SetItem(new ResolvedSchemas { Saids = saids }, StorageArea.Session);
+        }
+        catch (Exception ex) {
+            logger.LogDebug(ex, "AddToResolvedSchemaCacheAsync: Failed to update cache (non-critical)");
         }
     }
 

@@ -430,6 +430,12 @@ public class SessionManager : IDisposable {
                 $"Failed to remove Notifications: {removeNotificationsRes.Errors[0].Message}");
         }
 
+        var removeResolvedSchemasRes = await _storageService.RemoveItem<ResolvedSchemas>(StorageArea.Session);
+        if (removeResolvedSchemasRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove ResolvedSchemas: {removeResolvedSchemasRes.Errors[0].Message}");
+        }
+
         _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": KERIA session records cleared");
     }
 

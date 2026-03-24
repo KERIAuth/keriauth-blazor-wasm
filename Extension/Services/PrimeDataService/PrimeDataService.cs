@@ -13,11 +13,13 @@ namespace Extension.Services.PrimeDataService {
     public class PrimeDataService : IPrimeDataService {
         private readonly ISignifyClientService _signifyClient;
         private readonly IStorageService _storageService;
+        private readonly ISchemaService _schemaService;
         private readonly ILogger<PrimeDataService> _logger;
 
-        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, ILogger<PrimeDataService> logger) {
+        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
             _signifyClient = signifyClient;
             _storageService = storageService;
+            _schemaService = schemaService;
             _logger = logger;
         }
 
@@ -87,14 +89,10 @@ namespace Extension.Services.PrimeDataService {
                 QviSchemaSaid, LeSchemaSaid, OorAuthSchemaSaid, OorSchemaSaid, EcrAuthSchemaSaid, EcrSchemaSaid
             };
             foreach (var said in schemaOobis) {
-                _logger.LogInformation("  Resolving schema OOBI {SchemaSaid}...", said);
-                var schemaResolveResult = await _signifyClient.ResolveOobi(SchemaOobiBaseUrl + said);
+                var schemaResolveResult = await ResolveSchemaOobiWithFallbackAsync(said);
                 if (schemaResolveResult.IsFailed) {
-                    var err = $"Failed to resolve schema OOBI {said}: {schemaResolveResult.Errors[0].Message}";
-                    _logger.LogError("{Error}", err);
-                    return FailResponse(err);
+                    return FailResponse(schemaResolveResult.Errors[0].Message);
                 }
-                _logger.LogInformation("  Schema OOBI resolved: {SchemaSaid}", said);
             }
 
             // Step 13a: GEDA issues QVI credential
@@ -448,7 +446,6 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok(new PrimeDataGoResponse(true));
         }
 
-        private const string SchemaOobiBaseUrl = VleiCredentialHelper.SchemaOobiBaseUrl;
         private const string QviSchemaSaid = VleiCredentialHelper.QviSchemaSaid;
         private const string LeSchemaSaid = VleiCredentialHelper.LeSchemaSaid;
         private const string OorAuthSchemaSaid = VleiCredentialHelper.OorAuthSchemaSaid;
@@ -496,10 +493,9 @@ namespace Extension.Services.PrimeDataService {
             var generatedExchangeSaids = new HashSet<string>();
 
             // Resolve ECR schema OOBI
-            _logger.LogInformation("Resolving ECR schema OOBI...");
-            var schemaResolve = await _signifyClient.ResolveOobi(SchemaOobiBaseUrl + EcrSchemaSaid);
+            var schemaResolve = await ResolveSchemaOobiWithFallbackAsync(EcrSchemaSaid);
             if (schemaResolve.IsFailed) {
-                return FailIpexResponse($"Failed to resolve ECR schema OOBI: {schemaResolve.Errors[0].Message}");
+                return FailIpexResponse(schemaResolve.Errors[0].Message);
             }
 
             var discloserPrefix = payload.DiscloserPrefix;
@@ -728,6 +724,37 @@ namespace Extension.Services.PrimeDataService {
 
         private static Result<PrimeDataIpexResponse> FailIpexResponse(string error) =>
             Result.Ok(new PrimeDataIpexResponse(false, Error: error));
+
+        private async Task<Result> ResolveSchemaOobiWithFallbackAsync(string schemaSaid) {
+            var schemaEntry = _schemaService.GetSchema(schemaSaid);
+            var schemaName = schemaEntry?.Name ?? schemaSaid;
+
+            var oobiUrls = _schemaService.GetOobiUrls(schemaSaid);
+            if (oobiUrls.Length == 0) {
+                oobiUrls = [.. _schemaService.DefaultOobiHosts.Select(host => $"{host}/oobi/{schemaSaid}")];
+                _logger.LogInformation("Schema '{SchemaName}' not in manifest, trying {Count} default host URLs", schemaName, oobiUrls.Length);
+            }
+            else {
+                _logger.LogInformation("Resolving schema '{SchemaName}' ({Said}) with {Count} OOBI URLs", schemaName, schemaSaid, oobiUrls.Length);
+            }
+
+            var errors = new List<string>();
+            foreach (var oobiUrl in oobiUrls) {
+                _logger.LogInformation("  Trying OOBI: {Url}", oobiUrl);
+                var result = await _signifyClient.ResolveOobi(oobiUrl);
+                if (result.IsSuccess) {
+                    _logger.LogInformation("  Schema '{SchemaName}' resolved via {Url}", schemaName, oobiUrl);
+                    return Result.Ok();
+                }
+                var errorMsg = result.Errors[0].Message;
+                _logger.LogWarning("  Failed to resolve schema OOBI {Url}: {Error}", oobiUrl, errorMsg);
+                errors.Add($"{oobiUrl}: {errorMsg}");
+            }
+
+            var allErrors = string.Join("; ", errors);
+            _logger.LogError("Failed to resolve schema '{SchemaName}' ({Said}) from any OOBI URL. Tried: {Errors}", schemaName, schemaSaid, allErrors);
+            return Result.Fail($"Failed to resolve schema '{schemaName}' ({schemaSaid}): all OOBI URLs failed");
+        }
 
         private async Task<Result<AidWithOobi>> CreateAidStep(string name, string stepLabel) {
             _logger.LogInformation("{Step}: Creating AID '{Name}'...", stepLabel, name);

@@ -2,14 +2,12 @@ namespace Extension.Helper;
 
 public static class VleiCredentialHelper
 {
-    // Note: schemas.json may have a redundant list of these SAIDs (for .ts usage)
-    public const string SchemaOobiBaseUrl = "https://schema.testnet.gleif.org:7723/oobi/";
-    public const string QviSchemaSaid = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
-    public const string LeSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
-    public const string OorAuthSchemaSaid = "EKA57bKBKxr_kN7iN5i7lMUxpMG-s19dRcmov1iDxz-E";
-    public const string OorSchemaSaid = "EBNaNu-M9P5cgrnfl2Fvymy4E_jvxxyjb70PRtiANlJy";
-    public const string EcrAuthSchemaSaid = "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g";
-    public const string EcrSchemaSaid = "EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw";
+    public const string QviSchemaSaid = CredentialHelper.SchemaSaids.Qvi;
+    public const string LeSchemaSaid = CredentialHelper.SchemaSaids.Vlei;
+    public const string OorAuthSchemaSaid = CredentialHelper.SchemaSaids.OorAuth;
+    public const string OorSchemaSaid = CredentialHelper.SchemaSaids.Oor;
+    public const string EcrAuthSchemaSaid = CredentialHelper.SchemaSaids.EcrAuth;
+    public const string EcrSchemaSaid = CredentialHelper.SchemaSaids.Ecr;
 
     // TODO P2 pull these disclaimers from the credential file?
     public const string EcrPrivacyDisclaimer =
