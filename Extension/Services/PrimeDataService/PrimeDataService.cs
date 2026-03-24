@@ -110,22 +110,23 @@ namespace Extension.Services.PrimeDataService {
             if (qviCredIssued.IsFailed) return FailResponse(qviCredIssued.Errors[0].Message);
 
             // Step 13b: GEDA grants QVI credential to QVI via IPEX
-            var qviGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var qviGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: gedaName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: qviCredIssued.Value.Acdc,
                 Anc: qviCredIssued.Value.Anc,
                 Iss: qviCredIssued.Value.Iss
-            ), "Step 13b", "QVI credential");
+            ), "Step 13b");
             if (qviGrantSaid.IsFailed) return FailResponse(qviGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(qviGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { qviGrantSaid.Value }, "Step 13b propagation");
 
             // Step 14: QVI admits QVI credential
-            var step14 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step14 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: gedaResult.Value.Prefix,
                 GrantSaid: qviGrantSaid.Value
-            ), "Step 14", "QVI credential");
+            ), "Step 14");
             if (step14.IsFailed) return FailResponse(step14.Errors[0].Message);
             generatedExchangeSaids.Add(step14.Value);
 
@@ -146,52 +147,36 @@ namespace Extension.Services.PrimeDataService {
             if (step15bStore.IsFailed) return FailResponse(step15bStore.Errors[0].Message);
 
             // Step 16a: Verifier requests QVI credential via IPEX apply
-            _logger.LogInformation("Step 16a: Verifier requesting QVI credential via IPEX apply...");
-            var applyResult = await _signifyClient.IpexApplyAndSubmit(new IpexApplySubmitArgs(
+            var applyStepResult = await ApplyStep(new IpexApplySubmitArgs(
                 SenderNameOrPrefix: verifierName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 SchemaSaid: QviSchemaSaid
-            ));
-            if (applyResult.IsFailed) {
-                var err = $"Failed verifier IPEX apply: {applyResult.Errors[0].Message}";
-                _logger.LogError("{Error}", err);
-                return FailResponse(err);
-            }
-            var applySaid = applyResult.Value["applySaid"].StringValue!;
-            _logger.LogInformation("Verifier IPEX apply submitted: applySaid={ApplySaid}", applySaid);
+            ), "Step 16a");
+            if (applyStepResult.IsFailed) return FailResponse(applyStepResult.Errors[0].Message);
+            var applySaid = applyStepResult.Value;
             generatedExchangeSaids.Add(applySaid);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { applySaid }, "Step 16a propagation");
 
             // Step 16b: QVI offers credential to Verifier
-            _logger.LogInformation("Step 16b: QVI offering credential to Verifier via IPEX offer...");
-            var offerResult = await _signifyClient.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+            var offerStepResult = await OfferStep(new IpexOfferSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: verifierResult.Value.Prefix,
                 CredentialSaid: qviCredIssued.Value.Said,
                 ApplySaid: applySaid
-            ));
-            if (offerResult.IsFailed) {
-                var err = $"Failed QVI IPEX offer: {offerResult.Errors[0].Message}";
-                _logger.LogError("{Error}", err);
-                return FailResponse(err);
-            }
-            var offerSaid = offerResult.Value["offerSaid"].StringValue!;
-            _logger.LogInformation("QVI IPEX offer submitted: offerSaid={OfferSaid}", offerSaid);
+            ), "Step 16b");
+            if (offerStepResult.IsFailed) return FailResponse(offerStepResult.Errors[0].Message);
+            var offerSaid = offerStepResult.Value;
             generatedExchangeSaids.Add(offerSaid);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { offerSaid }, "Step 16b propagation");
 
             // Step 16c: Verifier agrees to credential offer
-            _logger.LogInformation("Step 16c: Verifier agreeing to credential offer via IPEX agree...");
-            var agreeResult = await _signifyClient.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+            var agreeStepResult = await AgreeStep(new IpexAgreeSubmitArgs(
                 SenderNameOrPrefix: verifierName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 OfferSaid: offerSaid
-            ));
-            if (agreeResult.IsFailed) {
-                var err = $"Failed verifier IPEX agree: {agreeResult.Errors[0].Message}";
-                _logger.LogError("{Error}", err);
-                return FailResponse(err);
-            }
-            var agreeSaid = agreeResult.Value["agreeSaid"].StringValue!;
-            _logger.LogInformation("Verifier IPEX agree submitted: agreeSaid={AgreeSaid}", agreeSaid);
+            ), "Step 16c");
+            if (agreeStepResult.IsFailed) return FailResponse(agreeStepResult.Errors[0].Message);
+            var agreeSaid = agreeStepResult.Value;
             generatedExchangeSaids.Add(agreeSaid);
 
             // Step 17: QVI creates credential registry for LE credentials
@@ -222,22 +207,23 @@ namespace Extension.Services.PrimeDataService {
             if (leCredIssued.IsFailed) return FailResponse(leCredIssued.Errors[0].Message);
 
             // Step 18b: QVI grants LE credential to LE via IPEX
-            var leGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var leGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
                 Acdc: leCredIssued.Value.Acdc,
                 Anc: leCredIssued.Value.Anc,
                 Iss: leCredIssued.Value.Iss
-            ), "Step 18b", "LE credential");
+            ), "Step 18b");
             if (leGrantSaid.IsFailed) return FailResponse(leGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(leGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { leGrantSaid.Value }, "Step 18b propagation");
 
             // Step 19: LE admits LE credential
-            var step19 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step19 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: leGrantSaid.Value
-            ), "Step 19", "LE credential");
+            ), "Step 19");
             if (step19.IsFailed) return FailResponse(step19.Errors[0].Message);
             generatedExchangeSaids.Add(step19.Value);
 
@@ -252,7 +238,7 @@ namespace Extension.Services.PrimeDataService {
             if (step20Store.IsFailed) return FailResponse(step20Store.Errors[0].Message);
 
             // Step 21: LE presents LE credential to Verifier
-            var step21 = await PresentCredentialStep(leName, leCredIssued.Value.Said, verifierResult.Value.Prefix, "Step 21", "LE credential");
+            var step21 = await PresentStep(leName, leCredIssued.Value.Said, verifierResult.Value.Prefix, "Step 21");
             if (step21.IsFailed) return FailResponse(step21.Errors[0].Message);
             generatedExchangeSaids.Add(step21.Value);
 
@@ -301,22 +287,23 @@ namespace Extension.Services.PrimeDataService {
             if (oorAuthIssued.IsFailed) return FailResponse(oorAuthIssued.Errors[0].Message);
 
             // Step 24b: LE grants OOR Auth to QVI via IPEX
-            var oorAuthGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var oorAuthGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: oorAuthIssued.Value.Acdc,
                 Anc: oorAuthIssued.Value.Anc,
                 Iss: oorAuthIssued.Value.Iss
-            ), "Step 24b", "OOR Auth credential");
+            ), "Step 24b");
             if (oorAuthGrantSaid.IsFailed) return FailResponse(oorAuthGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(oorAuthGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { oorAuthGrantSaid.Value }, "Step 24b propagation");
 
             // Step 25: QVI admits OOR Auth credential
-            var step25 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step25 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: oorAuthGrantSaid.Value
-            ), "Step 25", "OOR Auth credential");
+            ), "Step 25");
             if (step25.IsFailed) return FailResponse(step25.Errors[0].Message);
             generatedExchangeSaids.Add(step25.Value);
 
@@ -346,27 +333,28 @@ namespace Extension.Services.PrimeDataService {
             if (oorIssued.IsFailed) return FailResponse(oorIssued.Errors[0].Message);
 
             // Step 26b: QVI grants OOR credential to Person via IPEX
-            var oorGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var oorGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: personResult.Value.Prefix,
                 Acdc: oorIssued.Value.Acdc,
                 Anc: oorIssued.Value.Anc,
                 Iss: oorIssued.Value.Iss
-            ), "Step 26b", "OOR credential");
+            ), "Step 26b");
             if (oorGrantSaid.IsFailed) return FailResponse(oorGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(oorGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { oorGrantSaid.Value }, "Step 26b propagation");
 
             // Step 27: Person admits OOR credential
-            var step27 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step27 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: personName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: oorGrantSaid.Value
-            ), "Step 27", "OOR credential");
+            ), "Step 27");
             if (step27.IsFailed) return FailResponse(step27.Errors[0].Message);
             generatedExchangeSaids.Add(step27.Value);
 
             // Step 28: Person presents OOR credential to Verifier
-            var step28 = await PresentCredentialStep(personName, oorIssued.Value.Said, verifierResult.Value.Prefix, "Step 28", "OOR credential");
+            var step28 = await PresentStep(personName, oorIssued.Value.Said, verifierResult.Value.Prefix, "Step 28");
             if (step28.IsFailed) return FailResponse(step28.Errors[0].Message);
             generatedExchangeSaids.Add(step28.Value);
 
@@ -396,22 +384,23 @@ namespace Extension.Services.PrimeDataService {
             if (ecrAuthIssued.IsFailed) return FailResponse(ecrAuthIssued.Errors[0].Message);
 
             // Step 29b: LE grants ECR Auth to QVI via IPEX
-            var ecrAuthGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var ecrAuthGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 Acdc: ecrAuthIssued.Value.Acdc,
                 Anc: ecrAuthIssued.Value.Anc,
                 Iss: ecrAuthIssued.Value.Iss
-            ), "Step 29b", "ECR Auth credential");
+            ), "Step 29b");
             if (ecrAuthGrantSaid.IsFailed) return FailResponse(ecrAuthGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(ecrAuthGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { ecrAuthGrantSaid.Value }, "Step 29b propagation");
 
             // Step 30: QVI admits ECR Auth credential
-            var step30 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step30 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: ecrAuthGrantSaid.Value
-            ), "Step 30", "ECR Auth credential");
+            ), "Step 30");
             if (step30.IsFailed) return FailResponse(step30.Errors[0].Message);
             generatedExchangeSaids.Add(step30.Value);
 
@@ -432,22 +421,23 @@ namespace Extension.Services.PrimeDataService {
             if (ecrIssued.IsFailed) return FailResponse(ecrIssued.Errors[0].Message);
 
             // Step 31b: QVI grants ECR credential to Person via IPEX
-            var ecrGrantSaid = await GrantCredentialStep(new IpexGrantSubmitArgs(
+            var ecrGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: personResult.Value.Prefix,
                 Acdc: ecrIssued.Value.Acdc,
                 Anc: ecrIssued.Value.Anc,
                 Iss: ecrIssued.Value.Iss
-            ), "Step 31b", "ECR credential");
+            ), "Step 31b");
             if (ecrGrantSaid.IsFailed) return FailResponse(ecrGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(ecrGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { ecrGrantSaid.Value }, "Step 31b propagation");
 
             // Step 32: Person admits ECR credential
-            var step32 = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+            var step32 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: personName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: ecrGrantSaid.Value
-            ), "Step 32", "ECR credential");
+            ), "Step 32");
             if (step32.IsFailed) return FailResponse(step32.Errors[0].Message);
             generatedExchangeSaids.Add(step32.Value);
 
@@ -581,9 +571,9 @@ namespace Extension.Services.PrimeDataService {
                 }
             }
 
-            // Execute IPEX workflow steps
-            // Track all generated SAIDs, and separately track which to mark as read.
-            // The last step's notification should remain unread (it represents a pending action).
+            // Execute IPEX workflow steps with notification propagation waits between each step.
+            // After each intermediate step, wait for KERIA to generate the notification and mark it as read.
+            // The last step's notification remains unread (pending action for the recipient).
             string? applySaid = null;
             string? offerSaid = null;
             string? agreeSaid = null;
@@ -597,18 +587,22 @@ namespace Extension.Services.PrimeDataService {
                 var attributes = new RecursiveDictionary();
                 attributes["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
 
-                _logger.LogInformation("IPEX Apply: Disclosee {Disclosee} applying to Discloser {Discloser}...", discloseePrefix, discloserPrefix);
-                var applyResult = await _signifyClient.IpexApplyAndSubmit(new IpexApplySubmitArgs(
+                var applyResult = await ApplyStep(new IpexApplySubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
                     RecipientPrefix: discloserPrefix,
                     SchemaSaid: EcrSchemaSaid,
                     Attributes: attributes
-                ));
-                if (applyResult.IsFailed) return FailIpexResponse($"Apply failed: {applyResult.Errors[0].Message}");
-                applySaid = applyResult.Value["applySaid"].StringValue!;
+                ), "IPEX apply");
+                if (applyResult.IsFailed) return FailIpexResponse(applyResult.Errors[0].Message);
+                applySaid = applyResult.Value;
                 generatedExchangeSaids.Add(applySaid);
                 lastStepSaid = applySaid;
-                _logger.LogInformation("Apply submitted: applySaid={ApplySaid}", applySaid);
+
+                // Wait for Apply notification before proceeding to Offer
+                if (workflow is not IpexWorkflow.Apply) {
+                    await WaitForNotificationsAndMarkAsReadStep(
+                        new HashSet<string> { applySaid }, "Apply propagation");
+                }
             }
 
             // Offer step (Discloser sends Offer to Disclosee)
@@ -616,18 +610,23 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
-                _logger.LogInformation("IPEX Offer: Discloser {Discloser} offering to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
-                var offerResult = await _signifyClient.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                var offerResult = await OfferStep(new IpexOfferSubmitArgs(
                     SenderNameOrPrefix: discloserPrefix,
                     RecipientPrefix: discloseePrefix,
                     CredentialSaid: credentialSaid!,
                     ApplySaid: applySaid
-                ));
-                if (offerResult.IsFailed) return FailIpexResponse($"Offer failed: {offerResult.Errors[0].Message}");
-                offerSaid = offerResult.Value["offerSaid"].StringValue!;
+                ), "IPEX offer");
+                if (offerResult.IsFailed) return FailIpexResponse(offerResult.Errors[0].Message);
+                offerSaid = offerResult.Value;
                 generatedExchangeSaids.Add(offerSaid);
                 lastStepSaid = offerSaid;
-                _logger.LogInformation("Offer submitted: offerSaid={OfferSaid}", offerSaid);
+
+                // Wait for Offer notification before proceeding to Agree
+                if (workflow is IpexWorkflow.ApplyOfferAgree or IpexWorkflow.ApplyOfferAgreeGrant
+                    or IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.OfferAgreeGrantAdmit) {
+                    await WaitForNotificationsAndMarkAsReadStep(
+                        new HashSet<string> { offerSaid }, "Offer propagation");
+                }
             }
 
             // Agree step (Disclosee sends Agree to Discloser)
@@ -635,17 +634,22 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
-                _logger.LogInformation("IPEX Agree: Disclosee {Disclosee} agreeing with Discloser {Discloser}...", discloseePrefix, discloserPrefix);
-                var agreeResult = await _signifyClient.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
+                var agreeResult = await AgreeStep(new IpexAgreeSubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
                     RecipientPrefix: discloserPrefix,
                     OfferSaid: offerSaid!
-                ));
-                if (agreeResult.IsFailed) return FailIpexResponse($"Agree failed: {agreeResult.Errors[0].Message}");
-                agreeSaid = agreeResult.Value["agreeSaid"].StringValue!;
+                ), "IPEX agree");
+                if (agreeResult.IsFailed) return FailIpexResponse(agreeResult.Errors[0].Message);
+                agreeSaid = agreeResult.Value;
                 generatedExchangeSaids.Add(agreeSaid);
                 lastStepSaid = agreeSaid;
-                _logger.LogInformation("Agree submitted: agreeSaid={AgreeSaid}", agreeSaid);
+
+                // Wait for Agree notification before proceeding to Grant
+                if (workflow is IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                    or IpexWorkflow.OfferAgreeGrantAdmit) {
+                    await WaitForNotificationsAndMarkAsReadStep(
+                        new HashSet<string> { agreeSaid }, "Agree propagation");
+                }
             }
 
             // Grant step (Discloser sends Grant to Disclosee)
@@ -653,56 +657,55 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
-                _logger.LogInformation("IPEX Grant: Discloser {Discloser} granting to Disclosee {Disclosee}...", discloserPrefix, discloseePrefix);
-
                 if (payload.IsPresentation) {
-                    // Presentation: grant received credential
-                    var grantResult = await _signifyClient.GrantReceivedCredential(discloserPrefix, credentialSaid!, discloseePrefix);
-                    if (grantResult.IsFailed) return FailIpexResponse($"Grant (presentation) failed: {grantResult.Errors[0].Message}");
-                    grantSaid = grantResult.Value["grantSaid"].StringValue!;
+                    var grantResult = await PresentStep(discloserPrefix, credentialSaid!, discloseePrefix, "IPEX grant");
+                    if (grantResult.IsFailed) return FailIpexResponse(grantResult.Errors[0].Message);
+                    grantSaid = grantResult.Value;
                 }
                 else {
-                    // Issuance: grant newly issued credential
-                    var grantResult = await GrantCredentialStep(new IpexGrantSubmitArgs(
+                    var grantResult = await GrantStep(new IpexGrantSubmitArgs(
                         SenderNameOrPrefix: discloserPrefix,
                         RecipientPrefix: discloseePrefix,
                         Acdc: issuedCred!.Acdc,
                         Anc: issuedCred.Anc,
                         Iss: issuedCred.Iss
-                    ), "IPEX grant", "ECR credential");
+                    ), "IPEX grant");
                     if (grantResult.IsFailed) return FailIpexResponse(grantResult.Errors[0].Message);
                     grantSaid = grantResult.Value;
                 }
                 generatedExchangeSaids.Add(grantSaid!);
                 lastStepSaid = grantSaid;
-                _logger.LogInformation("Grant submitted: grantSaid={GrantSaid}", grantSaid);
+
+                // Wait for Grant notification before proceeding to Admit
+                if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
+                    or IpexWorkflow.OfferAgreeGrantAdmit) {
+                    await WaitForNotificationsAndMarkAsReadStep(
+                        new HashSet<string> { grantSaid! }, "Grant propagation");
+                }
             }
 
             // Admit step (Disclosee sends Admit to Discloser)
             if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
-                _logger.LogInformation("IPEX Admit: Disclosee {Disclosee} admitting from Discloser {Discloser}...", discloseePrefix, discloserPrefix);
-                var admitResult = await AdmitCredentialStep(new IpexAdmitSubmitArgs(
+                var admitResult = await AdmitStep(new IpexAdmitSubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
                     RecipientPrefix: discloserPrefix,
                     GrantSaid: grantSaid!
-                ), "IPEX admit", "ECR credential");
+                ), "IPEX admit");
                 if (admitResult.IsFailed) return FailIpexResponse(admitResult.Errors[0].Message);
                 generatedExchangeSaids.Add(admitResult.Value);
                 lastStepSaid = admitResult.Value;
-                _logger.LogInformation("Admit submitted: admitSaid={AdmitSaid}", admitResult.Value);
             }
 
-            // Mark generated notifications as read, except the last step's notification
-            // (the last step represents a pending action for the recipient to act on).
-            // For complete workflows (ending in Admit), mark everything as read.
+            // Mark the last step's notification as read for complete workflows (ending in Admit).
+            // For partial workflows, the last step's notification stays unread (pending action).
             var isCompleteWorkflow = workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit;
-            var saidsToMarkAsRead = isCompleteWorkflow
-                ? generatedExchangeSaids
-                : new HashSet<string>(generatedExchangeSaids.Where(s => s != lastStepSaid));
-            await WaitForNotificationsAndMarkAsReadStep(saidsToMarkAsRead, "IPEX cleanup");
+            if (isCompleteWorkflow && lastStepSaid is not null) {
+                await WaitForNotificationsAndMarkAsReadStep(
+                    new HashSet<string> { lastStepSaid }, "Final step cleanup");
+            }
 
             _logger.LogInformation("PrimeData IPEX completed successfully: workflow={Workflow}", workflow);
             return Result.Ok(new PrimeDataIpexResponse(true));
@@ -863,51 +866,92 @@ namespace Extension.Services.PrimeDataService {
             return Result.Ok(issued);
         }
 
-        private async Task<Result<string>> GrantCredentialStep(IpexGrantSubmitArgs args, string stepLabel, string credLabel) {
-            _logger.LogInformation("{Step}: Granting {CredLabel} via IPEX...", stepLabel, credLabel);
+        public async Task<Result<string>> ApplyStep(IpexApplySubmitArgs args, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Apply from {Sender} to {Recipient}...", stepLabel, args.SenderNameOrPrefix, args.RecipientPrefix);
+            var result = await _signifyClient.IpexApplyAndSubmit(args);
+            if (result.IsFailed) {
+                var err = $"IPEX Apply failed: {result.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Fail<string>(err);
+            }
+            var applySaid = result.Value["applySaid"].StringValue!;
+            _logger.LogInformation("{Step}: Apply submitted: applySaid={ApplySaid}", stepLabel, applySaid);
+            return Result.Ok(applySaid);
+        }
+
+        public async Task<Result<string>> OfferStep(IpexOfferSubmitArgs args, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Offer from {Sender} to {Recipient}...", stepLabel, args.SenderNameOrPrefix, args.RecipientPrefix);
+            var result = await _signifyClient.IpexOfferAndSubmit(args);
+            if (result.IsFailed) {
+                var err = $"IPEX Offer failed: {result.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Fail<string>(err);
+            }
+            var offerSaid = result.Value["offerSaid"].StringValue!;
+            _logger.LogInformation("{Step}: Offer submitted: offerSaid={OfferSaid}", stepLabel, offerSaid);
+            return Result.Ok(offerSaid);
+        }
+
+        public async Task<Result<string>> AgreeStep(IpexAgreeSubmitArgs args, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Agree from {Sender} to {Recipient}...", stepLabel, args.SenderNameOrPrefix, args.RecipientPrefix);
+            var result = await _signifyClient.IpexAgreeAndSubmit(args);
+            if (result.IsFailed) {
+                var err = $"IPEX Agree failed: {result.Errors[0].Message}";
+                _logger.LogError("{Error}", err);
+                return Result.Fail<string>(err);
+            }
+            var agreeSaid = result.Value["agreeSaid"].StringValue!;
+            _logger.LogInformation("{Step}: Agree submitted: agreeSaid={AgreeSaid}", stepLabel, agreeSaid);
+            return Result.Ok(agreeSaid);
+        }
+
+        public async Task<Result<string>> GrantStep(IpexGrantSubmitArgs args, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Grant from {Sender} to {Recipient}...", stepLabel, args.SenderNameOrPrefix, args.RecipientPrefix);
             var result = await _signifyClient.IpexGrantAndSubmit(args);
             if (result.IsFailed) {
-                var err = $"Failed to grant {credLabel}: {result.Errors[0].Message}";
+                var err = $"IPEX Grant failed: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);
                 return Result.Fail<string>(err);
             }
             var grantSaid = result.Value["grantSaid"].StringValue!;
-            _logger.LogInformation("{CredLabel} granted: grantSaid={GrantSaid}", credLabel, grantSaid);
+            _logger.LogInformation("{Step}: Grant submitted: grantSaid={GrantSaid}", stepLabel, grantSaid);
             return Result.Ok(grantSaid);
         }
 
-        private async Task<Result<string>> AdmitCredentialStep(IpexAdmitSubmitArgs args, string stepLabel, string credLabel) {
-            _logger.LogInformation("{Step}: Admitting {CredLabel}...", stepLabel, credLabel);
+        public async Task<Result<string>> AdmitStep(IpexAdmitSubmitArgs args, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Admit from {Sender} to {Recipient}...", stepLabel, args.SenderNameOrPrefix, args.RecipientPrefix);
             var result = await _signifyClient.IpexAdmitAndSubmit(args);
             if (result.IsFailed) {
-                var err = $"Failed to admit {credLabel}: {result.Errors[0].Message}";
+                var err = $"IPEX Admit failed: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);
                 return Result.Fail<string>(err);
             }
             var admitSaid = result.Value["admitSaid"].StringValue!;
-            _logger.LogInformation("{CredLabel} admitted: admitSaid={AdmitSaid}", credLabel, admitSaid);
+            _logger.LogInformation("{Step}: Admit submitted: admitSaid={AdmitSaid}", stepLabel, admitSaid);
             return Result.Ok(admitSaid);
         }
 
-        private async Task<Result<string>> PresentCredentialStep(string senderNameOrPrefix, string credSaid, string recipientPrefix, string stepLabel, string credLabel) {
-            _logger.LogInformation("{Step}: {Sender} presenting {CredLabel}...", stepLabel, senderNameOrPrefix, credLabel);
+        public async Task<Result<string>> PresentStep(string senderNameOrPrefix, string credSaid, string recipientPrefix, string stepLabel) {
+            _logger.LogInformation("{Step}: IPEX Present from {Sender}...", stepLabel, senderNameOrPrefix);
             var result = await _signifyClient.GrantReceivedCredential(senderNameOrPrefix, credSaid, recipientPrefix);
             if (result.IsFailed) {
-                var err = $"Failed to present {credLabel}: {result.Errors[0].Message}";
+                var err = $"IPEX Present failed: {result.Errors[0].Message}";
                 _logger.LogError("{Error}", err);
                 return Result.Fail<string>(err);
             }
             var grantSaid = result.Value["grantSaid"].StringValue!;
-            _logger.LogInformation("{CredLabel} presented: grantSaid={GrantSaid}", credLabel, grantSaid);
+            _logger.LogInformation("{Step}: Present submitted: grantSaid={GrantSaid}", stepLabel, grantSaid);
             return Result.Ok(grantSaid);
         }
 
-        private async Task WaitForNotificationsAndMarkAsReadStep(HashSet<string> expectedExchangeSaids, string stepLabel) {
-            _logger.LogInformation("{Step}: Waiting for {Count} notifications to propagate...",
-                stepLabel, expectedExchangeSaids.Count);
+        private Task WaitForNotificationsAndMarkAsReadStep(HashSet<string> expectedExchangeSaids, string stepLabel) =>
+            WaitForNotificationsAndMarkAsReadStep(expectedExchangeSaids, stepLabel, TimeSpan.FromSeconds(10));
 
-            var timeout = TimeSpan.FromSeconds(30);
-            var interval = TimeSpan.FromSeconds(1);
+        private async Task WaitForNotificationsAndMarkAsReadStep(HashSet<string> expectedExchangeSaids, string stepLabel, TimeSpan timeout) {
+            _logger.LogInformation("{Step}: Waiting for {Count} notifications to propagate (timeout={Timeout}s)...",
+                stepLabel, expectedExchangeSaids.Count, timeout.TotalSeconds);
+
+            var interval = TimeSpan.FromSeconds(2);
             var deadline = DateTime.UtcNow + timeout;
             var foundSaids = new HashSet<string>();
 

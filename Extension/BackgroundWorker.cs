@@ -3100,19 +3100,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 ": Starting IpexAdmitAndSubmit, sender={Sender}, recipient={Recipient}, grantSaid={GrantSaid}",
                 admitRequest.SenderNameOrPrefix, admitRequest.RecipientPrefix, admitRequest.GrantSaid);
 
-            await ExecuteIpexAndRespondAsync(
-                portId, request.PortSessionId, request.Id,
-                operationName: nameof(HandleAppRequestIpexAdmitRpcAsync),
-                operation: () => _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
-                    SenderNameOrPrefix: admitRequest.SenderNameOrPrefix,
-                    RecipientPrefix: admitRequest.RecipientPrefix,
-                    GrantSaid: admitRequest.GrantSaid
-                )),
-                onSuccess: async () => {
-                    await _notificationPollingService.PollOnDemandAsync();
-                    await RefreshCachedCredentialsAsync();
-                }
-            );
+            var result = await _primeDataService.AdmitStep(new IpexAdmitSubmitArgs(
+                SenderNameOrPrefix: admitRequest.SenderNameOrPrefix,
+                RecipientPrefix: admitRequest.RecipientPrefix,
+                GrantSaid: admitRequest.GrantSaid
+            ), nameof(HandleAppRequestIpexAdmitRpcAsync));
+
+            if (result.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await RefreshCachedCredentialsAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(true));
+            }
+            else {
+                var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : "IPEX admit failed";
+                logger.LogWarning(nameof(HandleAppRequestIpexAdmitRpcAsync) + ": {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexAdmitResponsePayload(false, Error: errorMsg));
+            }
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(HandleAppRequestIpexAdmitRpcAsync) + ": Error during IPEX admit");
@@ -3151,17 +3156,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 ": sender={Sender}, recipient={Recipient}, offerSaid={OfferSaid}",
                 agreeRequest.SenderNameOrPrefix, agreeRequest.RecipientPrefix, agreeRequest.OfferSaid);
 
-            Result<RecursiveDictionary> result;
-            using (_signifyClientService.BeginLongOperation()) {
-                result = await _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
-                    SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
-                    RecipientPrefix: agreeRequest.RecipientPrefix,
-                    OfferSaid: agreeRequest.OfferSaid
-                ));
-            }
+            var result = await _primeDataService.AgreeStep(new IpexAgreeSubmitArgs(
+                SenderNameOrPrefix: agreeRequest.SenderNameOrPrefix,
+                RecipientPrefix: agreeRequest.RecipientPrefix,
+                OfferSaid: agreeRequest.OfferSaid
+            ), nameof(HandleAppRequestIpexAgreeRpcAsync));
 
             if (result.IsSuccess) {
-                logger.LogInformation(nameof(HandleAppRequestIpexAgreeRpcAsync) + ": agree submitted successfully");
                 await _notificationPollingService.PollOnDemandAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAgreeResponsePayload(true));
@@ -3395,24 +3396,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
                 ": Found credential SAID={CredSaid} from offer={OfferSaid}", credentialSaid, offerSaid);
 
-            using (_signifyClientService.BeginLongOperation()) {
-                var grantResult = await _signifyClientService.GrantReceivedCredential(
-                    senderName, credentialSaid, recipientPrefix);
+            var grantResult = await _primeDataService.PresentStep(
+                senderName, credentialSaid, recipientPrefix, nameof(HandleAppRequestIpexGrantRpcAsync));
 
-                if (grantResult.IsSuccess) {
-                    var grantSaid = grantResult.Value["grantSaid"]?.StringValue;
-                    logger.LogInformation(nameof(HandleAppRequestIpexGrantRpcAsync) +
-                        ": Grant submitted: grantSaid={GrantSaid}", grantSaid);
-                    await _notificationPollingService.PollOnDemandAsync();
-                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        result: new IpexGrantResponsePayload(true));
-                }
-                else {
-                    var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
-                    logger.LogWarning(nameof(HandleAppRequestIpexGrantRpcAsync) + ": {Error}", errorMsg);
-                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        result: new IpexGrantResponsePayload(false, Error: errorMsg));
-                }
+            if (grantResult.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(true));
+            }
+            else {
+                var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+                logger.LogWarning(nameof(HandleAppRequestIpexGrantRpcAsync) + ": {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: errorMsg));
             }
         }
         catch (Exception ex) {
