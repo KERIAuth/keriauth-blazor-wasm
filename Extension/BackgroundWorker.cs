@@ -278,7 +278,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // BwReadyState not set - this service worker needs to initialize
-            logger.LogWarning(nameof(EnsureInitializedAsync) + ": Re-initializing (_initializedThisLifetime was false)");
+            logger.LogInformation(nameof(EnsureInitializedAsync) + ": Re-initializing (_initializedThisLifetime was false)");
 
             // Ensure skeleton storage records exist
             await InitializeStorageDefaultsAsync();
