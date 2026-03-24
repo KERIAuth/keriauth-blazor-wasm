@@ -3,8 +3,9 @@ namespace Extension.Models.Storage;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// Caches the set of schema SAIDs confirmed to be resolved in KERIA.
-/// Avoids repeated GetSchema network calls to KERIA for schemas already verified.
+/// Caches schema bodies (as raw JSON) keyed by SAID, for schemas confirmed resolved in KERIA.
+/// Avoids repeated GetSchema network calls and provides schema field descriptions
+/// for UI label rendering (e.g., IPEX apply messages that reference a schema SAID).
 ///
 /// Storage key: "ResolvedSchemas"
 /// Storage area: Session
@@ -12,6 +13,6 @@ using System.Text.Json.Serialization;
 ///           and on KERIA config change (via ClearSessionForConfigChangeAsync).
 /// </summary>
 public record ResolvedSchemas : IStorageModel {
-    [JsonPropertyName("saids")]
-    public HashSet<string> Saids { get; init; } = [];
+    [JsonPropertyName("schemas")]
+    public Dictionary<string, string> Schemas { get; init; } = [];
 }

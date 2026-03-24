@@ -100,6 +100,7 @@ namespace Extension.Services.SignifyService {
 
         // ===================== Schemas Operations =====================
         Task<Result<Schema>> GetSchema(string said);
+        Task<Result<string>> GetSchemaRaw(string said);
         Task<Result<List<Schema>>> ListSchemas();
 
         // ===================== Notifications Operations =====================

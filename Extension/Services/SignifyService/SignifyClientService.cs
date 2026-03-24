@@ -861,6 +861,19 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        public async Task<Result<string>> GetSchemaRaw(string said) {
+            try {
+                var jsonString = await _binding.SchemasGetAsync(said);
+                var unwrapped = UnwrapJsResult(jsonString);
+                if (unwrapped.IsFailed) return Result.Fail<string>(unwrapped.Errors);
+                return Result.Ok(unwrapped.Value);
+            }
+            catch (JSException e) {
+                logger.LogError(e, "{Op}: Unexpected JSException", nameof(GetSchemaRaw));
+                return Result.Fail<string>(new JavaScriptInteropError(nameof(GetSchemaRaw), e.Message, e));
+            }
+        }
+
         public async Task<Result<List<Schema>>> ListSchemas() {
             try {
                 var jsonString = await _binding.SchemasListAsync();
