@@ -2455,7 +2455,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         connectRequest.AdminUrl,
                         passcode,
                         connectRequest.BootUrl,
-                        connectRequest.IsNewAgent
+                        connectRequest.IsNewAgent,
+                        connectRequest.BootAuthUsername,
+                        connectRequest.BootAuthPassword
                     );
                 }
             }

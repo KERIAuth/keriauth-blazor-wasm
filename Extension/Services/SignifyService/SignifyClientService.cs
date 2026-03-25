@@ -148,7 +148,7 @@ namespace Extension.Services.SignifyService {
             return postResult.IsSuccess ? Result.Ok() : Result.Fail(postResult.Reasons.First().Message);
         }
 
-        public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = false, TimeSpan? timeout = null) {
+        public async Task<Result<State>> Connect(string url, string passcode, string? bootUrl, bool isBootForced = false, string? bootAuthUsername = null, string? bootAuthPassword = null, TimeSpan? timeout = null) {
             if (passcode.Length != 21) {
                 return Result.Fail<State>("Passcode must be 21 characters");
             }
@@ -176,7 +176,7 @@ namespace Extension.Services.SignifyService {
                         if (bootUrl is null) {
                             return Result.Fail("Connect failed. bootUrl must be set when setting up a new KERIA connection.");
                         }
-                        timeoutResult = await TimeoutHelper.WithTimeout<string>(ct => _binding.BootAndConnectAsync(url, bootUrl, passcode, ct), timeout2);
+                        timeoutResult = await TimeoutHelper.WithTimeout<string>(ct => _binding.BootAndConnectAsync(url, bootUrl, passcode, bootAuthUsername, bootAuthPassword, ct), timeout2);
                     }
                     else {
                         logger.LogInformation(nameof(Connect) + ": Connecting to {url}...", url);

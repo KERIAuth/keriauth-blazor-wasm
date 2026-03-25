@@ -84,14 +84,27 @@ type ErrorCode =
     | 'operation_error'
     | 'operation_timeout'
     | 'validation_error'
+    | 'boot_auth_required'
     | 'unknown';
 
 interface ResultOk<T = unknown> { ok: true; value: T }
 interface ResultErr { ok: false; code: ErrorCode; message: string }
 type Result<T = unknown> = ResultOk<T> | ResultErr;
 
+/** Error thrown when the boot endpoint returns 401 Unauthorized */
+class BootAuthRequiredError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'BootAuthRequiredError';
+    }
+}
+
 /** Classify a caught error into an ErrorCode + message for C# consumption */
 const classifyError = (error: unknown): { code: ErrorCode; message: string } => {
+    if (error instanceof BootAuthRequiredError) {
+        return { code: 'boot_auth_required', message: error.message };
+    }
+
     const msg = error instanceof Error ? error.message : String(error);
 
     if (msg.includes('validateClient') || msg.includes('not connected') || msg.includes('Client not connected')) {
@@ -353,24 +366,47 @@ const waitForAgentReady = async (
 export const bootAndConnect = async (
     agentUrl: string,
     bootUrl: string,
-    passcode: string
+    passcode: string,
+    bootAuthUsername?: string | null,
+    bootAuthPassword?: string | null
 ): Promise<string> => {
     const hadClient = _client !== null;
     console.info(`signifyClient: bootAndConnect called (hadExistingClient=${hadClient})`);
     _client = null;
+    const originalFetch = globalThis.fetch;
     try {
         await ready();
 
         _client = new SignifyClient(agentUrl, passcode, Tier.med, bootUrl);
 
+        // If boot auth credentials are provided, temporarily wrap fetch to inject Authorization header
+        if (bootAuthUsername != null && bootAuthPassword != null) {
+            globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+                const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+                if (url.startsWith(bootUrl)) {
+                    const authHeader = 'Basic ' + btoa(bootAuthUsername + ':' + bootAuthPassword);
+                    init = { ...init, headers: { ...init?.headers, 'Authorization': authHeader } };
+                }
+                return originalFetch(input, init);
+            }) as typeof fetch;
+        }
+
         // Boot the agent
         const bootResponse = await _client.boot().catch((e: Error) => {
             console.error('signifyClient: boot error', e);
             if (e.message === 'Failed to fetch') {
-                throw new Error('Failed to boot signify client due to network connectivity', { cause: e });
+                throw new Error('Failed to boot signify client due to network connectivity or basic auth', { cause: e });
             }
             throw new Error('Failed to boot signify client', { cause: e });
         });
+
+        // Restore original fetch immediately after boot completes
+        globalThis.fetch = originalFetch;
+
+        // Boot endpoint requires authentication — signal caller to prompt for credentials
+        if (bootResponse.status === 401) {
+            throw new BootAuthRequiredError('Boot endpoint requires authentication (e.g. basic auth)');
+        }
 
         // Accept 409 (Conflict) as valid - indicates agent was already booted
         if (!bootResponse.ok && bootResponse.status !== 409) {
@@ -390,11 +426,18 @@ export const bootAndConnect = async (
         const wrapped: ResultOk = { ok: true, value: { success: true, state } };
         return JSON.stringify(wrapped);
     } catch (error) {
-        console.error('signifyClient: bootAndConnect failed', error);
+        if (error instanceof BootAuthRequiredError) {
+            console.info('signifyClient: bootAndConnect: boot auth required');
+        } else {
+            console.error('signifyClient: bootAndConnect failed', error);
+        }
         _client = null;
         const classified = classifyError(error);
         const wrapped: ResultErr = { ok: false, ...classified };
         return JSON.stringify(wrapped);
+    } finally {
+        // Ensure fetch is always restored even if an unexpected error occurs
+        globalThis.fetch = originalFetch;
     }
 };
 
@@ -424,7 +467,7 @@ const connectSignifyClient = async (): Promise<void> => {
         }
 
         // Agent was booted but cannot connect (possibly wrong passcode or corrupted state)
-        throw new Error('Agent booted but cannot connect', { cause: error });
+        throw new Error('Agent cannot connect', { cause: error });
     });
 
     // Validate that connect() actually initialized agent and manager.

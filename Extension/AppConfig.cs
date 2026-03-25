@@ -67,10 +67,9 @@ namespace Extension {
         public static readonly List<KeriaPreset> PresetAgents = [
             new KeriaPreset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
             new KeriaPreset($"{ProductName} Test Cloud", "https://keria.cloud.dign.id", "https://keria-boot.cloud.dign.id"),
-            // TODO P2: add basic auth for agent Boot
-            // Note: GLEIF Test Cloud boot is :3903; however, that requires a HTTP Basic Auth request, and we don't yet support sending a Base64-encoded username (empty) and password, e.g. "Authorization: Basic dXNlcjpwYXNzd29yZA=="
-            // new KeriaPreset("GLEIF Test Cloud", "https://keria.testnet.gleif.org:3901", ""),
             // new KeriaPreset("Veridian Dev Testnet", "https://keria.dev.idw-sandboxes.cf-deployments.org", "https://keria-boot.dev.idw-sandboxes.cf-deployments.org"),
+            new KeriaPreset("Provenant Origin Demo (basic auth for boot)", "https://origin.demo.provenant.net/v1/keria/admin", "https://origin.demo.provenant.net/v1/keria/boot"),
+            new KeriaPreset("Basic Auth test server (boot auth required)", "https://example.com", "https://httpbin.org/basic-auth/my-username/secret-password"),
             new KeriaPreset("localhost", LocalhostKeriaAdminUrl, LocalhostKeriaBootUrl),
             new KeriaPreset("Custom", "", "")
         ];

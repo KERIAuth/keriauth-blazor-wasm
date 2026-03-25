@@ -11,7 +11,7 @@ public interface ISignifyClientBinding {
     // ===================== Connection & Initialization =====================
     ValueTask<string> TestAsync();
     ValueTask Ready();
-    ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, CancellationToken cancellationToken = default);
+    ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, string? bootAuthUsername = null, string? bootAuthPassword = null, CancellationToken cancellationToken = default);
     ValueTask<string> ConnectAsync(string agentUrl, string passcode, CancellationToken cancellationToken = default);
     ValueTask<string> GetStateAsync(CancellationToken cancellationToken = default);
     ValueTask DisconnectAsync(CancellationToken cancellationToken = default);
@@ -148,8 +148,8 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
     public ValueTask Ready() {
         return Module.InvokeVoidAsync("ready");
     }
-    public ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, CancellationToken cancellationToken = default) =>
-        Module.InvokeAsync<string>("bootAndConnect", cancellationToken, agentUrl, bootUrl, passcode);
+    public ValueTask<string> BootAndConnectAsync(string agentUrl, string bootUrl, string passcode, string? bootAuthUsername = null, string? bootAuthPassword = null, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("bootAndConnect", cancellationToken, agentUrl, bootUrl, passcode, bootAuthUsername, bootAuthPassword);
 
     public ValueTask<string> ConnectAsync(string agentUrl, string passcode, CancellationToken cancellationToken = default) =>
         Module.InvokeAsync<string>("connect", cancellationToken, agentUrl, passcode);

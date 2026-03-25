@@ -552,7 +552,9 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("passcode")] string Passcode,
         [property: JsonPropertyName("bootUrl")] string? BootUrl,
         [property: JsonPropertyName("isNewAgent")] bool IsNewAgent,
-        [property: JsonPropertyName("passcodeHash")] int PasscodeHash
+        [property: JsonPropertyName("passcodeHash")] int PasscodeHash,
+        [property: JsonPropertyName("bootAuthUsername")] string? BootAuthUsername = null,
+        [property: JsonPropertyName("bootAuthPassword")] string? BootAuthPassword = null
     );
 
     /// <summary>
