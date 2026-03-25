@@ -69,8 +69,8 @@
       "name": "Verifiable Credential Schema for State-Endorsed Digital Identity",
       "file": "verifiable-credential-schema-for-data-attestation.json",
       "oobiUrls": [
-        "https://raw.githubusercontent.com/KERIAuth/public-schema/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json",
-        "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_"
+        "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
+        "https://raw.githubusercontent.com/KERIAuth/public-schema/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json"
       ]
     }
   ],
