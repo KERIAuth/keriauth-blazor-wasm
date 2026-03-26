@@ -85,6 +85,10 @@
   - [E. Fallback to Passcode Authentication](#e-fallback-to-passcode-authentication)
   - [F. Multiple Webauthn Authenticators](#f-multiple-webauthn-authenticators)
   - [G. Webauthn Authenticator on Different Browsers/Devices](#g-webauthn-authenticator-on-different-browsersdevices)
+- Other
+  - Run Developer/PrimeData workflows
+  - Add Contacts/Connections with QR and camera scanning, or webpage-initiated flow
+  - Grant a credential via ipex from Veridian's cred-issuance-ui
 
 ## Test Environment Setup
 ### OS
@@ -147,7 +151,7 @@
 - [ ] Expected: Browser opens the configured page for user to provide freedback
 
 # Simulated Page Requests
-The following can be pasted into the DevTools console on a page with injected Content Script:
+The following can be pasted into the DevTools console on a page with injected Content Script. These should be tested both with the SidePanel open (to test its navigation to dialog pages) and with the SidePanel not open (so the pop-up is used).
 
 ## Sign In with Identifier (AID) selection
 ```js
