@@ -1,5 +1,7 @@
 # Passkey Support
 
+The DIGN Identity Wallet leverages the Webauthn protocol to register and configure webauthn credentials on authenticators. These are marketed as "passkeys", although not all passkeys are of the same security!
+
 ## What do I need?
 
 You'll need an authenticator that supports the CTAP 2.1 standard with the PRF (Pseudo-Random Function) extension. This includes:
@@ -21,19 +23,19 @@ The following authenticators do **not** currently support the PRF extension requ
 
 When you register an authenticator with the extension:
 
-1. **The extension interacts with the authenticator**, sending it data unique to your browser profile (a deterministic salt derived from your profile ID).
+1. **The extension interacts with the authenticator**, sending it data unique to your browser profile (a deterministic salt derived from your KERIA connection and other data).
 
 2. **The authenticator uses its Pseudo-random Function (PRF)** to generate a unique cryptographic output. This output is derived from:
-   - The unique salt data it received
+   - The unique data it received
    - Hardware-specific key material internal to the authenticator
 
-3. **The extension derives an encryption key** from the PRF output. This key is:
+3. **The extension derives an encryption key** from the PRF output. This encryption key is:
    - Never stored anywhere
-   - Unique to the combination of: browser profile + the extension + the specific registered authenticator
+   - Unique to the combination of: your browser profile + the extension + the specific registered authenticator
 
-4. **Your passcode is encrypted** using this derived key and stored securely in your browser profile, accessible only to the extension.
+4. **Your passcode is encrypted/decrypted** using this derived encryption key, and only the encrypted passcode is stored securely with your Chromium's extension storage.
 
-5. **On subsequent unlocks**, the same PRF process is repeated to derive the same encryption key, allowing the extension to decrypt your passcode.
+5. **On subsequent unlocks**, the same PRF process is repeated to derive the same encryption key, allowing the extension to decrypt your passcode that lives only temporarily in its memory.
 
 ## Important Security Note
 
@@ -48,17 +50,9 @@ Without your passcode, you cannot recover access if all registered authenticator
 
 ## WebAuthn Settings Reference
 
-### Registration Settings for Different Authenticator Types
+The specific settings you can choose in the user interface when you create a "passkey" affect the security-vs-convenience tradeoffs among authenticator providers. In general, only the option to use a hardware authenticator from a reputable vendor is known to be secure.
 
-| Setting | Hardware Security Key | Google Password Manager |
-|---------|----------------------|------------------------|
-| `authenticatorAttachment` | `cross-platform` | `platform` |
-| `residentKey` | `required` | `required` |
-| `userVerification` | `required` | `required` |
-| `attestation` | `direct` | `none` |
-| `hints` | `["security-key"]` | `[]` (empty) |
-
-### Why These Settings Matter
+### Registration Settings
 
 - **`authenticatorAttachment`**: Determines whether to use a roaming authenticator (USB key) or platform authenticator (built-in to device/browser)
 - **`residentKey: required`**: Ensures the credential is discoverable (a "passkey")
