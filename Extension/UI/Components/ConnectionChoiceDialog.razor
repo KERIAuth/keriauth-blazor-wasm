@@ -15,35 +15,30 @@
         <MudText Typo="Typo.body1" Class="mb-3 mt-3">
             To connect your active profile (above) with another party, each side must:
         </MudText>
-
-        <MudText Typo="Typo.body1" Class="mb-3 mt-3">
-            1) share their introduction (as a string or QR code), and
-        </MudText>
-
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <MudButton OnClick="SelectInvite"
-            Variant="Variant.Outlined"
-            Color="Color.Primary"
-            Style="margin-left: 16px; text-transform: none;">
-            Share my introduction
-        </MudButton>
-        </div>
-
-        <MudText Typo="Typo.body1" Class="mb-3 mt-3">
-            2) get and resolve the other's introduction.
-        </MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            A new outbound connection will then appear in your Connections list.
-        </MudText>
-        
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-        <MudButton OnClick="SelectReceive"
-            Variant="Variant.Outlined"
-            Color="Color.Primary"
-            Style="margin-left: 16px; text-transform: none;">
-            Get and resolve their introduction
-        </MudButton>
-        </div>
+        <ul style="margin: 0; padding-left: 20px;">
+            <li class="mt-2">
+                <MudStack Row="true" AlignItems="AlignItems.End" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+                    <MudText Typo="Typo.body1" Style="flex: 1 1 auto; ">share their introduction (as a string or QR code), and</MudText>
+                    <MudButton OnClick="SelectInvite"
+                        Variant="Variant.Outlined"
+                        Color="Color.Primary"
+                        Style="text-transform: none; flex-shrink: 0; margin-left: auto;">
+                        Share my introduction
+                    </MudButton>
+                </MudStack>
+            </li>
+            <li class="mt-2">
+                <MudStack Row="true" AlignItems="AlignItems.End" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+                    <MudText Typo="Typo.body1" Style="flex: 1 1 auto;">get and resolve the other's introduction. A new outbound connection will then appear in your Connections list.</MudText>
+                    <MudButton OnClick="SelectReceive"
+                        Variant="Variant.Outlined"
+                        Color="Color.Primary"
+                        Style="text-transform: none; flex-shrink: 0; margin-left: auto;">
+                        Get and resolve their introduction
+                    </MudButton>
+                </MudStack>
+            </li>
+        </ul>
 
     </DialogContent>
     @*

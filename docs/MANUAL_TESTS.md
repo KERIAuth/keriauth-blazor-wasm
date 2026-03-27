@@ -87,7 +87,7 @@
   - [G. Webauthn Authenticator on Different Browsers/Devices](#g-webauthn-authenticator-on-different-browsersdevices)
 - Other
   - Run Developer/PrimeData workflows
-  - Add Contacts/Connections with QR and camera scanning, or webpage-initiated flow
+  - Add Contact with QR and camera scanning, or webpage-initiated flow
   - Grant a credential via ipex from Veridian's cred-issuance-ui
 
 ## Test Environment Setup
