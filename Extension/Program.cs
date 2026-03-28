@@ -121,6 +121,7 @@ builder.Services.AddBrowserExtensionServices();
 builder.Services.AddSingleton<IStorageService, StorageService>();
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
+builder.Services.AddSingleton<ICredentialViewSpecService, CredentialViewSpecService>();
 builder.Services.AddJsBind();
 
 var host = builder.Build();
