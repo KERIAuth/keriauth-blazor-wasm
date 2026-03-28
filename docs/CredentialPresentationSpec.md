@@ -327,40 +327,77 @@ BackgroundWorker.cs
 
 ---
 
-## 8. Implementation Dependencies
+## 8. Implementation Order
 
-Implementation follows a layered dependency order. Each layer builds on the ones below it. Phasing will be determined separately based on these dependencies.
+Implementation follows a dependency order. Each step builds on the ones before it. Steps A and B can run in parallel. All other steps are sequential.
 
-### Layer 1: ACDC in JSON
-- Well-understood structure (§4.2 examples). No new work needed, but serves as the reference for all layers above.
+```
+A (records) ──────┐
+                   ├──→ C (Card component) → D (pages) → E (IsPresentation) → H (TreeView) → F (dialog) → G (E2E)
+B (cache refactor) ┘
+```
 
-### Layer 2: ACDC in RecursiveDictionary
-- Existing implementation. Round-trip fidelity (KERIA → signify-ts → C# → signify-ts → KERIA) is a parallel-track concern (§11.1). Tests needed but not a blocker for view layers.
+### Step A: Record Definitions
+No runtime dependencies. Pure data types.
+- `SchemaIndependentDetail` enum (§12.2)
+- `CredentialFieldSpec` record (§12.3)
+- `CredentialViewSpec` record (§12.4)
+- `CredentialViewOptions` record + `DisplayType` enum (§12.5)
+- `credentialViewSpecs.json` with entries for known schemas (§12.6)
+- Service to load and query view specs by schema SAID (with OOBI-then-fallback for unknown schemas)
 
-### Layer 3: View Definition Records
-- `CredentialViewSpec` and related records (§12.5). Loaded from JSON config file (`Extension/Schemas/credentialViewSpecs.json`). Pure data — no UI, no signify-ts.
+### Step B: CachedCredentials Refactor (§11.2)
+Can run in parallel with Step A.
+- Refactor from single `"rawJson"` key to per-credential keyed by SAID (`"d"` field value)
+- Update `CachedCredentials` model, `AppCache`, all read/write sites
+- **Automated tests immediately after**
 
-### Layer 4: Schema-Dependent View Definitions
-- Per-schema SAID view specs with detail levels 0-9 (§12.5.b). Built on Layer 3 records. Includes fallback for unknown schemas (OOBI resolution, then generic display).
+### Step C: CredentialComponent — Card Mode (§12.7)
+Depends on: A, B.
+- Build `CredentialComponent` as universal wrapper (refactor-first: replaces `CredentialPanelCompact`/`CredentialPanelDetail`)
+- Card sub-component using `CredentialViewSpec` for field display, `CredentialViewOptions` for detail level
+- ViewOptions gear panel (DisplayType, DetailLevel, IsJsonShown)
+- Refactor `CredentialsPage.razor` to use `CredentialComponent` (first adoption)
 
-### Layer 5: Automated Tests
-- Round-trip tests for Layer 2, unit tests for Layers 3-4, component tests for Layer 7.
+### Step D: CredentialPage + TestCredentialPage (§12.7)
+Depends on: C.
+- New `CredentialPage` with navigation from `CredentialsPage` (preserving CredentialSaid + options)
+- `TestCredentialPage` in Developer menu for testing component behavior
+- Migration of other surfaces (WebsiteConfigDisplay, NotificationsPage) can be deferred
 
-### Layer 6: Credential Caching Re-evaluation
-- Re-evaluate `AppCache.Credentials` adequacy for presentation flows. Fresh fetch from KERIA for grant submission; cached data acceptable for selection/preview UI.
+### Step E: IsPresentation + Selective Disclosure UI (§4.3)
+Depends on: C.
+- Add `IsPresentation` mode to `CredentialComponent`
+- oneOf disclosure checkboxes (unchecked/elided by default)
+- Min/Max disclosure presets
+- Elision map output via callback
 
-### Layer 7: Components and Parameters
-- `CredentialComponent` as universal wrapper (refactor-first: replaces existing `CredentialPanelCompact`/`CredentialPanelDetail`). Contains Card or Tree view. Parameters include `IsPresentation`, `DetailLevel`, `DisplayType` (§12.6).
+### Step H: TreeView Component (§12.8)
+Depends on: E.
+- Iterative design with try.mudblazor.com
+- `CredentialTreeComponent` as alternative to Card within `CredentialComponent`
+- Field labels and values as separate columns, adjustable widths
+- `IsPresentation` support: tree nodes for oneOf blocks show disclosure checkboxes
 
-### Layer 8: Pages and Dialogs
-- `GrantPresentationDialog`, `CredentialsPage`, `CredentialPage`, `TestCredentialPage` (§12.6.a-d, §12.6.j). Uses Layer 7 components.
+### Step F: GrantPresentationDialog (§3.2)
+Depends on: H.
+- MudDialog with credential list filtered by schema SAID from apply
+- Single-select → shows `CredentialComponent` with `IsPresentation=true`
+- Grant/Cancel actions
+- Enable "Grant Presentation" button in `NotificationExchangeDetail.razor`
 
-### Layer 9: End-to-End Flows
-- Notification → Grant Presentation pipeline (§7). Port messaging, BackgroundWorker handler, signify-ts grant call.
+### Step G: BackgroundWorker + signify-ts Pipeline (§7.1)
+Depends on: F.
+- `RequestIpexGrantPresentation` message type in `AppBwMessages.cs`
+- `HandleAppRequestIpexGrantPresentationRpcAsync` in `BackgroundWorker.cs`
+- Full disclosure path: wire to existing `PrimeDataService.PresentStep`
+- Selective disclosure path: `ElideAcdc` helper (§4.4), saidify in signify-ts (§4.5 Option C), grant submission
+- Verify `ancAttachment` validity (§10.2)
 
 ### Future (Out of Current Scope)
 - **Offer presentation path**: Apply → Offer → Agree → Grant chain (§2.2)
 - **Content script presentation path**: Credential selection in `RequestApproveIpexPage.razor` (§1.3)
+- **Request Tree display**: Structured `/ipex/apply` display (§6.1) — raw JSON for now
 
 ---
 
