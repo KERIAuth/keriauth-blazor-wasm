@@ -155,14 +155,18 @@ Elided (attributes and rules compacted, edges disclosed):
 }
 ```
 
-### 4.3 `AllowElision` Parameter
+### 4.3 Elision Controls via `IsPresentation`
 
-Card View and Tree View components receive a `bool AllowElision` parameter:
+`IsPresentation` implies elision controls — there is no separate `AllowElision` parameter.
 
-- **When `true`**: Display a checkbox on each `oneOf` block. The checkbox label is "Disclose".
+When `IsPresentation = true` on a CredentialComponent:
+- Display a checkbox on each `oneOf` block. The checkbox label is "Disclose".
   - **Unchecked (default)**: Section is elided. Display: section label + SAID string (e.g., "Attributes: EML-cMWn9...")
   - **Checked**: Section is fully disclosed. Display: full section contents.
-- **When `false`**: No checkboxes shown; sections displayed as-is (read-only view).
+- Disclosure presets: "Max" button checks all disclosure checkboxes; "Min" button unchecks all (see §12.6.g).
+
+When `IsPresentation = false`:
+- No checkboxes shown; sections displayed as-is (read-only view).
 
 ### 4.4 C# Elision Helper
 
@@ -208,9 +212,9 @@ Reuses `CredentialPanelCompact` with:
 - Background color keyed by schema SAID
 - Selection highlighting (`IsSelected` state)
 
-### 5.2 AllowElision Mode
+### 5.2 Presentation Mode
 
-When `AllowElision = true`, each `oneOf` section in the selected credential displays:
+When `IsPresentation = true`, each `oneOf` section in the selected credential displays:
 - A `MudCheckBox` labeled "Disclose"
 - Unchecked (default/elided): shows section label + SAID
 - Checked (disclosed): shows full section contents
@@ -228,7 +232,7 @@ Tree view details will be defined in a future iteration. Placeholder requirement
 ### 6.2 Response Tree
 - Structured display of the contemplated `/ipex/grant` credential presentation
 - Per-section disclosure state (elided vs. disclosed)
-- Receives `AllowElision` parameter for interactive disclosure toggles
+- Receives `IsPresentation` parameter for interactive disclosure toggles
 
 ### 6.3 Implementation Notes
 - When elided: show section label + SAID
@@ -299,7 +303,7 @@ NotificationsPage.razor
   ├── Opens GrantPresentationDialog (MudDialog)                          [NEW]
   │   ├── Filters credentials by schema SAID from apply
   │   ├── User selects credential
-  │   ├── User configures disclosure (AllowElision checkboxes)
+  │   ├── User configures disclosure (IsPresentation checkboxes)
   │   └── User clicks "Grant"
   ├── appBwPortService.SendRpcRequestAsync(
   │     RequestIpexGrantPresentation,                                    [NEW message type]
@@ -327,32 +331,40 @@ BackgroundWorker.cs
 
 ---
 
-## 8. Implementation Phases
+## 8. Implementation Dependencies
 
-### Phase 1: Full Disclosure Grant from Notification Page
-1. Enable "Grant Presentation" button in `NotificationExchangeDetail.razor`
-2. Create `GrantPresentationDialog.razor` (MudDialog) with credential selection
-3. Add `GrantPresentationFromApply` handler in `NotificationsPage.razor`
-4. Add `RequestIpexGrantPresentation` message type in `AppBwMessages.cs`
-5. Add `HandleAppRequestIpexGrantPresentationRpcAsync` in `BackgroundWorker.cs`
-6. Wire to existing `PrimeDataService.PresentStep` / `GrantReceivedCredential`
+Implementation follows a layered dependency order. Each layer builds on the ones below it. Phasing will be determined separately based on these dependencies.
 
-### Phase 2: Selective Disclosure
-1. Add `ElideAcdc` helper to `CredentialHelper.cs`
-2. Create or modify TS function for granting with elided ACDC
-3. Add `AllowElision` parameter to Card/Tree view components
-4. Add disclosure toggle checkboxes (per `oneOf` section) to `GrantPresentationDialog`
-5. Pass elision map through port messaging to BackgroundWorker
-6. Verify SAID consistency under elision using `Saider.verify`
+### Layer 1: ACDC in JSON
+- Well-understood structure (§4.2 examples). No new work needed, but serves as the reference for all layers above.
 
-### Phase 3: Offer Presentation Path (Future)
-- Enable "Offer Presentation" button
-- Create offer-specific dialog and handler
-- Wire offer → agree → grant chain for presentation
+### Layer 2: ACDC in RecursiveDictionary
+- Existing implementation. Round-trip fidelity (KERIA → signify-ts → C# → signify-ts → KERIA) is a parallel-track concern (§11.1). Tests needed but not a blocker for view layers.
 
-### Phase 4: Content Script Presentation Path (Future — Out of Scope)
-- Add credential selection to `RequestApproveIpexPage.razor` for presentation applies
-- Wire through BackgroundWorker with credential SAID + elision map
+### Layer 3: View Definition Records
+- `CredentialViewSpec` and related records (§12.5). Loaded from JSON config file (`Extension/Schemas/viewSpecs.json`). Pure data — no UI, no signify-ts.
+
+### Layer 4: Schema-Dependent View Definitions
+- Per-schema SAID view specs with detail levels 0-9 (§12.5.b). Built on Layer 3 records. Includes fallback for unknown schemas (OOBI resolution, then generic display).
+
+### Layer 5: Automated Tests
+- Round-trip tests for Layer 2, unit tests for Layers 3-4, component tests for Layer 7.
+
+### Layer 6: Credential Caching Re-evaluation
+- Re-evaluate `AppCache.Credentials` adequacy for presentation flows. Fresh fetch from KERIA for grant submission; cached data acceptable for selection/preview UI.
+
+### Layer 7: Components and Parameters
+- `CredentialComponent` as universal wrapper (refactor-first: replaces existing `CredentialPanelCompact`/`CredentialPanelDetail`). Contains Card or Tree view. Parameters include `IsPresentation`, `DetailLevel`, `DisplayType` (§12.6).
+
+### Layer 8: Pages and Dialogs
+- `GrantPresentationDialog`, `CredentialsPage`, `CredentialPage`, `TestCredentialPage` (§12.6.a-d, §12.6.j). Uses Layer 7 components.
+
+### Layer 9: End-to-End Flows
+- Notification → Grant Presentation pipeline (§7). Port messaging, BackgroundWorker handler, signify-ts grant call.
+
+### Future (Out of Current Scope)
+- **Offer presentation path**: Apply → Offer → Agree → Grant chain (§2.2)
+- **Content script presentation path**: Credential selection in `RequestApproveIpexPage.razor` (§1.3)
 
 ---
 
@@ -387,7 +399,7 @@ Note the prior statements may be insufficient to handle nested blocks of attribu
 
 4. **Multi-credential presentation**: Some verifier requests may need multiple credentials. The current flow supports single-credential selection. Does IPEX support multi-credential grants in a single exchange?
 
-5. **Schema resolution for unknown schemas**: If the apply requests a schema SAID not in `schemas.json`, the extension can still filter by raw SAID but cannot display schema metadata. Should OOBI resolution be attempted automatically?
+5. **Schema resolution for unknown schemas**: If the apply requests a schema SAID not in `schemas.json`, the extension should attempt OOBI resolution first; if that fails, fall back to generic all-fields display using field key names as labels.
 
 6. **Reject/Spurn**: The "Reject" button is a disabled stub. IPEX does not define a formal rejection message. Should the extension support an explicit rejection signal, or is non-response sufficient?
 
@@ -406,47 +418,134 @@ Note the prior statements may be insufficient to handle nested blocks of attribu
 
 ---
 
-# 12. Common conversions
+# 12. Record Definitions and Component Architecture
 
-1. credential type per schema name vs a friendly, abreviated name
+## 12.1 Common Conversions
 
-2. Level of presented detail options
+1. **Credential type labels**: Schema name mapped to a friendly, abbreviated name (e.g., "Legal Entity vLEI Credential" → "LE vLEI").
+2. **Detail level**: Integer 0-9 controlling how much is shown. Cosmetic only — does not affect what is sent in a grant.
+3. **Default presentation** (when not further constrained):
+   a. Field order per credential ACDC structure
+   b. Field labels from schema `description` property (if available) or field key name
+   c. Date values formatted as `YYYY-MM-DD HH:mm UTC` (determined by schema `format: "date-time"`)
 
-3. default presentation if not further specified or constrained:
-   a. order per credential ACDC
-   b. attribute (field) labels per schema (if available) or field name (key)
-   c. data types determined by schema, especially important for Date presented in UI, which should YYYY-MM-DD HH:mm UTC
+## 12.2 SchemaIndependentDetail Enum
 
-4. pre-configured CredViewSpec definitions
-   a. predefined selected common fields (e.g. schema title)
-   b. attributes
-   c. edges
-   d. rules
+```csharp
+/// Corresponds to ACDC top-level keys that are schema-independent boilerplate.
+/// Used to hide fields from display (cosmetic only).
+public enum SchemaIndependentDetail { V, D, I, Ri, S, E, R }
+```
 
-5. pre-configured CredViewSpec definitions for known credential schemas:
-  a. (per schema SAID)
-  b. for a defined detail level (0 to 9) where 0 is most summary and 9 is most detailed.  A "CredentialViewSpec" is a record that will contain these definitions.  "0" means those fields specified are always shown.  "5" means those fields are shown when the user's desired detail is 5 or greater.
-  c. A CredenialViewSpec may provide an alternate label than the default based on the schema's field description.
-  b. The CredentialViewSpec shall define what is displayed in the components for CredentialCard (summary or expanded mode) and CredentialTree.
+Mapping: `V` → `"v"`, `D` → `"d"`, `I` → `"i"`, `Ri` → `"ri"`, `S` → `"s"`, `E` → `"e"`, `R` → `"r"`.
 
-6. Page and Component Containment
-  1. Top-level containers:  
-      a. CredentialsPage contains a List<CredentialComponent>
-      b. CredentialPage contains a CredentialComponent
-      c. CredentialDialog contains a CredentialComponent
-      d. A NotificationCard contains a CredentialComponent
-      e. CredentialComponent can contain either a:
-          1. CredentialCardComponent, which may include a CredentialCardSummaryComponent and CredentialCardDetailComponent.
-          2. CredentialTreeComponent
-      f. CredentialComponent will contain a ViewOptions section that when collapsed, just appears as a "Gear" icon.  When expanded, it includes options, including `enum DisplayType {Card, Tree}`, `int DetailLevel` (0 to 9), `bool IsPresentation`, `bool IsAidPrefixDisplay` (indicating whether AIDs are shown as strings or using that display component), `List<string>? PreselectedPresentationPaths` (indicating the initial presentation "oneOf" blocks to be selected).
-      g. When IsPresentation is true and ViewOptions are shown, a section is show that includes: Label "Disclosure preset", Button "Max" and Button "Min".  When Min is pressed, its all the "oneOf" minimal oneOf blocks (e.g. SAID) are auto-selected for presentation; and when Max is pressed, the detailed oneOf blocks are auto-selected for presentation.
-      h. CredentialComponent has parameters, including the CredentialSaid, and for the initial view options, including DisplayType, DisplayLevel, and IsJsonShown.
-      i. When CredentialComponent parameters include IsPresentation=true, a callback provide a mechanism for the presentation results to be handled.
-      j. A TestCredentialPage will be available from the Developers secion of the menu.
+## 12.3 CredentialFieldSpec Record
 
-7. TreeView Component
-  a. This view sill need a lot of interactive UX specification discussion with the user-developer for clarity.
-  b. The field values and labels should be shown as separate columns in each tree-row.  The column widths should be adjustable.
+Defines how a single credential field is displayed at a given detail level.
+
+```csharp
+/// Specifies display properties for one field within a credential view.
+public record CredentialFieldSpec(
+    string Path,             // Dot-separated path in ACDC (e.g., "a.LEI", "e.qvi.n")
+    int MinDetailLevel,      // Field shown when user's detail level >= this value (0 = always shown)
+    string? Label = null,    // Override label (null = use schema description or field key)
+    string? Format = null    // Override format (null = use schema format or raw string)
+);
+```
+
+## 12.4 CredentialViewSpec Record
+
+Defines the complete view specification for a credential schema at all detail levels.
+
+```csharp
+/// View specification for a credential schema. Loaded from viewSpecs.json.
+public record CredentialViewSpec(
+    string SchemaSaid,                       // Schema SAID this spec applies to
+    string ShortName,                        // Abbreviated display name (e.g., "LE vLEI")
+    List<CredentialFieldSpec> Fields,         // Field display specs, ordered by display position
+    List<SchemaIndependentDetail>? HiddenDetails = null  // Top-level keys hidden by default
+);
+```
+
+**Detail level behavior**: A field with `MinDetailLevel = 0` is always shown. A field with `MinDetailLevel = 5` is shown only when the user's `DetailLevel >= 5`. Level 9 shows everything.
+
+**Fallback for unknown schemas**: If no `CredentialViewSpec` exists for a schema SAID, attempt OOBI resolution first. If that fails, generate a generic spec showing all fields at all detail levels using field key names as labels.
+
+## 12.5 ViewOptions Record
+
+Runtime state for how a CredentialComponent renders its credential.
+
+```csharp
+/// Runtime display options for a CredentialComponent.
+public record ViewOptions(
+    DisplayType DisplayType = DisplayType.Card,   // Card or Tree
+    int DetailLevel = 5,                          // 0 (most summary) to 9 (most detailed)
+    bool IsPresentation = false,                  // When true: enables elision controls and disclosure presets
+    bool IsAidPrefixDisplay = true,               // When true: AIDs shown via display component; false: raw string
+    bool IsJsonShown = false,                      // When true: show raw JSON expansion panel
+    List<string>? PreselectedPresentationPaths = null  // Initial oneOf paths pre-selected for disclosure
+);
+
+public enum DisplayType { Card, Tree }
+```
+
+**`IsPresentation` implies elision controls**: When `true`, oneOf blocks show "Disclose" checkboxes (unchecked/elided by default), and the ViewOptions panel includes disclosure presets (Min/Max buttons). When `false`, no checkboxes or presets are shown.
+
+**`PreselectedPresentationPaths`**: Optional list of ACDC section paths (e.g., `["a", "e"]`) that should start with "Disclose" checked. Null means all elided (minimum disclosure). Used when a caller wants to pre-configure disclosure, e.g., from an apply's attribute filter.
+
+## 12.6 ViewSpecs JSON Configuration
+
+Loaded from `Extension/Schemas/viewSpecs.json`. Example structure:
+
+```json
+{
+  "viewSpecs": [
+    {
+      "schemaSaid": "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
+      "shortName": "LE vLEI",
+      "fields": [
+        { "path": "a.LEI", "minDetailLevel": 0, "label": "LEI" },
+        { "path": "a.i", "minDetailLevel": 3, "label": "Issuee" },
+        { "path": "a.dt", "minDetailLevel": 3, "label": "Issued", "format": "date-time" },
+        { "path": "e.qvi.n", "minDetailLevel": 5, "label": "QVI Credential" },
+        { "path": "e.qvi.s", "minDetailLevel": 7, "label": "QVI Schema" },
+        { "path": "r.usageDisclaimer.l", "minDetailLevel": 7, "label": "Usage Disclaimer" },
+        { "path": "r.issuanceDisclaimer.l", "minDetailLevel": 7, "label": "Issuance Disclaimer" }
+      ],
+      "hiddenDetails": ["V", "D", "Ri", "S"]
+    }
+  ]
+}
+```
+
+## 12.7 Component Containment Hierarchy
+
+### Top-Level Containers
+a. **CredentialsPage** — contains a `List<CredentialComponent>`
+b. **CredentialPage** — contains a single `CredentialComponent`
+c. **CredentialDialog** (e.g., `GrantPresentationDialog`) — contains a `CredentialComponent`
+d. **NotificationCard** — contains a `CredentialComponent`
+e. **TestCredentialPage** — available from the Developer section of the menu, for testing component behavior
+
+### CredentialComponent (Universal Wrapper)
+- **Parameters**: `CredentialSaid`, initial `ViewOptions` (DisplayType, DetailLevel, IsJsonShown, IsPresentation)
+- **Contains either**:
+  1. `CredentialCardComponent` (which may include summary and detail sub-components)
+  2. `CredentialTreeComponent`
+- **ViewOptions panel**: Collapsed = gear icon; expanded = full options including DisplayType, DetailLevel, IsPresentation toggles
+- **When `IsPresentation = true`**: Shows disclosure preset section with "Max" and "Min" buttons (§4.3), and a callback for returning the presentation result (elision map + credential SAID)
+
+### Refactor-First Strategy
+CredentialComponent is built as the **universal replacement** for existing `CredentialPanelCompact` and `CredentialPanelDetail` components. All existing credential display surfaces (CredentialsPage, WebsiteConfigDisplay, NotificationsPage) will be migrated to use CredentialComponent.
+
+## 12.8 TreeView Component (UX TBD)
+
+Detailed UX for the tree view will be determined through interactive discussion with the user-developer. Initial requirements:
+
+a. Field labels and values shown as **separate columns** in each tree row
+b. Column widths should be **adjustable**
+c. Candidate MudBlazor component: `MudTreeView` with custom `TreeItemData<string>` (see §6.3 for example code)
+d. When `IsPresentation = true`: tree nodes for oneOf blocks show disclosure checkboxes
 
 
 
