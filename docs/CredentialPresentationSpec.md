@@ -57,18 +57,9 @@ The holder selects a credential, configures selective disclosure, and grants it 
 - **Full disclosure**: Uses the existing `grantReceivedCredential` TypeScript function, wired through `SignifyClientService.GrantReceivedCredential` → `PrimeDataService.PresentStep`. This fetches the credential by SAID from KERIA, wraps `sad`/`anc`/`iss` in `Serder`, and calls `ipex.grant()` + `submitGrant()`.
 - **Selective disclosure**: Replaces ACDC section objects with their SAID strings before granting. See [Section 4](#4-selective-disclosure) for details.
 
-### 2.2 Offer Path (Sketched — Future)
+### 2.2 Offer Path (Future — Not Implemented)
 
-**Flow: Apply → Offer → Agree → Grant**
-
-The offer path lets the holder preview what they will disclose before committing. The verifier sees the proposed disclosure and responds with an agree, after which the holder sends the final grant.
-
-**Data model differences from grant:**
-- The offer message embeds the same ACDC structure (potentially elided) as the grant would
-- The offer uses `ipexOfferAndSubmit` instead of `ipexGrantAndSubmit`
-- After the verifier's agree, the holder issues the grant referencing the agree SAID
-
-Full UI and handler design for the offer presentation path is deferred to a future spec revision.
+The offer path (Apply → Offer → Agree → Grant) is out of scope. Only the direct grant path (Apply → Grant) is supported. The "Offer Presentation" button is removed from the UI. If the offer path is needed in the future, it would embed the same ACDC structure (potentially elided) as the grant, using `ipexOfferAndSubmit` instead of `ipexGrantAndSubmit`.
 
 ### 2.3 Elision Map Data Model
 
@@ -96,10 +87,9 @@ When the user clicks "Grant Presentation" on an apply notification:
 
 The "Grant Presentation" button opens a `MudDialog` directly (no intermediate confirmation step). The dialog contains:
 
-1. **Credential list**: Filtered credentials displayed as `CredentialPanelCompact` cards
-2. **Selection**: Single-select — user taps a card to select it
-3. **Disclosure configuration**: Per-section elision controls (see [Section 4](#4-selective-disclosure))
-4. **Action buttons**: "Grant" (submit) and "Cancel"
+1. **Credential list**: Filtered credentials displayed as `CredentialComponent` cards
+2. **Selection**: Single-select — user taps a card to select it. On selection, the dialog shows the full `CredentialComponent` for the selected credential with `IsPresentation=true`. Disclosure configuration (oneOf checkboxes, Min/Max presets) is handled by the `CredentialComponent` itself (see §4, §12.7).
+3. **Action buttons**: "Grant" (submit) and "Cancel"
 
 ### 3.3 Empty State
 
@@ -183,22 +173,26 @@ For each section key in the elision map where value is `false`:
 2. Read its `d` field (the section's SAID)
 3. Replace the section in the ACDC with the SAID string via `fullAcdc.SetByPath(sectionKey, saidString)`
 
+**Important**: After elision, the top-level digest (`d`) must be recomputed. The elided ACDC is a newly constructed, fully valid ACDC with a distinct top-level `d` value computed via a saidify function. This helper constructs the elided structure; the top-level `d` computation may happen here (if feasible in C#) or be delegated to signify-ts (see §4.5 Option C).
+
 ### 4.5 TypeScript Grant Function
 
-For selective disclosure grants, either:
-- **Option A**: Modify `ipexGrantAndSubmit` to accept a pre-elided ACDC dict (verify `new Serder(elidedAcdc)` handles mixed-type dicts with string sections)
-- **Option B**: Create a new `grantWithElidedAcdc` function that accepts the elided ACDC + original `anc`/`iss`/`ancatc`
+For selective disclosure grants, three options:
+- **Option A**: Modify `ipexGrantAndSubmit` to accept a pre-elided ACDC dict with top-level `d` already recomputed in C# (verify `new Serder(elidedAcdc)` handles mixed-type dicts with string sections)
+- **Option B**: Create a new `grantWithElidedAcdc` function that accepts the elided ACDC + original `anc`/`iss`/`ancatc`, and recomputes the top-level `d` in TypeScript via `Saider.saidify`
+- **Option C** (preferred): Construct the elided ACDC structure in C# (§4.4), then pass it to signify-ts for saidify (top-level `d` recomputation) and grant submission. This splits the work: C# handles the structural transformation, signify-ts handles the cryptographic digest and protocol submission. Low risk because signify-ts saidify is well-tested.
 
-Decision deferred to implementation; both options are viable.
+Decision deferred to implementation. Option C is preferred if the C#-to-TS handoff is clean. Reference: signify-ts and/or KERIA source code contain test scripts for saidify that may clarify the exact function signature and behavior.
 
 ### 4.6 Open Research: SAID Consistency Under Elision
 
-When sections are replaced with their SAIDs, the top-level ACDC SAID (`d` field) may or may not remain valid depending on how the ACDC spec defines SAID computation:
+An elided ACDC is a **newly constructed ACDC** with a distinct top-level `d` value. The top-level `d` must be recomputed (via saidify) after sections are replaced with their SAIDs. This means:
 
-- **If SAID is computed over the compact form**: Elision preserves the root SAID. This is the expected ACDC behavior.
-- **If SAID is computed over the expanded form**: Elision changes the structure and invalidates the root SAID.
+- The elided ACDC's top-level `d` will **differ** from the original credential's `d`
+- The section SAIDs (e.g., `a.d`, `e.d`, `r.d`) remain unchanged — they are the same whether the section is expanded or compacted
+- The `anc`, `iss`, and `ancatc` from the original credential reference the original `d` — their validity for an elided ACDC with a different top-level `d` needs verification
 
-signify-ts `Saider.verify(sad)` can be used to validate. This must be verified before implementing Phase 2.
+signify-ts `Saider.saidify(sad)` computes the digest. `Saider.verify(sad)` validates consistency. Test scripts in the signify-ts and/or KERIA source code may provide concrete examples of elided grant construction.
 
 ---
 
@@ -206,11 +200,13 @@ signify-ts `Saider.verify(sad)` can be used to validate. This must be verified b
 
 ### 5.1 Credential Selection List
 
-Reuses `CredentialPanelCompact` with:
+Uses `CredentialComponent` (Card mode) with:
 - Schema title (from `SchemaService`)
 - Distinguishing attribute per credential type (LEI, role, name)
 - Background color keyed by schema SAID
 - Selection highlighting (`IsSelected` state)
+
+Note: The existing distinction between `CredentialPanel`, `CredentialPanelCompact`, and `CredentialPanelDetail` is awkward, particularly on `NotificationsPage` with its lazy initialization. First priority is clean presentation on `CredentialsPage.razor` using the new `CredentialComponent`. NotificationsPage migration can be deferred.
 
 ### 5.2 Presentation Mode
 
@@ -225,9 +221,9 @@ When `IsPresentation = true`, each `oneOf` section in the selected credential di
 
 Tree view details will be defined in a future iteration. Placeholder requirements:
 
-### 6.1 Request Tree
-- Structured display of the `/ipex/apply` content
-- Verifier AID, requested schema, attribute filters
+### 6.1 Request Tree (Future)
+- **Deferred**: An `/ipex/apply` is not a complete or valid credential, so it requires special presentation considerations. For now, requests are presented to the user as raw JSON. Structured request display should be addressed after all other work in this specification is completed.
+- When implemented: Verifier AID, requested schema, attribute filters
 
 ### 6.2 Response Tree
 - Structured display of the contemplated `/ipex/grant` credential presentation
@@ -327,7 +323,7 @@ BackgroundWorker.cs
 - The App (Blazor WASM) and BackgroundWorker are separate .NET runtimes
 - Credential data (`RecursiveDictionary`) preserves field ordering across the port boundary for CESR/SAID integrity
 - Elision logic can run in either runtime, but the signify-ts call MUST happen in BackgroundWorker (where the client session lives)
-- The credential SAID (not the full credential) is passed across the port boundary; BackgroundWorker fetches the credential fresh from KERIA for the grant
+- Currently, BackgroundWorker fetches the credential fresh from KERIA for the grant. If RecursiveDictionary round-trip fidelity is confirmed (§11.1), the cached credential could be passed across the port boundary instead, avoiding the extra KERIA fetch. This is a known risk to defer — as long as one correct path (fresh fetch or cached) is testable at each step.
 
 ---
 
@@ -342,7 +338,7 @@ Implementation follows a layered dependency order. Each layer builds on the ones
 - Existing implementation. Round-trip fidelity (KERIA → signify-ts → C# → signify-ts → KERIA) is a parallel-track concern (§11.1). Tests needed but not a blocker for view layers.
 
 ### Layer 3: View Definition Records
-- `CredentialViewSpec` and related records (§12.5). Loaded from JSON config file (`Extension/Schemas/viewSpecs.json`). Pure data — no UI, no signify-ts.
+- `CredentialViewSpec` and related records (§12.5). Loaded from JSON config file (`Extension/Schemas/credentialViewSpecs.json`). Pure data — no UI, no signify-ts.
 
 ### Layer 4: Schema-Dependent View Definitions
 - Per-schema SAID view specs with detail levels 0-9 (§12.5.b). Built on Layer 3 records. Includes fallback for unknown schemas (OOBI resolution, then generic display).
@@ -368,52 +364,40 @@ Implementation follows a layered dependency order. Each layer builds on the ones
 
 ---
 
-## 9. TBD — Future: HideSchemaIndependentDetails
+## 9. Obsolete
 
-Card View and Tree View will receive an optional parameter:
-
-```csharp
-List<SchemaIndependentDetail>? HideSchemaIndependentDetails
-```
-
-Where `SchemaIndependentDetail` is an enum:
-
-```csharp
-public enum SchemaIndependentDetail { V, D, I, Ri, S, E, R }
-```
-
-Corresponding to ACDC top-level keys: `"v"`, `"d"`, `"i"`, `"ri"`, `"s"`, `"e"`, `"r"`.
-
-When a key is in the list, that field is hidden from the display. This is **cosmetic only** — it does not affect what gets sent in the grant. The purpose is to declutter the credential view by hiding boilerplate fields that are not meaningful to end users.
+Content moved to §12.2 (`SchemaIndependentDetail` enum) and §12.4 (`CredentialViewSpec.HiddenDetails` field).
 
 ---
 
 ## 10. Open Questions / Research Items
 
-1. **SAID consistency under elision**: Does the top-level ACDC `d` remain valid when sections are compacted to their SAIDs? The ACDC spec implies yes (SAID computed over compact form), but this must be verified against signify-ts `Saider.saidify` behavior, which appears to compute over the expanded form.
+1. ~~SAID consistency under elision~~ — **Obsolete**. Addressed in §4.4, §4.5, §4.6.
 
 2. **`ancAttachment` validity for elided ACDCs**: When presenting an elided ACDC, are the `anc`, `iss`, and `ancatc` fields from the original credential still valid? These are issuance proofs that reference the full credential.
 
 3. **Individual attribute-level elision**: The current design supports section-level elision only (all of `a`, `e`, or `r`). Individual attribute elision within a section would require SAID recomputation and is deferred to a future phase.
 Note the prior statements may be insufficient to handle nested blocks of attributes (`a`), edges (`e`), or rules (`r`). TODO: review the sample GLEIF acdc schemas or instance files (user to provide URL) and check for examples of attribute nesting.
 
-4. **Multi-credential presentation**: Some verifier requests may need multiple credentials. The current flow supports single-credential selection. Does IPEX support multi-credential grants in a single exchange?
+4. ~~Multi-credential presentation~~ — **Obsolete**. IPEX does not support multi-credential grants (other than chained credentials via edges `e`).
 
-5. **Schema resolution for unknown schemas**: If the apply requests a schema SAID not in `schemas.json`, the extension should attempt OOBI resolution first; if that fails, fall back to generic all-fields display using field key names as labels.
+5. ~~Schema resolution for unknown schemas~~ — **Obsolete**. Incorporated into §12.4 (OOBI resolution first, then generic fallback).
 
-6. **Reject/Spurn**: The "Reject" button is a disabled stub. IPEX does not define a formal rejection message. Should the extension support an explicit rejection signal, or is non-response sufficient?
+6. ~~Reject/Spurn~~ — **Obsolete**. Deferred to a separate backlog item.
 
 ---
 
-## 11. Unsorted User Experience Requirements and Design Idea Discussions
+## 11. Implementation Notes
 
-1. Need to test or enhance the serialization/deserialization of an ACDC with RecursiveDictionary or other structure so that it is lossless to-from typescript and json from/to signify-ts module.  RecursiveDictionary structure might not be sufficiently hardenened in a way that guarantees the calculation of a SAID will still be accurate after the path of KERIA->signify-ts->C#->signify-ts->KERIA.
+1. ~~RecursiveDictionary round-trip fidelity~~ — **Obsolete**. Addressed in §4.4, §4.5, §4.6, and §7.2.
 
-2. Automated tests
+2. **CachedCredentials refactor**: The current `StorageArea.Session` `CachedCredentials` stores all credentials under a single `"rawJson"` key. Refactor to a collection (array/dictionary) where each credential is keyed by its SAID (`"d"` field value). This makes individual credential lookup more convenient and avoids re-parsing the entire list. Affects `CachedCredentials` model, `AppCache`, and any code that reads/writes cached credentials. **Automated tests must be written and executed immediately after this refactor.**
 
-3. Manual tests (enhance existing MANUAL_TESTS.md)
+3. Automated tests
 
-4. New UX componentry desired
+4. ~~New UX componentry desired~~ — **Obsolete**. Covered by §12.7 (component containment hierarchy) and §12.8 (TreeView).
+
+5. Manual tests (enhance existing MANUAL_TESTS.md)
 
 
 ---
@@ -434,10 +418,11 @@ Note the prior statements may be insufficient to handle nested blocks of attribu
 ```csharp
 /// Corresponds to ACDC top-level keys that are schema-independent boilerplate.
 /// Used to hide fields from display (cosmetic only).
-public enum SchemaIndependentDetail { V, D, I, Ri, S, E, R }
+/// Underscore prefix preserves the original key casing for readability.
+public enum SchemaIndependentDetail { _v, _d, _i, _ri, _s, _e, _r }
 ```
 
-Mapping: `V` → `"v"`, `D` → `"d"`, `I` → `"i"`, `Ri` → `"ri"`, `S` → `"s"`, `E` → `"e"`, `R` → `"r"`.
+Mapping: `_v` → `"v"`, `_d` → `"d"`, `_i` → `"i"`, `_ri` → `"ri"`, `_s` → `"s"`, `_e` → `"e"`, `_r` → `"r"`.
 
 ## 12.3 CredentialFieldSpec Record
 
@@ -451,6 +436,9 @@ public record CredentialFieldSpec(
     string? Label = null,    // Override label (null = use schema description or field key)
     string? Format = null    // Override format (null = use schema format or raw string)
 );
+// Known issue: schema collections (e.g., a list of prior names for a credential holder)
+// are not yet handled by CredentialFieldSpec. Path-based access assumes scalar values.
+// Collection rendering will need its own treatment when encountered.
 ```
 
 ## 12.4 CredentialViewSpec Record
@@ -458,7 +446,7 @@ public record CredentialFieldSpec(
 Defines the complete view specification for a credential schema at all detail levels.
 
 ```csharp
-/// View specification for a credential schema. Loaded from viewSpecs.json.
+/// View specification for a credential schema. Loaded from credentialViewSpecs.json.
 public record CredentialViewSpec(
     string SchemaSaid,                       // Schema SAID this spec applies to
     string ShortName,                        // Abbreviated display name (e.g., "LE vLEI")
@@ -471,13 +459,13 @@ public record CredentialViewSpec(
 
 **Fallback for unknown schemas**: If no `CredentialViewSpec` exists for a schema SAID, attempt OOBI resolution first. If that fails, generate a generic spec showing all fields at all detail levels using field key names as labels.
 
-## 12.5 ViewOptions Record
+## 12.5 CredentialViewOptions Record
 
 Runtime state for how a CredentialComponent renders its credential.
 
 ```csharp
 /// Runtime display options for a CredentialComponent.
-public record ViewOptions(
+public record CredentialViewOptions(
     DisplayType DisplayType = DisplayType.Card,   // Card or Tree
     int DetailLevel = 5,                          // 0 (most summary) to 9 (most detailed)
     bool IsPresentation = false,                  // When true: enables elision controls and disclosure presets
@@ -495,7 +483,7 @@ public enum DisplayType { Card, Tree }
 
 ## 12.6 ViewSpecs JSON Configuration
 
-Loaded from `Extension/Schemas/viewSpecs.json`. Example structure:
+Loaded from `Extension/Schemas/credentialViewSpecs.json`. Example structure:
 
 ```json
 {
@@ -504,15 +492,16 @@ Loaded from `Extension/Schemas/viewSpecs.json`. Example structure:
       "schemaSaid": "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
       "shortName": "LE vLEI",
       "fields": [
-        { "path": "a.LEI", "minDetailLevel": 0, "label": "LEI" },
+        { "path": "a.LEI", "minDetailLevel": 0 },
         { "path": "a.i", "minDetailLevel": 3, "label": "Issuee" },
-        { "path": "a.dt", "minDetailLevel": 3, "label": "Issued", "format": "date-time" },
-        { "path": "e.qvi.n", "minDetailLevel": 5, "label": "QVI Credential" },
-        { "path": "e.qvi.s", "minDetailLevel": 7, "label": "QVI Schema" },
+        { "path": "a.dt", "minDetailLevel": 3 },
+        { "path": "a.dt", "minDetailLevel": 5, "label": "Issued", "format": "date-time" },
+        { "path": "e.qvi.n", "minDetailLevel": 5 },
+        { "path": "e.qvi.s", "minDetailLevel": 7 },
         { "path": "r.usageDisclaimer.l", "minDetailLevel": 7, "label": "Usage Disclaimer" },
-        { "path": "r.issuanceDisclaimer.l", "minDetailLevel": 7, "label": "Issuance Disclaimer" }
+        { "path": "r.issuanceDisclaimer.l", "minDetailLevel": 7 }
       ],
-      "hiddenDetails": ["V", "D", "Ri", "S"]
+      "hiddenDetails": ["_v", "_d", "_ri", "_s"]
     }
   ]
 }
@@ -527,6 +516,11 @@ c. **CredentialDialog** (e.g., `GrantPresentationDialog`) — contains a `Creden
 d. **NotificationCard** — contains a `CredentialComponent`
 e. **TestCredentialPage** — available from the Developer section of the menu, for testing component behavior
 
+### CredentialPage (New)
+- A new page whose main content is a `CredentialComponent`
+- Receives the same parameters as `CredentialComponent` (especially `CredentialSaid`, plus initial `CredentialViewOptions`)
+- **Navigation**: From an individual `CredentialComponent` on `CredentialsPage`, the user can navigate to `CredentialPage` with the same parameters (preserving CredentialSaid, DisplayType, DetailLevel, etc.)
+
 ### CredentialComponent (Universal Wrapper)
 - **Parameters**: `CredentialSaid`, initial `ViewOptions` (DisplayType, DetailLevel, IsJsonShown, IsPresentation)
 - **Contains either**:
@@ -540,7 +534,7 @@ CredentialComponent is built as the **universal replacement** for existing `Cred
 
 ## 12.8 TreeView Component (UX TBD)
 
-Detailed UX for the tree view will be determined through interactive discussion with the user-developer. Initial requirements:
+Detailed UX for the tree view will be determined through iterative design work with the user-developer using try.mudblazor.com and the §6.3 example code with fake data. Initial requirements:
 
 a. Field labels and values shown as **separate columns** in each tree row
 b. Column widths should be **adjustable**
