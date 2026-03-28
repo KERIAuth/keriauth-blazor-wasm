@@ -24,8 +24,8 @@ An inbound IPEX apply for presentation arrives as an exchange notification with 
 }
 ```
 
-- **`i`** — the verifier's AID prefix (sender of the apply)
-- **`rp`** — the holder's AID prefix (the user, the apply target)
+- **`i`** — the verifier's AID prefix (sender of the apply) // likely the disclosee in the case of a presentation request
+- **`rp`** — the holder's AID prefix (the user, the apply target) // likely the discloser in the case of a presentation request
 - **`a.s`** — the schema SAID the verifier is requesting (e.g., `ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY` for Legal Entity vLEI)
 - **`a.a`** — optional attribute name/value pairs used for credential filtering (e.g., `{"LEI": "EE111Corp"}`)
 - **`d`** — the exchange SAID, used as `applySaid` for response threading
@@ -42,6 +42,7 @@ Note: `ExchangeView.InferFlowFromRole` exists for programmatic flow detection bu
 ### 1.3 Content Script Path (Future — Out of Scope)
 
 Presentation requests initiated by web pages via the content script (`/KeriAuth/ipex/apply` with `isPresentation: true`) are deferred to a future phase.
+Note that the existing "/signify/authorize/credential" request message type is perhaps more appropriately handled as a presentation request.
 
 ---
 
@@ -77,7 +78,8 @@ Full UI and handler design for the offer presentation path is deferred to a futu
 Dictionary<string, bool> ElisionMap
 ```
 
-This map originates in the UI, is serialized through port messaging, and is consumed by the TypeScript layer to build the compacted ACDC.
+Note that ACDC sections may have subsections for the "oneOf" construct.
+This map originates in the UI, is serialized through port messaging, and is consumed by the TypeScript layer (signify-ts) to build the compacted ACDC.
 
 ---
 
@@ -114,9 +116,11 @@ If no cached credentials match the schema SAID (and optional attribute filters),
 
 ACDC schemas use `oneOf` patterns allowing either the full object or its SAID string for sections:
 
-- **Attributes (`a`)**: Full attribute object or its SAID
+- **Attributes (`a`)**: Full attribute object or its SAID.
 - **Edges (`e`)**: Full edges object or its SAID
 - **Rules (`r`)**: Full rules object or its SAID
+
+Note that Attrubutes and perhaps Edges and Rules may contain subsections of "oneOf" that also need to be considered in the design.
 
 The schema's `oneOf` structure (already parsed in `CredentialPanelDetail.razor`) determines which sections support elision.
 
@@ -227,9 +231,61 @@ Tree view details will be defined in a future iteration. Placeholder requirement
 - Receives `AllowElision` parameter for interactive disclosure toggles
 
 ### 6.3 Implementation Notes
-- Candidate component: `MudExpansionPanels` with `MudExpansionPanel` per section
 - When elided: show section label + SAID
 - When disclosed: show full section contents
+- Candidate component: `MudTreeView`, inspired by the following code:
+```
+  <MudPaper Width="300px" Elevation="0">
+    <MudTreeView Items="@TreeItems" SelectionMode="SelectionMode.MultiSelection" @bind-SelectedValues="SelectedValues">
+        <ItemTemplate>
+            @{
+                // Casting context from TreeItemData<string> to our own derived class TreeItemPresenter
+                // for convenient usage in the template
+                var presenter = context as TreeItemPresenter;
+            }
+            <MudTreeViewItem @bind-Expanded="@context.Expanded" Items="@context.Children" Value="@context.Value"
+                             Icon="@context.Icon" Text="@context.Text" EndText="@presenter?.Number?.ToString()" EndTextTypo="@Typo.caption" />
+        </ItemTemplate>
+    </MudTreeView>
+</MudPaper>
+
+
+@code {
+    public IReadOnlyCollection<string> SelectedValues { get; set; }
+
+    public List<TreeItemData<string>> TreeItems { get; set; } = new();
+    public Dictionary<string, int?> ValueMap { get; set; }
+
+    public class TreeItemPresenter : TreeItemData<string>
+    {
+        public int? Number { get; set; }
+
+        public TreeItemPresenter(string text, string icon, int? number = null) : base(text)
+        {
+            Text = text;
+            Icon = icon;
+            Number = number;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        TreeItems.Add(new TreeItemPresenter("All Mail", Icons.Material.Filled.Email));
+        TreeItems.Add(new TreeItemPresenter("Trash", Icons.Material.Filled.Delete));
+        TreeItems.Add(new TreeItemPresenter("Categories", Icons.Material.Filled.Label) {
+            Expanded = true,
+            Children = [
+                    new TreeItemPresenter("Social", Icons.Material.Filled.Group, 90),
+                    new TreeItemPresenter("Updates", Icons.Material.Filled.Info, 2294),
+                    new TreeItemPresenter("Forums", Icons.Material.Filled.QuestionAnswer, 3566),
+                    new TreeItemPresenter("Promotions", Icons.Material.Filled.LocalOffer, 733)
+                ]
+        });
+        TreeItems.Add(new TreeItemPresenter("History", Icons.Material.Filled.Label));
+        ValueMap = TreeItems.Concat(TreeItems.SelectMany(x => x.Children ?? [])).OfType<TreeItemPresenter>().ToDictionary(x => x.Value, x => x.Number);
+    }
+}
+```
 
 ---
 
@@ -327,9 +383,73 @@ When a key is in the list, that field is hidden from the display. This is **cosm
 2. **`ancAttachment` validity for elided ACDCs**: When presenting an elided ACDC, are the `anc`, `iss`, and `ancatc` fields from the original credential still valid? These are issuance proofs that reference the full credential.
 
 3. **Individual attribute-level elision**: The current design supports section-level elision only (all of `a`, `e`, or `r`). Individual attribute elision within a section would require SAID recomputation and is deferred to a future phase.
+Note the prior statements may be insufficient to handle nested blocks of attributes (`a`), edges (`e`), or rules (`r`). TODO: review the sample GLEIF acdc schemas or instance files (user to provide URL) and check for examples of attribute nesting.
 
 4. **Multi-credential presentation**: Some verifier requests may need multiple credentials. The current flow supports single-credential selection. Does IPEX support multi-credential grants in a single exchange?
 
 5. **Schema resolution for unknown schemas**: If the apply requests a schema SAID not in `schemas.json`, the extension can still filter by raw SAID but cannot display schema metadata. Should OOBI resolution be attempted automatically?
 
 6. **Reject/Spurn**: The "Reject" button is a disabled stub. IPEX does not define a formal rejection message. Should the extension support an explicit rejection signal, or is non-response sufficient?
+
+---
+
+## 11. Unsorted User Experience Requirements and Design Idea Discussions
+
+1. Need to test or enhance the serialization/deserialization of an ACDC with RecursiveDictionary or other structure so that it is lossless to-from typescript and json from/to signify-ts module.  RecursiveDictionary structure might not be sufficiently hardenened in a way that guarantees the calculation of a SAID will still be accurate after the path of KERIA->signify-ts->C#->signify-ts->KERIA.
+
+2. Automated tests
+
+3. Manual tests (enhance existing MANUAL_TESTS.md)
+
+4. New UX componentry desired
+
+
+---
+
+# 12. Common conversions
+
+1. credential type per schema name vs a friendly, abreviated name
+
+2. Level of presented detail options
+
+3. default presentation if not further specified or constrained:
+   a. order per credential ACDC
+   b. attribute (field) labels per schema (if available) or field name (key)
+   c. data types determined by schema, especially important for Date presented in UI, which should YYYY-MM-DD HH:mm UTC
+
+4. pre-configured CredViewSpec definitions
+   a. predefined selected common fields (e.g. schema title)
+   b. attributes
+   c. edges
+   d. rules
+
+5. pre-configured CredViewSpec definitions for known credential schemas:
+  a. (per schema SAID)
+  b. for a defined detail level (0 to 9) where 0 is most summary and 9 is most detailed.  A "CredentialViewSpec" is a record that will contain these definitions.  "0" means those fields specified are always shown.  "5" means those fields are shown when the user's desired detail is 5 or greater.
+  c. A CredenialViewSpec may provide an alternate label than the default based on the schema's field description.
+  b. The CredentialViewSpec shall define what is displayed in the components for CredentialCard (summary or expanded mode) and CredentialTree.
+
+6. Page and Component Containment
+  1. Top-level containers:  
+      a. CredentialsPage contains a List<CredentialComponent>
+      b. CredentialPage contains a CredentialComponent
+      c. CredentialDialog contains a CredentialComponent
+      d. A NotificationCard contains a CredentialComponent
+      e. CredentialComponent can contain either a:
+          1. CredentialCardComponent, which may include a CredentialCardSummaryComponent and CredentialCardDetailComponent.
+          2. CredentialTreeComponent
+      f. CredentialComponent will contain a ViewOptions section that when collapsed, just appears as a "Gear" icon.  When expanded, it includes options, including `enum DisplayType {Card, Tree}`, `int DetailLevel` (0 to 9), `bool IsPresentation`, `bool IsAidPrefixDisplay` (indicating whether AIDs are shown as strings or using that display component), `List<string>? PreselectedPresentationPaths` (indicating the initial presentation "oneOf" blocks to be selected).
+      g. When IsPresentation is true and ViewOptions are shown, a section is show that includes: Label "Disclosure preset", Button "Max" and Button "Min".  When Min is pressed, its all the "oneOf" minimal oneOf blocks (e.g. SAID) are auto-selected for presentation; and when Max is pressed, the detailed oneOf blocks are auto-selected for presentation.
+      h. CredentialComponent has parameters, including the CredentialSaid, and for the initial view options, including DisplayType, DisplayLevel, and IsJsonShown.
+      i. When CredentialComponent parameters include IsPresentation=true, a callback provide a mechanism for the presentation results to be handled.
+      j. A TestCredentialPage will be available from the Developers secion of the menu.
+
+7. TreeView Component
+  a. This view sill need a lot of interactive UX specification discussion with the user-developer for clarity.
+  b. The field values and labels should be shown as separate columns in each tree-row.  The column widths should be adjustable.
+
+
+
+
+
+
