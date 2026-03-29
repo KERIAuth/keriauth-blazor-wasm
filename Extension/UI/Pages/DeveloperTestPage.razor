@@ -15,6 +15,7 @@
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService // For port connection status
 @using System.Linq.Expressions
+@using static Extension.Helper.CredentialHelper
 @inject ISnackbar snackbar
 @inject IDialogService dialogService
 @inject IPendingBwAppRequestService pendingBwAppRequestService
@@ -157,9 +158,6 @@
         Routes.Paths.RequestConnect
     );
 
-    // Legal Entity vLEI Credential schema SAID
-    const string LegalEntityVleiSchemaSaid = "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY";
-
     string? GetFirstConnectionReceiverPrefix()
     {
         var first = appCache.MyConnections.Items.FirstOrDefault();
@@ -180,9 +178,36 @@
             BwAppMessageType.Values.RequestIpexApply,
             tabId => new RequestIpexApplyPayload(
                 Origin: "https://example.com",
-                SchemaSaid: LegalEntityVleiSchemaSaid,
+                SchemaSaid: SchemaSaids.Vlei,
                 RecipientPrefix: recipient,
                 IsPresentation: false,
+                Attributes: null,
+                TabId: tabId,
+                TabUrl: "https://example.com/test",
+                OriginalRequestId: Guid.NewGuid().ToString(),
+                OriginalType: "/KeriAuth/ipex/apply"
+            ),
+            Routes.Paths.RequestApproveIpex
+        );
+    }
+
+    async Task SimulateRequestIpexApplyPresentation()
+    {
+        // rp = holder (AID name containing "person"), i = verifier (AID name containing "qvi")
+        var rpAid = appCache.Aids.FirstOrDefault(a => a.Name.Contains("person", StringComparison.OrdinalIgnoreCase));
+        var iAid = appCache.Aids.FirstOrDefault(a => a.Name.Contains("qvi", StringComparison.OrdinalIgnoreCase));
+        var rpPrefix = rpAid?.Prefix ?? "SAMPLE_RECEIVER";
+        var iPrefix = iAid?.Prefix ?? "SAMPLE_ISSUER";
+
+        logger.LogWarning("SimulateRequestIpexApplyPresentation: rp_Prefix={RpPrefix}, i_Prefix={IPrefix}", rpPrefix, iPrefix); 
+        
+        await SimulateDialogRequestAsync(
+            BwAppMessageType.Values.RequestIpexApply,
+            tabId => new RequestIpexApplyPayload(
+                Origin: "https://example.com",
+                SchemaSaid: SchemaSaids.Ecr,
+                RecipientPrefix: rpPrefix,
+                IsPresentation: true,
                 Attributes: null,
                 TabId: tabId,
                 TabUrl: "https://example.com/test",
@@ -372,6 +397,7 @@
                 <MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Request Create Credential</MudLink>
                 <MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Request Connection</MudLink>
                 <MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Application</MudLink>
+                <MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">Request Credential Presentation (Apply)</MudLink>
                 <MudLink OnClick="@SimulateRequestIpexOffer" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Offer</MudLink>
                 <MudLink OnClick="@SimulateRequestIpexAgree" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Agreement</MudLink>
                 <MudLink OnClick="@SimulateRequestIpexGrant" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Grant</MudLink>

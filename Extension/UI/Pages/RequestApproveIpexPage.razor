@@ -3,16 +3,21 @@
 @inherits Extension.UI.Components.TabDialogPageBase
 
 @using Extension.Helper
+@using Extension.Models
 @using Extension.Models.Messages.AppBw
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Messages.BwApp.Requests
+@using Extension.Models.Storage
 @using Extension.Services
+@using Extension.Services.Storage
 @using Extension.Services.SignifyService.Models
 @using FluentResults
 @using MudBlazor
 
 @inject ILogger<RequestApproveIpexPage> logger
 @inject ISnackbar snackbar
+@inject IStorageService storageService
+@inject AppCache appCache
 
 @code {
     private MudButton? approveButton;
@@ -39,8 +44,23 @@
     // Admit-specific fields
     string? GrantSaid { get; set; }
 
+    // Presentation-specific fields
+    List<RecursiveDictionary> matchingCredentials = [];
+    string? selectedCredentialSaid;
+    Dictionary<string, bool> elisionMap = new();
+
+    CredentialViewOptions PresentationViewOptions => new(
+        DisplayType: appCache.MyPreferences.CredentialsDisplayType,
+        DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
+        IsPresentation: true
+    );
+
+    bool IsPresentationApply => isPresentation && ipexKind == IpexKind.Apply;
+
     // Computed properties
-    bool IsApproveDisabled => SelectedPrefix is null;
+    bool IsApproveDisabled => IsPresentationApply
+        ? selectedCredentialSaid is null
+        : SelectedPrefix is null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,6 +137,11 @@
         logger.LogInformation("OnInitializedAsync: ipexKind={IpexKind}, isPresentation={IsPresentation}, recipient={Recipient}",
             ipexKind, isPresentation, RecipientPrefix);
 
+        if (IsPresentationApply)
+        {
+            await LoadMatchingCredentials();
+        }
+
         await LoadActiveTabAsync();
 
         IsInitialized = true;
@@ -163,6 +188,32 @@
 
             switch (ipexKind)
             {
+                case IpexKind.Apply when IsPresentationApply:
+                {
+                    if (selectedCredentialSaid is null)
+                    {
+                        snackbar.Add("Please select a credential to present", Severity.Warning);
+                        Layout?.EndAction();
+                        return Result.Fail("No credential selected");
+                    }
+                    // Send grant presentation RPC directly (credential already selected + disclosure configured)
+                    var response = await AppBwPortService.SendRpcRequestAsync(
+                        AppBwMessageType.Values.RequestIpexGrantPresentation,
+                        new { payload = new IpexGrantPresentationRequestPayload(
+                            SenderNameOrPrefix: RecipientPrefix!,
+                            RecipientPrefix: "TODO_VERIFIER",
+                            ApplySaid: PageRequestId,
+                            CredentialSaid: selectedCredentialSaid,
+                            ElisionMap: elisionMap) },
+                        timeout: TimeSpan.FromMinutes(3));
+                    if (!response.Ok)
+                    {
+                        snackbar.Add($"Grant presentation failed: {response.Error}", Severity.Error);
+                        Layout?.EndAction();
+                        return Result.Fail(response.Error ?? "Grant presentation failed");
+                    }
+                    break;
+                }
                 case IpexKind.Apply:
                 {
                     var approvalPayload = new IpexApplyApprovalPayload(
@@ -222,6 +273,46 @@
         await CancelAndReturnAsync("User canceled IPEX request");
     }
 
+    async Task LoadMatchingCredentials()
+    {
+        try
+        {
+            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.RawJson is not null)
+            {
+                var allCredentials = CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+
+                if (SchemaSaid is not null)
+                {
+                    matchingCredentials = CredentialHelper.FilterCredentials(
+                        allCredentials, [("sad.s", SchemaSaid)]);
+
+                    if (RecipientPrefix is not null)
+                    {
+                        matchingCredentials = CredentialHelper.FilterCredentials(
+                            matchingCredentials, [("sad.a.i", RecipientPrefix)]);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading matching credentials");
+            matchingCredentials = [];
+        }
+    }
+
+    void SelectCredential(string? credSaid)
+    {
+        selectedCredentialSaid = credSaid;
+        elisionMap = new();
+    }
+
+    void OnElisionMapChanged(Dictionary<string, bool> map)
+    {
+        elisionMap = map;
+    }
+
     private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
     {
         logger.LogInformation("HandleIdOrCredChanged: prefix={Prefix}, alias={Alias}", value.selectedPrefix, value.selectedAlias);
@@ -273,34 +364,75 @@
                     <MudText Typo="Typo.body2">@PageDescription</MudText>
                 </MudAlert>
 
-                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
-
-                <MudText Class="bt-section-title">Request data:</MudText>
-                <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
-                    @if (RecipientPrefix is not null)
+                @if (IsPresentationApply)
+                {
+                    @* Credential selection for presentation *@
+                    @if (matchingCredentials.Count == 0)
                     {
-                        <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span class="bt-prefix">@RecipientPrefix</span></MudText>
+                        <MudAlert Severity="Severity.Info" Class="mb-3">
+                            <MudText Typo="Typo.body2">You don't hold any credentials matching this request.</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Schema SAID: @SchemaSaid</MudText>
+                        </MudAlert>
                     }
-
-                    @if (ipexKind == IpexKind.Apply)
+                    else
                     {
-                        <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span class="bt-prefix">@SchemaSaid</span></MudText>
+                        <MudText Class="bt-section-title">Select a credential to present (@matchingCredentials.Count matching):</MudText>
+                        <MudStack Spacing="2" Class="mb-3">
+                            @foreach (var credential in matchingCredentials)
+                            {
+                                var credSaid = credential.GetValueByPath("sad.d")?.Value?.ToString();
+                                var isSelected = credSaid == selectedCredentialSaid;
 
-                        @if (Attributes is not null)
+                                @if (isSelected)
+                                {
+                                    <CredentialComponent Credential="@credential"
+                                                          ViewOptions="@PresentationViewOptions"
+                                                          ElisionMapChanged="@OnElisionMapChanged"
+                                                          Expanded="true"
+                                                          IsSelected="true"
+                                                          OnClick="@(() => SelectCredential(null))" />
+                                }
+                                else
+                                {
+                                    <CredentialComponent Credential="@credential"
+                                                          IsSelected="false"
+                                                          OnClick="@(() => SelectCredential(credSaid))" />
+                                }
+                            }
+                        </MudStack>
+                    }
+                }
+                else
+                {
+                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+
+                    <MudText Class="bt-section-title">Request data:</MudText>
+                    <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
+                        @if (RecipientPrefix is not null)
                         {
-                            <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
-                            <pre style="font-family: monospace; font-size: 0.875rem; word-break: break-all; white-space: pre-wrap; padding-left: 8px; margin: 0;">@(System.Text.Json.JsonSerializer.Serialize(Attributes, Helper.JsonOptions.DisplayIndented))</pre>
+                            <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span class="bt-prefix">@RecipientPrefix</span></MudText>
                         }
-                    }
-                    else if (ipexKind == IpexKind.Agree)
-                    {
-                        <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span class="bt-prefix">@OfferSaid</span></MudText>
-                    }
-                    else if (ipexKind == IpexKind.Admit)
-                    {
-                        <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span class="bt-prefix">@GrantSaid</span></MudText>
-                    }
-                </MudPaper>
+
+                        @if (ipexKind == IpexKind.Apply)
+                        {
+                            <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span class="bt-prefix">@SchemaSaid</span></MudText>
+
+                            @if (Attributes is not null)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
+                                <pre style="font-family: monospace; font-size: 0.875rem; word-break: break-all; white-space: pre-wrap; padding-left: 8px; margin: 0;">@(System.Text.Json.JsonSerializer.Serialize(Attributes, Helper.JsonOptions.DisplayIndented))</pre>
+                            }
+                        }
+                        else if (ipexKind == IpexKind.Agree)
+                        {
+                            <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span class="bt-prefix">@OfferSaid</span></MudText>
+                        }
+                        else if (ipexKind == IpexKind.Admit)
+                        {
+                            <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span class="bt-prefix">@GrantSaid</span></MudText>
+                        }
+                    </MudPaper>
+                }
 
             </div>
         </MudStack>
