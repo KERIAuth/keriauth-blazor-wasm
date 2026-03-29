@@ -1469,7 +1469,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case AppBwMessageType.Values.RequestIpexGrantPresentation:
-                    await HandleAppRequestIpexGrantPresentationRpcAsync(portId, request, payload);
+                    await HandleAppRequestIpexOfferOrGrantPresentationRpcAsync(portId, request, payload);
                     return;
 
                 case AppBwMessageType.Values.RequestPollNotifications:
@@ -3562,11 +3562,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
-    /// Grant a held credential in response to a presentation request (apply → grant for presentation).
-    /// The user selected a credential and configured disclosure in the GrantPresentationDialog.
+    /// Offer or grant a held credential in response to a presentation request.
+    /// Offer path (apply → offer): sends IPEX offer with held credential, awaiting agree before grant.
+    /// Grant path (apply → grant): grants held credential directly.
+    /// The user selected a credential and configured disclosure in the OfferOrOfferOrGrantPresentationDialog.
     /// </summary>
-    private async Task HandleAppRequestIpexGrantPresentationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
-        logger.LogInformation(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": called");
+    private async Task HandleAppRequestIpexOfferOrGrantPresentationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) + ": called");
 
         if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
             return;
@@ -3611,7 +3613,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             var actionLabel = grantRequest.IsOffer ? "offer" : "grant";
 
-            logger.LogInformation(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) +
+            logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
                 ": Full disclosure {Action} — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
                 actionLabel, grantRequest.SenderNameOrPrefix, senderName, grantRequest.RecipientPrefix, grantRequest.CredentialSaid);
 
@@ -3633,7 +3635,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Grant path: use existing PresentStep
                 result = await _primeDataService.PresentStep(
                     senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
-                    nameof(HandleAppRequestIpexGrantPresentationRpcAsync));
+                    nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync));
             }
 
             if (result.IsSuccess) {
@@ -3643,13 +3645,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
             else {
                 var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : $"IPEX {actionLabel} presentation failed";
-                logger.LogWarning(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": {Error}", errorMsg);
+                logger.LogWarning(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) + ": {Error}", errorMsg);
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: errorMsg));
             }
         }
         catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": Error during IPEX grant presentation");
+            logger.LogError(ex, nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) + ": Error during IPEX grant presentation");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(false, Error: ex.Message));
         }

@@ -682,7 +682,7 @@
         var view = ExpandedExchangeData.Value;
         var actionLabel = isOffer ? "Offer" : "Grant";
 
-        var parameters = new DialogParameters<GrantPresentationDialog>
+        var parameters = new DialogParameters<OfferOrGrantPresentationDialog>
         {
             { x => x.ApplyExchange, view },
             { x => x.IsOffer, isOffer }
@@ -695,12 +695,12 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<GrantPresentationDialog>($"{actionLabel} Presentation", parameters, options);
+        var dialog = await dialogService.ShowAsync<OfferOrGrantPresentationDialog>($"{actionLabel} Presentation", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is null || dialogResult.Canceled) return;
 
-        var presentationResult = dialogResult.Data as GrantPresentationDialog.GrantPresentationResult;
+        var presentationResult = dialogResult.Data as OfferOrGrantPresentationDialog.GrantPresentationResult;
         if (presentationResult is null) return;
 
         var ourPrefix = view.Rp;
