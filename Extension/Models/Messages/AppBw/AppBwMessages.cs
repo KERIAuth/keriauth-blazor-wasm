@@ -172,6 +172,7 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestIpexAgree = "AppBw.RequestIpexAgree";
             public const string RequestIpexOffer = "AppBw.RequestIpexOffer";
             public const string RequestIpexGrant = "AppBw.RequestIpexGrant";
+            public const string RequestIpexGrantPresentation = "AppBw.RequestIpexGrantPresentation";
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
             public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
@@ -830,6 +831,14 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null,
         [property: JsonPropertyName("applySaid")] string? ApplySaid = null,
         [property: JsonPropertyName("ecrRole")] string? EcrRole = null
+    );
+
+    public record IpexGrantPresentationRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("applySaid")] string ApplySaid,
+        [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
+        [property: JsonPropertyName("elisionMap")] Dictionary<string, bool>? ElisionMap = null
     );
 
     public record IpexGrantResponsePayload(

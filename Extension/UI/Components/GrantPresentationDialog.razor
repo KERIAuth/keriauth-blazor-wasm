@@ -1,0 +1,183 @@
+@using System.Text.Json
+@using Extension.Models
+@using Extension.Models.Storage
+@using Extension.Services
+@using Extension.Services.Storage
+@using Extension.Services.SignifyService.Models
+@using Extension.Helper
+
+@inject IStorageService storageService
+@inject AppCache appCache
+@inject ICredentialViewSpecService viewSpecService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Class="mr-2" />
+            Grant Presentation
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSimpleTable Dense="true" Elevation="0">
+                <tbody>
+                    <tr>
+                        <td><MudText Typo="Typo.caption" Color="Color.Secondary">Requested Schema</MudText></td>
+                        <td><MudText Typo="Typo.body2">@(SchemaName ?? "Unknown")</MudText></td>
+                    </tr>
+                    <tr>
+                        <td><MudText Typo="Typo.caption" Color="Color.Secondary">Verifier</MudText></td>
+                        <td>
+                            <MudTooltip Text="@VerifierPrefix" Delay="300">
+                                <MudText Typo="Typo.body2">@Elide(VerifierPrefix, 6, 4)</MudText>
+                            </MudTooltip>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><MudText Typo="Typo.caption" Color="Color.Secondary">Holder</MudText></td>
+                        <td>
+                            <MudTooltip Text="@HolderPrefix" Delay="300">
+                                <MudText Typo="Typo.body2">@Elide(HolderPrefix, 6, 4)</MudText>
+                            </MudTooltip>
+                        </td>
+                    </tr>
+                </tbody>
+            </MudSimpleTable>
+
+            @if (isLoaded)
+            {
+                @if (matchingCredentials.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info">
+                        <MudText Typo="Typo.body2">You don't hold any credentials matching this request.</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Schema: @(SchemaName ?? "Unknown") (@(SchemaSaid ?? "?"))
+                        </MudText>
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudText Typo="Typo.subtitle2">Select a credential to present (@matchingCredentials.Count matching)</MudText>
+
+                    @foreach (var credential in matchingCredentials)
+                    {
+                        var credSaid = credential.GetValueByPath("sad.d")?.Value?.ToString();
+                        var isSelected = credSaid == selectedCredentialSaid;
+
+                        @if (isSelected)
+                        {
+                            <CredentialComponent Credential="@credential"
+                                                  ViewOptions="@PresentationViewOptions"
+                                                  ElisionMapChanged="@OnElisionMapChanged"
+                                                  Expanded="true"
+                                                  IsSelected="true"
+                                                  OnClick="@(() => SelectCredential(null))" />
+                        }
+                        else
+                        {
+                            <CredentialComponent Credential="@credential"
+                                                  IsSelected="false"
+                                                  OnClick="@(() => SelectCredential(credSaid))" />
+                        }
+                    }
+                }
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Default">
+            Cancel
+        </MudButton>
+        @* // TODO P2 send a /ipex/spurn on cancel (known signify-ts limitation) *@
+        <MudButton OnClick="Grant" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Visibility"
+                   Disabled="@(selectedCredentialSaid is null)">
+            Grant Presentation
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter, EditorRequired]
+    public required ExchangeView ApplyExchange { get; init; }
+
+    List<RecursiveDictionary> matchingCredentials = [];
+    bool isLoaded;
+    string? selectedCredentialSaid;
+    Dictionary<string, bool> elisionMap = new();
+
+    // Apply fields
+    string? SchemaSaid => ApplyExchange.A?.GetValueByPath("s")?.Value?.ToString();
+    string? VerifierPrefix => ApplyExchange.I;
+    string? HolderPrefix => ApplyExchange.Rp;
+    string? SchemaName => SchemaSaid is not null ? viewSpecService.GetViewSpec(SchemaSaid)?.ShortName : null;
+
+    CredentialViewOptions PresentationViewOptions => new(
+        DisplayType: appCache.MyPreferences.CredentialsDisplayType,
+        DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
+        IsPresentation: true
+    );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMatchingCredentials();
+        isLoaded = true;
+    }
+
+    async Task LoadMatchingCredentials()
+    {
+        try
+        {
+            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.RawJson is not null)
+            {
+                var allCredentials = CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+
+                if (SchemaSaid is not null)
+                {
+                    // Filter by schema SAID
+                    matchingCredentials = CredentialHelper.FilterCredentials(
+                        allCredentials, [("sad.s", SchemaSaid)]);
+
+                    // Further filter by issuee matching the holder
+                    if (HolderPrefix is not null)
+                    {
+                        matchingCredentials = CredentialHelper.FilterCredentials(
+                            matchingCredentials, [("sad.a.i", HolderPrefix)]);
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            matchingCredentials = [];
+        }
+    }
+
+    void SelectCredential(string? credSaid)
+    {
+        selectedCredentialSaid = credSaid;
+        elisionMap = new();
+    }
+
+    void OnElisionMapChanged(Dictionary<string, bool> map)
+    {
+        elisionMap = map;
+    }
+
+    void Cancel() => MudDialog?.Cancel();
+
+    void Grant()
+    {
+        if (selectedCredentialSaid is null) return;
+        MudDialog?.Close(DialogResult.Ok(new GrantPresentationResult(selectedCredentialSaid, elisionMap)));
+    }
+
+    public record GrantPresentationResult(string CredentialSaid, Dictionary<string, bool> ElisionMap);
+
+    static MarkupString Elide(string? value, int head = 4, int tail = 4) =>
+        PrefixDisplay.Elide(value, head, tail);
+}

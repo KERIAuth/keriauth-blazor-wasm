@@ -1468,6 +1468,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIpexGrantRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIpexGrantPresentation:
+                    await HandleAppRequestIpexGrantPresentationRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestPollNotifications:
                     // Start burst only if not already active
                     if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
@@ -3554,6 +3558,82 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogWarning(nameof(HandleGrantFromAgreeAsync) + ": {Error}", errorMsg);
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(false, Error: errorMsg));
+        }
+    }
+
+    /// <summary>
+    /// Grant a held credential in response to a presentation request (apply → grant for presentation).
+    /// The user selected a credential and configured disclosure in the GrantPresentationDialog.
+    /// </summary>
+    private async Task HandleAppRequestIpexGrantPresentationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var grantRequest = JsonSerializer.Deserialize<IpexGrantPresentationRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (grantRequest is null || string.IsNullOrEmpty(grantRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(grantRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(grantRequest.CredentialSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Invalid or missing grant presentation parameters"));
+                return;
+            }
+
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(grantRequest.SenderNameOrPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {grantRequest.SenderNameOrPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            // Check if selective disclosure is requested
+            var isSelectiveDisclosure = grantRequest.ElisionMap is not null
+                && grantRequest.ElisionMap.Any(kv => !kv.Value);
+
+            if (isSelectiveDisclosure) {
+                // Selective disclosure path — not yet implemented
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: "Selective disclosure is not yet implemented. Please disclose all sections or cancel."));
+                return;
+            }
+
+            // Full disclosure path — use existing PresentStep
+            logger.LogInformation(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) +
+                ": Full disclosure grant — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
+                grantRequest.SenderNameOrPrefix, senderName, grantRequest.RecipientPrefix, grantRequest.CredentialSaid);
+
+            var grantResult = await _primeDataService.PresentStep(
+                senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
+                nameof(HandleAppRequestIpexGrantPresentationRpcAsync));
+
+            if (grantResult.IsSuccess) {
+                await _notificationPollingService.PollOnDemandAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(true));
+            }
+            else {
+                var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant presentation failed";
+                logger.LogWarning(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": {Error}", errorMsg);
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexGrantResponsePayload(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": Error during IPEX grant presentation");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(false, Error: ex.Message));
         }
     }
 

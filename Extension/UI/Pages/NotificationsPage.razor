@@ -235,6 +235,7 @@
     bool IsAlreadyGranted { get; set; }
     HashSet<string> _grantedAgreeSaids = [];
     HashSet<string> _grantedApplySaids = [];
+    bool IsGrantingPresentation { get; set; }
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -668,6 +669,83 @@
         }
     }
 
+    async Task GrantPresentationFromNotification(Notification notification) {
+        if (IsGrantingPresentation || ExpandedExchangeData is null) return;
+
+        var view = ExpandedExchangeData.Value;
+
+        var parameters = new DialogParameters<GrantPresentationDialog>
+        {
+            { x => x.ApplyExchange, view }
+        };
+        var options = new DialogOptions {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+        var dialog = await dialogService.ShowAsync<GrantPresentationDialog>("Grant Presentation", parameters, options);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is null || dialogResult.Canceled) return;
+
+        var grantPresentationResult = dialogResult.Data as GrantPresentationDialog.GrantPresentationResult;
+        if (grantPresentationResult is null) return;
+
+        var ourPrefix = view.Rp;
+        var verifierPrefix = view.I;
+        var applySaid = notification.ExchangeSaid;
+
+        if (ourPrefix is null || verifierPrefix is null || applySaid is null) {
+            snackbar.Add("Missing data from Apply exchange", Severity.Error);
+            return;
+        }
+
+        IsGrantingPresentation = true;
+
+        try {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIpexGrantPresentation,
+                new { payload = new IpexGrantPresentationRequestPayload(
+                    SenderNameOrPrefix: ourPrefix,
+                    RecipientPrefix: verifierPrefix,
+                    ApplySaid: applySaid,
+                    CredentialSaid: grantPresentationResult.CredentialSaid,
+                    ElisionMap: grantPresentationResult.ElisionMap) },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!response.Ok) {
+                snackbar.Add($"Grant presentation failed: {response.Error}", Severity.Error);
+                return;
+            }
+
+            var grantResult = response.Result is JsonElement grantJsonEl
+                ? JsonSerializer.Deserialize<IpexGrantResponsePayload>(grantJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                : null;
+
+            if (grantResult is not null && grantResult.Success) {
+                if (notification.ExchangeSaid is not null) _grantedApplySaids.Add(notification.ExchangeSaid);
+                IsAlreadyGranted = true;
+                snackbar.Add("Credential presentation granted", Severity.Success);
+                if (!notification.IsRead) {
+                    await MarkAsRead(notification);
+                }
+            }
+            else {
+                snackbar.Add($"Grant presentation failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error during IPEX grant presentation");
+            snackbar.Add("Error granting credential presentation", Severity.Error);
+        }
+        finally {
+            IsGrantingPresentation = false;
+        }
+    }
+
     async Task MarkAsRead(Notification notification) {
         if (IsProcessing) return;
         IsProcessing = true;
@@ -880,6 +958,8 @@
                                                                 OnGrant="@(() => GrantFromNotification(n))"
                                                                 IsGranting="@IsGranting"
                                                                 IsAlreadyGranted="@IsAlreadyGranted"
+                                                                OnGrantPresentation="@(() => GrantPresentationFromNotification(n))"
+                                                                IsGrantingPresentation="@IsGrantingPresentation"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>
