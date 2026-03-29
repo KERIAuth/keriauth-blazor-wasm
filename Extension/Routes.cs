@@ -79,7 +79,7 @@ public static class Routes {
         public const string DeveloperTest = "/DeveloperTest.html";
         public const string PrimeData = "/PrimeData.html";
         public const string Credential = "/Credential.html";
-        public const string TestCredential = "/TestCredential.html";
+
         public const string DeveloperState = "/DeveloperState.html";
         public const string ReleaseHistory = "/content/release_history.html";
     }
@@ -143,8 +143,7 @@ public static class Routes {
         [typeof(PrimeDataPage)] = new("PrimeData", Paths.PrimeData, RequiresAuth: true,
             Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(CredentialPage)] = new("Credential", Paths.Credential, RequiresAuth: true),
-        [typeof(TestCredentialPage)] = new("TestCredential", Paths.TestCredential, RequiresAuth: true,
-            Icons.Material.Filled.Badge, Color.Surface),
+
         [typeof(DeveloperStatePage)] = new("DeveloperState", Paths.DeveloperState, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
     };

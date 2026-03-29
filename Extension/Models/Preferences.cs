@@ -62,5 +62,11 @@
 
         [JsonPropertyName("PreferredCameraDeviceId")]
         public string? PreferredCameraDeviceId { get; init; }
+
+        [JsonPropertyName("CredentialsDetailLevel")]
+        public int CredentialsDetailLevel { get; init; } = 5;
+
+        [JsonPropertyName("CredentialsDisplayType")]
+        public CredentialDisplayType CredentialsDisplayType { get; init; } = CredentialDisplayType.Tree;
     }
 }
