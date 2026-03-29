@@ -14,7 +14,7 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" Class="mr-2" />
-            Grant Presentation
+            @(IsOffer ? "Offer Presentation" : "Grant Presentation")
         </MudText>
     </TitleContent>
     <DialogContent>
@@ -89,10 +89,10 @@
             Cancel
         </MudButton>
         @* // TODO P2 send a /ipex/spurn on cancel (known signify-ts limitation) *@
-        <MudButton OnClick="Grant" Variant="Variant.Filled" Color="Color.Primary"
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Visibility"
                    Disabled="@(selectedCredentialSaid is null)">
-            Grant Presentation
+            @(IsOffer ? "Offer Presentation" : "Grant Presentation")
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -103,6 +103,9 @@
 
     [Parameter, EditorRequired]
     public required ExchangeView ApplyExchange { get; init; }
+
+    [Parameter]
+    public bool IsOffer { get; set; }
 
     List<RecursiveDictionary> matchingCredentials = [];
     bool isLoaded;
@@ -170,13 +173,13 @@
 
     void Cancel() => MudDialog?.Cancel();
 
-    void Grant()
+    void Submit()
     {
         if (selectedCredentialSaid is null) return;
-        MudDialog?.Close(DialogResult.Ok(new GrantPresentationResult(selectedCredentialSaid, elisionMap)));
+        MudDialog?.Close(DialogResult.Ok(new GrantPresentationResult(selectedCredentialSaid, elisionMap, IsOffer)));
     }
 
-    public record GrantPresentationResult(string CredentialSaid, Dictionary<string, bool> ElisionMap);
+    public record GrantPresentationResult(string CredentialSaid, Dictionary<string, bool> ElisionMap, bool IsOffer);
 
     static MarkupString Elide(string? value, int head = 4, int tail = 4) =>
         PrefixDisplay.Elide(value, head, tail);

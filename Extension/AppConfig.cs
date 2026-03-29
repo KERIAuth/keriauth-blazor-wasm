@@ -114,7 +114,7 @@ namespace Extension {
         public const int AppBarRefreshTimerDueTimeSeconds = 20;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
         public const int ExpectedTermsDigest = 676316907;
-        public const int ExpectedPrivacyDigest = 607994721;
+        public const int ExpectedPrivacyDigest = -1813179267;
 
         // Branding
         public const string ProductName = "DIGN";

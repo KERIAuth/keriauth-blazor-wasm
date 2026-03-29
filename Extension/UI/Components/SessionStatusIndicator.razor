@@ -144,12 +144,12 @@
     public bool IsMultiKeriaConfigEnabled { get; set; }
 
     private string ConnectedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
-        ? $"Connected to KERIA Cloud Service ({KeriaAlias})"
-        : "Connected to KERIA Cloud Service";
+        ? $"Connected to KERIA Service ({KeriaAlias})"
+        : "Connected to KERIA Service";
 
     private string NotConnectedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
-        ? $"Not connected to KERIA Cloud Service ({KeriaAlias})"
-        : "Not connected to KERIA Cloud Service";
+        ? $"Not connected to KERIA Service ({KeriaAlias})"
+        : "Not connected to KERIA Service";
 
     private string LockedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
         ? $"Locked ({KeriaAlias})"

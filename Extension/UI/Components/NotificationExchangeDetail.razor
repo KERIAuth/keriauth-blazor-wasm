@@ -55,6 +55,12 @@
     [Parameter]
     public bool IsGrantingPresentation { get; set; }
 
+    [Parameter]
+    public EventCallback OnOfferPresentation { get; set; }
+
+    [Parameter]
+    public bool IsOfferingPresentation { get; set; }
+
     string? SenderAid => Exchange.I;
     string? RecipientAid => Exchange.Rp;
     string? ExchangeSaid => Exchange.D;
@@ -73,7 +79,6 @@
     }
 
     // Stub handlers for unimplemented IPEX actions
-    Task HandleOfferPresentation() => Task.CompletedTask;
     Task HandleSpurn() => Task.CompletedTask;
 }
 
@@ -124,11 +129,25 @@
                             }
                         </MudButton>
                     }
-                    <MudTooltip Text="Not yet implemented">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Visibility" Disabled="true"
-                                   OnClick="HandleOfferPresentation">Offer Presentation</MudButton>
-                    </MudTooltip>
+                    @if (OnOfferPresentation.HasDelegate)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.LocalOffer"
+                                   OnClick="OnOfferPresentation"
+                                   Disabled="@(IsOfferingPresentation || IsGrantingPresentation || IsGranting || IsOffering)">
+                            @if (IsOfferingPresentation)
+                            {
+                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <text>Offering...</text>
+                            }
+                            else
+                            {
+                                <text>Offer Presentation</text>
+                            }
+                        </MudButton>
+                    }
                     @if (OnGrant.HasDelegate)
                     {
                         <MudButton Variant="Variant.Filled"

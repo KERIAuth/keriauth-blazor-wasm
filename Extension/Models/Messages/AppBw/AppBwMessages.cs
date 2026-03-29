@@ -838,7 +838,8 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("applySaid")] string ApplySaid,
         [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
-        [property: JsonPropertyName("elisionMap")] Dictionary<string, bool>? ElisionMap = null
+        [property: JsonPropertyName("elisionMap")] Dictionary<string, bool>? ElisionMap = null,
+        [property: JsonPropertyName("isOffer")] bool IsOffer = false
     );
 
     public record IpexGrantResponsePayload(

@@ -236,6 +236,7 @@
     HashSet<string> _grantedAgreeSaids = [];
     HashSet<string> _grantedApplySaids = [];
     bool IsGrantingPresentation { get; set; }
+    bool IsOfferingPresentation { get; set; }
     bool IsLoadingPrior { get; set; }
 
     protected override async Task OnInitializedAsync() {
@@ -669,14 +670,22 @@
         }
     }
 
-    async Task GrantPresentationFromNotification(Notification notification) {
-        if (IsGrantingPresentation || ExpandedExchangeData is null) return;
+    Task GrantPresentationFromNotification(Notification notification) =>
+        PresentationFromNotification(notification, isOffer: false);
+
+    Task OfferPresentationFromNotification(Notification notification) =>
+        PresentationFromNotification(notification, isOffer: true);
+
+    async Task PresentationFromNotification(Notification notification, bool isOffer) {
+        if (IsGrantingPresentation || IsOfferingPresentation || ExpandedExchangeData is null) return;
 
         var view = ExpandedExchangeData.Value;
+        var actionLabel = isOffer ? "Offer" : "Grant";
 
         var parameters = new DialogParameters<GrantPresentationDialog>
         {
-            { x => x.ApplyExchange, view }
+            { x => x.ApplyExchange, view },
+            { x => x.IsOffer, isOffer }
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -686,13 +695,13 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<GrantPresentationDialog>("Grant Presentation", parameters, options);
+        var dialog = await dialogService.ShowAsync<GrantPresentationDialog>($"{actionLabel} Presentation", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is null || dialogResult.Canceled) return;
 
-        var grantPresentationResult = dialogResult.Data as GrantPresentationDialog.GrantPresentationResult;
-        if (grantPresentationResult is null) return;
+        var presentationResult = dialogResult.Data as GrantPresentationDialog.GrantPresentationResult;
+        if (presentationResult is null) return;
 
         var ourPrefix = view.Rp;
         var verifierPrefix = view.I;
@@ -703,7 +712,8 @@
             return;
         }
 
-        IsGrantingPresentation = true;
+        if (isOffer) IsOfferingPresentation = true;
+        else IsGrantingPresentation = true;
 
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
@@ -712,12 +722,13 @@
                     SenderNameOrPrefix: ourPrefix,
                     RecipientPrefix: verifierPrefix,
                     ApplySaid: applySaid,
-                    CredentialSaid: grantPresentationResult.CredentialSaid,
-                    ElisionMap: grantPresentationResult.ElisionMap) },
+                    CredentialSaid: presentationResult.CredentialSaid,
+                    ElisionMap: presentationResult.ElisionMap,
+                    IsOffer: isOffer) },
                 timeout: TimeSpan.FromMinutes(3));
 
             if (!response.Ok) {
-                snackbar.Add($"Grant presentation failed: {response.Error}", Severity.Error);
+                snackbar.Add($"{actionLabel} presentation failed: {response.Error}", Severity.Error);
                 return;
             }
 
@@ -728,21 +739,22 @@
             if (grantResult is not null && grantResult.Success) {
                 if (notification.ExchangeSaid is not null) _grantedApplySaids.Add(notification.ExchangeSaid);
                 IsAlreadyGranted = true;
-                snackbar.Add("Credential presentation granted", Severity.Success);
+                snackbar.Add($"Credential presentation {(isOffer ? "offered" : "granted")}", Severity.Success);
                 if (!notification.IsRead) {
                     await MarkAsRead(notification);
                 }
             }
             else {
-                snackbar.Add($"Grant presentation failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
+                snackbar.Add($"{actionLabel} presentation failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
             }
         }
         catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX grant presentation");
-            snackbar.Add("Error granting credential presentation", Severity.Error);
+            logger.LogError(ex, "Error during IPEX {Action} presentation", actionLabel);
+            snackbar.Add($"Error {(isOffer ? "offering" : "granting")} credential presentation", Severity.Error);
         }
         finally {
             IsGrantingPresentation = false;
+            IsOfferingPresentation = false;
         }
     }
 
@@ -960,6 +972,8 @@
                                                                 IsAlreadyGranted="@IsAlreadyGranted"
                                                                 OnGrantPresentation="@(() => GrantPresentationFromNotification(n))"
                                                                 IsGrantingPresentation="@IsGrantingPresentation"
+                                                                OnOfferPresentation="@(() => OfferPresentationFromNotification(n))"
+                                                                IsOfferingPresentation="@IsOfferingPresentation"
                                                                 IsLoadingPrior="@IsLoadingPrior" />
                                 }
                             </LoadingDiv>

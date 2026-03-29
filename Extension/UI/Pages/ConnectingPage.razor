@@ -19,7 +19,7 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
-                <MudText Class="bt-page-title">@(_connectionFailed ? "Connection Failed" : "Connecting to KERIA Cloud Service...")</MudText>
+                <MudText Class="bt-page-title">@(_connectionFailed ? "Connection Failed" : "Connecting to KERIA Service...")</MudText>
             </MudStack>
             @if (_connectionFailed)
             {
@@ -95,7 +95,7 @@
 
         if (!connectResponse.Ok)
         {
-            var openWalletError = connectResponse.Error ?? "Could not connect to KERIA Cloud Service";
+            var openWalletError = connectResponse.Error ?? "Could not connect to KERIA Service";
             logger.LogWarning(openWalletError);
             return Result.Fail(openWalletError);
         }
@@ -107,7 +107,7 @@
 
         if (connectRes is null || !connectRes.Success)
         {
-            var openWalletError = connectRes?.Error ?? "Could not connect to KERIA Cloud Service";
+            var openWalletError = connectRes?.Error ?? "Could not connect to KERIA Service";
             logger.LogWarning(openWalletError);
             return Result.Fail(openWalletError);
         }

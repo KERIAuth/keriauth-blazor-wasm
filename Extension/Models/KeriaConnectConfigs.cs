@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using Extension.Models.Storage;
 
 /// <summary>
-/// Storage model for multiple KERIA Cloud Service configurations.
+/// Storage model for multiple KERIA Service configurations.
 /// Each configuration is keyed by its computed KeriaConnectionDigest.
 /// </summary>
 public record KeriaConnectConfigs : IStorageModel {

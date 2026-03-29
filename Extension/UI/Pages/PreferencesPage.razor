@@ -240,7 +240,7 @@
                         <MudSwitch Value="IsMultiKeriaConfigEnabled"
                                ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaConfigEnabled(isOn)"
                                T="bool" Color="Color.Primary" />
-                        <MudText>Multiple KERIA Cloud Service Configurations</MudText>
+                        <MudText>Multiple KERIA Service Configurations</MudText>
                     </MudStack>
                     @if (IsMultiKeriaConfigEnabled)
                     {
@@ -256,7 +256,7 @@
                             
                             
                             <MudSelect Class="ml-5" T="string"
-                                       Label="KERIA Cloud Service"
+                                       Label="KERIA Service"
                                        Value="@_selectedKeriaConfigDigest"
                                        ValueChanged="OnKeriaConfigDigestChanged"
                                        Variant="Variant.Outlined">

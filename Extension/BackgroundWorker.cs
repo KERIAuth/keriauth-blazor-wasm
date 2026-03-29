@@ -3609,22 +3609,40 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            // Full disclosure path — use existing PresentStep
+            var actionLabel = grantRequest.IsOffer ? "offer" : "grant";
+
             logger.LogInformation(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) +
-                ": Full disclosure grant — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
-                grantRequest.SenderNameOrPrefix, senderName, grantRequest.RecipientPrefix, grantRequest.CredentialSaid);
+                ": Full disclosure {Action} — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
+                actionLabel, grantRequest.SenderNameOrPrefix, senderName, grantRequest.RecipientPrefix, grantRequest.CredentialSaid);
 
-            var grantResult = await _primeDataService.PresentStep(
-                senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
-                nameof(HandleAppRequestIpexGrantPresentationRpcAsync));
+            Result<string> result;
 
-            if (grantResult.IsSuccess) {
+            if (grantRequest.IsOffer) {
+                // Offer path: send IPEX offer with held credential
+                var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                    SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
+                    RecipientPrefix: grantRequest.RecipientPrefix,
+                    CredentialSaid: grantRequest.CredentialSaid,
+                    ApplySaid: grantRequest.ApplySaid
+                ));
+                result = offerResult.IsSuccess
+                    ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
+                    : Result.Fail<string>(offerResult.Errors);
+            }
+            else {
+                // Grant path: use existing PresentStep
+                result = await _primeDataService.PresentStep(
+                    senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
+                    nameof(HandleAppRequestIpexGrantPresentationRpcAsync));
+            }
+
+            if (result.IsSuccess) {
                 await _notificationPollingService.PollOnDemandAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(true));
             }
             else {
-                var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant presentation failed";
+                var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : $"IPEX {actionLabel} presentation failed";
                 logger.LogWarning(nameof(HandleAppRequestIpexGrantPresentationRpcAsync) + ": {Error}", errorMsg);
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: errorMsg));
