@@ -19,6 +19,7 @@
 @inject IStorageService storageService
 @inject AppCache appCache
 @inject IJSRuntime js
+@inject ICredentialViewSpecService viewSpecService
 
 @code {
     private MudButton? approveButton;
@@ -51,12 +52,22 @@
     List<RecursiveDictionary> matchingCredentials = [];
     string? selectedCredentialSaid;
     Dictionary<string, bool> elisionMap = new();
+    string presentationView = "tree-full";
 
-    CredentialViewOptions PresentationViewOptions => new(
-        DisplayType: appCache.MyPreferences.CredentialsDisplayType,
-        DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
-        IsPresentation: true
-    );
+    CredentialViewOptions PresentationViewOptions => presentationView switch {
+        "card-summary" => new(DisplayType: CredentialDisplayType.Card, DetailLevel: 3, IsPresentation: true),
+        "card-full" => new(DisplayType: CredentialDisplayType.Card, DetailLevel: 9, IsPresentation: true),
+        "tree-summary" => new(DisplayType: CredentialDisplayType.Tree, DetailLevel: 3, IsPresentation: true),
+        "tree-full" => new(DisplayType: CredentialDisplayType.Tree, DetailLevel: 9, IsPresentation: true),
+        _ => new(DisplayType: CredentialDisplayType.Tree, DetailLevel: 9, IsPresentation: true)
+    };
+
+    RecursiveDictionary? SelectedCredential => selectedCredentialSaid is null
+        ? null
+        : matchingCredentials.FirstOrDefault(c =>
+            c.GetValueByPath("sad.d")?.Value?.ToString() == selectedCredentialSaid);
+
+    CredentialViewSpec ResolvedViewSpec => viewSpecService.GetOrCreateFallback(SchemaSaid ?? "");
 
     string? ProfileNameForPrefix(string? prefix) =>
         prefix is null ? null : appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix)?.Name;
@@ -147,6 +158,8 @@
         if (IsPresentationApply)
         {
             await LoadMatchingCredentials();
+            selectedCredentialSaid = matchingCredentials
+                .FirstOrDefault()?.GetValueByPath("sad.d")?.Value?.ToString();
         }
 
         await LoadActiveTabAsync();
@@ -321,6 +334,8 @@
     void OnElisionMapChanged(Dictionary<string, bool> map)
     {
         elisionMap = map;
+        // TODO P2 this log is just for debugging during development, set to Info before release
+        logger.LogWarning("Elision map updated: {Map}", System.Text.Json.JsonSerializer.Serialize(elisionMap));
     }
 
     private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
@@ -437,9 +452,9 @@
                     }
                     else
                     {
-                        <MudText Class="bt-section-title">Select credential to present (@matchingCredentials.Count matching):</MudText>
-                        <MudSelect T=String Class="mb-3"
-                                Value="selectedCredentialSaid"
+                        <MudText Class="bt-section-title">Select Credential to Present <span style="font-weight: normal;">(@matchingCredentials.Count matching)</span></MudText>
+                        <MudSelect T="string" Class="mb-3"
+                                @bind-Value="selectedCredentialSaid"
                                 Dense="true"
                                 Style="min-width: 300px;">
                             @foreach (var credential in matchingCredentials)
@@ -449,6 +464,38 @@
                                 </MudSelectItem>
                             }
                         </MudSelect>
+                    }
+
+                    @if (SelectedCredential is not null)
+                    {
+                        <MudText Class="bt-section-title">Pending Presentation</MudText>
+
+                        <MudSelect T="string" @bind-Value="presentationView"
+                                   Label="Presentation View" Dense="true" Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" Class="mb-3"
+                                   Style="min-width: 200px; flex-grow: 0;">
+                            <MudSelectItem T="string" Value="@("card-summary")">Card - Summary</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("card-full")">Card - Full</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("tree-summary")">Tree - Summary</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("tree-full")">Tree - Full</MudSelectItem>
+                        </MudSelect>
+
+                        @if (PresentationViewOptions.DisplayType == CredentialDisplayType.Tree)
+                        {
+                            <CredentialTreeComponent Credential="@SelectedCredential"
+                                                      ViewSpec="@ResolvedViewSpec"
+                                                      ViewOptions="@PresentationViewOptions"
+                                                      ElisionMap="@elisionMap"
+                                                      ElisionMapChanged="@OnElisionMapChanged" />
+                        }
+                        else
+                        {
+                            <CredentialCardComponent Credential="@SelectedCredential"
+                                                      ViewSpec="@ResolvedViewSpec"
+                                                      ViewOptions="@PresentationViewOptions"
+                                                      ElisionMap="@elisionMap"
+                                                      ElisionMapChanged="@OnElisionMapChanged" />
+                        }
                     }
                 }
 
