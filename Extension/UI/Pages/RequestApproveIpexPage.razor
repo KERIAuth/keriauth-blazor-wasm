@@ -18,6 +18,7 @@
 @inject ISnackbar snackbar
 @inject IStorageService storageService
 @inject AppCache appCache
+@inject IJSRuntime js
 
 @code {
     private MudButton? approveButton;
@@ -35,7 +36,7 @@
 
     // Apply-specific fields
     string? SchemaSaid { get; set; }
-    string? RecipientPrefix { get; set; }
+    string? RequestRecipientPrefix { get; set; }
     RecursiveDictionary? Attributes { get; set; }
 
     // Agree-specific fields
@@ -43,6 +44,8 @@
 
     // Admit-specific fields
     string? GrantSaid { get; set; }
+
+    string? RequestPayloadForDisplay { get; set; } // TODO P1 this is just a placeholder to have something on the UI for now, do a proper job of displaying the request details instead of dumping the raw JSON
 
     // Presentation-specific fields
     List<RecursiveDictionary> matchingCredentials = [];
@@ -54,6 +57,9 @@
         DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
         IsPresentation: true
     );
+
+    string? ProfileNameForPrefix(string? prefix) =>
+        prefix is null ? null : appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix)?.Name;
 
     bool IsPresentationApply => isPresentation && ipexKind == IpexKind.Apply;
 
@@ -72,39 +78,40 @@
         switch (pendingType)
         {
             case BwAppMessageType.Values.RequestIpexApply:
-            {
-                var applyPayload = await InitializeFromPendingRequestAsync<RequestIpexApplyPayload>(
-                    BwAppMessageType.Values.RequestIpexApply);
-                if (applyPayload is null) return;
-                ipexKind = IpexKind.Apply;
-                isPresentation = applyPayload.IsPresentation;
-                SchemaSaid = applyPayload.SchemaSaid;
-                RecipientPrefix = applyPayload.RecipientPrefix;
-                Attributes = applyPayload.Attributes;
-                break;
-            }
+                {
+                    var applyPayload = await InitializeFromPendingRequestAsync<RequestIpexApplyPayload>(
+                        BwAppMessageType.Values.RequestIpexApply);
+                    if (applyPayload is null) return;
+                    ipexKind = IpexKind.Apply;
+                    isPresentation = applyPayload.IsPresentation;
+                    SchemaSaid = applyPayload.SchemaSaid;
+                    RequestRecipientPrefix = applyPayload.RecipientPrefix;
+                    Attributes = applyPayload.Attributes;
+                    RequestPayloadForDisplay = applyPayload.ToString(); // TODO P1 do a proper job of displaying the request details instead of dumping the raw JSON, this is just a placeholder to have something on the UI for now
+                    break;
+                }
             case BwAppMessageType.Values.RequestIpexAgree:
-            {
-                var agreePayload = await InitializeFromPendingRequestAsync<RequestIpexAgreePayload>(
-                    BwAppMessageType.Values.RequestIpexAgree);
-                if (agreePayload is null) return;
-                ipexKind = IpexKind.Agree;
-                isPresentation = agreePayload.IsPresentation;
-                OfferSaid = agreePayload.OfferSaid;
-                RecipientPrefix = agreePayload.RecipientPrefix;
-                break;
-            }
+                {
+                    var agreePayload = await InitializeFromPendingRequestAsync<RequestIpexAgreePayload>(
+                        BwAppMessageType.Values.RequestIpexAgree);
+                    if (agreePayload is null) return;
+                    ipexKind = IpexKind.Agree;
+                    isPresentation = agreePayload.IsPresentation;
+                    OfferSaid = agreePayload.OfferSaid;
+                    RequestRecipientPrefix = agreePayload.RecipientPrefix;
+                    break;
+                }
             case BwAppMessageType.Values.RequestIpexAdmitFromPage:
-            {
-                var admitPayload = await InitializeFromPendingRequestAsync<RequestIpexAdmitPayload>(
-                    BwAppMessageType.Values.RequestIpexAdmitFromPage);
-                if (admitPayload is null) return;
-                ipexKind = IpexKind.Admit;
-                isPresentation = admitPayload.IsPresentation;
-                GrantSaid = admitPayload.GrantSaid;
-                RecipientPrefix = admitPayload.RecipientPrefix;
-                break;
-            }
+                {
+                    var admitPayload = await InitializeFromPendingRequestAsync<RequestIpexAdmitPayload>(
+                        BwAppMessageType.Values.RequestIpexAdmitFromPage);
+                    if (admitPayload is null) return;
+                    ipexKind = IpexKind.Admit;
+                    isPresentation = admitPayload.IsPresentation;
+                    GrantSaid = admitPayload.GrantSaid;
+                    RequestRecipientPrefix = admitPayload.RecipientPrefix;
+                    break;
+                }
             default:
                 logger.LogError("OnInitializedAsync: Unexpected pending request type: {Type}", pendingType ?? "null");
                 return;
@@ -117,25 +124,25 @@
                 "Approve Credential Application",
                 "The page is requesting you to apply for a credential from an issuer."),
             (IpexKind.Apply, true) => (
-                "Approve Credential Presentation Request",
-                "The page is requesting you to request a credential presentation from a holder."),
+                "Present a Credential",
+                "The page is requesting you present a credential held by the indicated profile. (apply)"),
             (IpexKind.Agree, false) => (
                 "Agree to Offered Credential and its Accuracy",
                 "The page is requesting you to carefully review and agree to a credential issuance offer."),
             (IpexKind.Agree, true) => (
-                "Approve Credential Presentation Agreement",
-                "The page is requesting you to agree to a credential presentation offer."),
+                "Agree to Offered Credential Presentation",
+                "The page is requesting you to agree to a credential presentation offer and its accuracy."),
             (IpexKind.Admit, false) => (
                 "Accept Issued Credential",
                 "The page is requesting you to acknowledge and admit receipt of a granted credential."),
             (IpexKind.Admit, true) => (
-                "Approve Credential Presentation Admission",
+                "Admit Granted Credential Presentation",
                 "The page is requesting you to acknowledge receipt of a presented credential."),
             _ => LogUnexpectedKindAndReturn()
         };
 
         logger.LogInformation("OnInitializedAsync: ipexKind={IpexKind}, isPresentation={IsPresentation}, recipient={Recipient}",
-            ipexKind, isPresentation, RecipientPrefix);
+            ipexKind, isPresentation, RequestRecipientPrefix);
 
         if (IsPresentationApply)
         {
@@ -189,65 +196,68 @@
             switch (ipexKind)
             {
                 case IpexKind.Apply when IsPresentationApply:
-                {
-                    if (selectedCredentialSaid is null)
                     {
-                        snackbar.Add("Please select a credential to present", Severity.Warning);
-                        Layout?.EndAction();
-                        return Result.Fail("No credential selected");
+                        if (selectedCredentialSaid is null)
+                        {
+                            snackbar.Add("Please select a credential to present", Severity.Warning);
+                            Layout?.EndAction();
+                            return Result.Fail("No credential selected");
+                        }
+                        // Send grant presentation RPC directly (credential already selected + disclosure configured)
+                        var response = await AppBwPortService.SendRpcRequestAsync(
+                            AppBwMessageType.Values.RequestIpexGrantPresentation,
+                            new
+                            {
+                                payload = new IpexGrantPresentationRequestPayload(
+                                SenderNameOrPrefix: RequestRecipientPrefix!,
+                                RecipientPrefix: "TODO_VERIFIER", // TODO P2 since verifier info is not currently included in the request, this is just a placeholder and should be updated when that info is added to the request
+                                ApplySaid: PageRequestId,
+                                CredentialSaid: selectedCredentialSaid,
+                                ElisionMap: elisionMap)
+                            },
+                            timeout: TimeSpan.FromMinutes(3));
+                        if (!response.Ok)
+                        {
+                            snackbar.Add($"Grant presentation failed: {response.Error}", Severity.Error);
+                            Layout?.EndAction();
+                            return Result.Fail(response.Error ?? "Grant presentation failed");
+                        }
+                        break;
                     }
-                    // Send grant presentation RPC directly (credential already selected + disclosure configured)
-                    var response = await AppBwPortService.SendRpcRequestAsync(
-                        AppBwMessageType.Values.RequestIpexGrantPresentation,
-                        new { payload = new IpexGrantPresentationRequestPayload(
-                            SenderNameOrPrefix: RecipientPrefix!,
-                            RecipientPrefix: "TODO_VERIFIER",
-                            ApplySaid: PageRequestId,
-                            CredentialSaid: selectedCredentialSaid,
-                            ElisionMap: elisionMap) },
-                        timeout: TimeSpan.FromMinutes(3));
-                    if (!response.Ok)
-                    {
-                        snackbar.Add($"Grant presentation failed: {response.Error}", Severity.Error);
-                        Layout?.EndAction();
-                        return Result.Fail(response.Error ?? "Grant presentation failed");
-                    }
-                    break;
-                }
                 case IpexKind.Apply:
-                {
-                    var approvalPayload = new IpexApplyApprovalPayload(
-                        SenderPrefix: SelectedPrefix,
-                        RecipientPrefix: RecipientPrefix!,
-                        SchemaSaid: SchemaSaid!,
-                        Attributes: Attributes
-                    );
-                    var message = new AppBwReplyIpexApplyApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
-                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
-                    break;
-                }
+                    {
+                        var approvalPayload = new IpexApplyApprovalPayload(
+                            SenderPrefix: SelectedPrefix,
+                            RecipientPrefix: RequestRecipientPrefix!,
+                            SchemaSaid: SchemaSaid!,
+                            Attributes: Attributes
+                        );
+                        var message = new AppBwReplyIpexApplyApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                        await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                        break;
+                    }
                 case IpexKind.Agree:
-                {
-                    var approvalPayload = new IpexAgreeApprovalPayload(
-                        SenderPrefix: SelectedPrefix,
-                        RecipientPrefix: RecipientPrefix!,
-                        OfferSaid: OfferSaid!
-                    );
-                    var message = new AppBwReplyIpexAgreeApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
-                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
-                    break;
-                }
+                    {
+                        var approvalPayload = new IpexAgreeApprovalPayload(
+                            SenderPrefix: SelectedPrefix,
+                            RecipientPrefix: RequestRecipientPrefix!,
+                            OfferSaid: OfferSaid!
+                        );
+                        var message = new AppBwReplyIpexAgreeApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                        await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                        break;
+                    }
                 case IpexKind.Admit:
-                {
-                    var approvalPayload = new IpexAdmitApprovalPayload(
-                        SenderPrefix: SelectedPrefix,
-                        RecipientPrefix: RecipientPrefix!,
-                        GrantSaid: GrantSaid!
-                    );
-                    var message = new AppBwReplyIpexAdmitApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
-                    await AppBwPortService.SendToBackgroundWorkerAsync(message);
-                    break;
-                }
+                    {
+                        var approvalPayload = new IpexAdmitApprovalPayload(
+                            SenderPrefix: SelectedPrefix,
+                            RecipientPrefix: RequestRecipientPrefix!,
+                            GrantSaid: GrantSaid!
+                        );
+                        var message = new AppBwReplyIpexAdmitApprovalMessage(TabId, OriginStr, PageRequestId, approvalPayload);
+                        await AppBwPortService.SendToBackgroundWorkerAsync(message);
+                        break;
+                    }
                 default:
                     logger.LogError("Approve: Unexpected ipexKind={IpexKind}", ipexKind);
                     return Result.Fail("Unexpected IPEX kind");
@@ -287,10 +297,10 @@
                     matchingCredentials = CredentialHelper.FilterCredentials(
                         allCredentials, [("sad.s", SchemaSaid)]);
 
-                    if (RecipientPrefix is not null)
+                    if (RequestRecipientPrefix is not null)
                     {
                         matchingCredentials = CredentialHelper.FilterCredentials(
-                            matchingCredentials, [("sad.a.i", RecipientPrefix)]);
+                            matchingCredentials, [("sad.a.i", RequestRecipientPrefix)]);
                     }
                 }
             }
@@ -342,6 +352,20 @@
             await ApproveHandler();
         }
     }
+
+    async Task CopyJsonToClipboard()
+    {
+        if (RequestPayloadForDisplay is not null)
+        {
+            await js.InvokeVoidAsync("navigator.clipboard.writeText", RequestPayloadForDisplay);
+            snackbar.Add("Credential JSON copied to clipboard.", Severity.Success);
+        }
+        else
+        {
+            snackbar.Add("No Credential JSON to copy.", Severity.Warning);
+        }
+    }
+
 }
 
 @if (IsInitialized)
@@ -360,13 +384,50 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
 
-                <MudAlert Severity="Severity.Info" Class="mb-3">
+                <MudAlert Severity="Severity.Info" Class="mb-3 ml-9">
                     <MudText Typo="Typo.body2">@PageDescription</MudText>
                 </MudAlert>
 
+                
+
+
+
+
                 @if (IsPresentationApply)
                 {
-                    @* Credential selection for presentation *@
+                    <div id="presentation-path" class="ml-9 mb-3">
+                        @* // TODO P2 if we knew the verifier's (requestor's) prefix and profile name, we could show that here
+                        <AidPrefixDisplay Prefix="@conn.SenderPrefix"
+                                          Name="@(ProfileNameForPrefix(conn.SenderPrefix))"
+                                          TextPosition="AidPrefixDisplay.TextSide.Left"
+                                          ShowCopyButton="false" />
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin: 0 4px; opacity: 0.5;" />
+                        *@
+                        @{
+                            var KnownByYouAs = "(" + ProfileNameForPrefix(RequestRecipientPrefix) + ")";
+                            <AidPrefixDisplay Prefix="@RequestRecipientPrefix"
+                                              Name="@KnownByYouAs"
+                                              ShowCopyButton="false" />
+                        }
+
+                    </div>
+
+                    <MudExpansionPanels Dense="true" Class="ml-9 mt-0 mb-0">
+                        <MudExpansionPanel Text="Request Details" Dense="true">
+                            <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
+                                <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem; text-wrap:auto;">
+                                    @RequestPayloadForDisplay
+                                </MudText>
+                                <MudButton Variant="Variant.Text"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.ContentCopy"
+                                           OnClick="CopyJsonToClipboard">
+                                    Copy JSON
+                                </MudButton>
+                            </MudPaper>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+
                     @if (matchingCredentials.Count == 0)
                     {
                         <MudAlert Severity="Severity.Info" Class="mb-3">
@@ -376,62 +437,51 @@
                     }
                     else
                     {
-                        <MudText Class="bt-section-title">Select a credential to present (@matchingCredentials.Count matching):</MudText>
-                        <MudStack Spacing="2" Class="mb-3">
+                        <MudText Class="bt-section-title">Select credential to present (@matchingCredentials.Count matching):</MudText>
+                        <MudSelect T=String Class="mb-3"
+                                Value="selectedCredentialSaid"
+                                Dense="true"
+                                Style="min-width: 300px;">
                             @foreach (var credential in matchingCredentials)
                             {
-                                var credSaid = credential.GetValueByPath("sad.d")?.Value?.ToString();
-                                var isSelected = credSaid == selectedCredentialSaid;
-
-                                @if (isSelected)
-                                {
-                                    <CredentialComponent Credential="@credential"
-                                                          ViewOptions="@PresentationViewOptions"
-                                                          ElisionMapChanged="@OnElisionMapChanged"
-                                                          Expanded="true"
-                                                          IsSelected="true"
-                                                          OnClick="@(() => SelectCredential(null))" />
-                                }
-                                else
-                                {
-                                    <CredentialComponent Credential="@credential"
-                                                          IsSelected="false"
-                                                          OnClick="@(() => SelectCredential(credSaid))" />
-                                }
+                                <MudSelectItem Value="@credential.GetValueByPath("sad.d")?.Value?.ToString()">
+                                    <CredentialComponent Credential="@credential" IsExpandable="false" Expanded="false" />
+                                </MudSelectItem>
                             }
-                        </MudStack>
+                        </MudSelect>
                     }
                 }
-                else
+
+                @if (!IsPresentationApply)
                 {
-                    <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+                <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
 
-                    <MudText Class="bt-section-title">Request data:</MudText>
-                    <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
-                        @if (RecipientPrefix is not null)
-                        {
-                            <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span class="bt-prefix">@RecipientPrefix</span></MudText>
-                        }
+                <MudText Class="bt-section-title">Request data:</MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-4" Style="max-height: 200px; overflow-y: auto; background-color: var(--mud-palette-background-grey);">
+                    @if (RequestRecipientPrefix is not null)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Recipient:</strong> <span class="bt-prefix">@RequestRecipientPrefix</span></MudText>
+                    }
 
-                        @if (ipexKind == IpexKind.Apply)
-                        {
-                            <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span class="bt-prefix">@SchemaSaid</span></MudText>
+                    @if (ipexKind == IpexKind.Apply)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Schema SAID:</strong> <span class="bt-prefix">@SchemaSaid</span></MudText>
 
-                            @if (Attributes is not null)
-                            {
-                                <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
-                                <pre style="font-family: monospace; font-size: 0.875rem; word-break: break-all; white-space: pre-wrap; padding-left: 8px; margin: 0;">@(System.Text.Json.JsonSerializer.Serialize(Attributes, Helper.JsonOptions.DisplayIndented))</pre>
-                            }
-                        }
-                        else if (ipexKind == IpexKind.Agree)
+                        @if (Attributes is not null)
                         {
-                            <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span class="bt-prefix">@OfferSaid</span></MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2"><strong>Attributes:</strong></MudText>
+                            <pre style="font-family: monospace; font-size: 0.875rem; word-break: break-all; white-space: pre-wrap; padding-left: 8px; margin: 0;">@(System.Text.Json.JsonSerializer.Serialize(Attributes, Helper.JsonOptions.DisplayIndented))</pre>
                         }
-                        else if (ipexKind == IpexKind.Admit)
-                        {
-                            <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span class="bt-prefix">@GrantSaid</span></MudText>
-                        }
-                    </MudPaper>
+                    }
+                    else if (ipexKind == IpexKind.Agree)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Offer SAID:</strong> <span class="bt-prefix">@OfferSaid</span></MudText>
+                    }
+                    else if (ipexKind == IpexKind.Admit)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Grant SAID:</strong> <span class="bt-prefix">@GrantSaid</span></MudText>
+                    }
+                </MudPaper>
                 }
 
             </div>

@@ -283,8 +283,16 @@
     border: 1px solid rgba(0,0,0,0.08);
 }
 
+.credential-panel.selected-credential {
+    border-left: 4px solid var(--mud-palette-primary);
+}
+
 .mud-theme-dark .credential-panel {
     border: 1px solid rgba(255,255,255,0.12);
+}
+
+.mud-theme-dark .credential-panel.selected-credential {
+    border-left: 4px solid var(--mud-palette-primary);
 }
 
 .credential-panel .mud-expand-panel {
