@@ -118,23 +118,23 @@
         (PageTitle, PageDescription) = (ipexKind, isPresentation) switch
         {
             (IpexKind.Apply, false) => (
-                "Approve Credential Application",
-                "The page is requesting you to apply for a credential from an issuer."),
+                "approve credential application",
+                "The page requests you to apply for a credential from an issuer."),
             (IpexKind.Apply, true) => (
-                "Present a Credential",
-                "The page is requesting you present a credential held by the indicated profile. (apply)"),
+                "present a credential",
+                "The page requests you to present a credential held by the indicated profile. (apply)"),
             (IpexKind.Agree, false) => (
-                "Agree to Offered Credential and its Accuracy",
-                "The page is requesting you to carefully review and agree to a credential issuance offer."),
+                "agree to offered credential and its accuracy",
+                "The page is requesting y   ou to carefully review and agree to credential issuance offer."),
             (IpexKind.Agree, true) => (
-                "Agree to Offered Credential Presentation",
-                "The page is requesting you to agree to a credential presentation offer and its accuracy."),
+                "agree to offered credential presentation",
+                "The page requests you to agree to credential presentation offer and its accuracy."),
             (IpexKind.Admit, false) => (
-                "Accept Issued Credential",
-                "The page is requesting you to acknowledge and admit receipt of a granted credential."),
+                "accept issued credential",
+                "The page requests you to acknowledge and admit receipt of granted credential."),
             (IpexKind.Admit, true) => (
-                "Admit Granted Credential Presentation",
-                "The page is requesting you to acknowledge receipt of a presented credential."),
+                "admit granted credential presentation",
+                "The page requests you to acknowledge receipt of presented credential."),
             _ => LogUnexpectedKindAndReturn()
         };
 
@@ -387,14 +387,7 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
 
-                <MudAlert Severity="Severity.Info" Class="mb-3 ml-9">
-                    <MudText Typo="Typo.body2">@PageDescription</MudText>
-                </MudAlert>
-
-                
-
-
-
+                <MudText Class="ml-3" Typo="Typo.body2">@PageDescription</MudText>
 
                 @if (IsPresentationApply)
                 {
