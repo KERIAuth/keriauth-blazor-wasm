@@ -236,6 +236,36 @@ window.postMessage({
 window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID(), payload: {schemaSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
 ```
 
+### Developer Test: Request Credential Presentation (Apply)
+1. Prerequisites: 
+   a. Authenticated with at least one credential held
+   b. Side Panel open
+2. Navigate to Developer > Test
+3. Click "Request Credential Presentation (Apply)"
+
+Expected:
+- [ ] RequestApproveIpexPage opens with title "Request to Present a Credential"
+- [ ] Matching credentials are shown in a dropdown (first pre-selected)
+- [ ] Presentation View selector shows (Tree-Full default)
+- [ ] Credential detail renders with disclosure checkboxes on oneOf sections
+- [ ] Switching between Card/Tree and Summary/Full updates the display
+- [ ] Checking/unchecking disclosure boxes logs elision map changes
+- [ ] Approve button is enabled when a credential is selected
+- [ ] Selected credential has primary-color left border
+
+### Grant/Offer Presentation from Notification
+1. Prerequisites: Authenticated, with an `/exn/ipex/apply` notification
+2. Navigate to Notifications, expand an apply notification
+
+Expected:
+- [ ] "Grant Presentation" and "Offer Presentation" buttons are active
+- [ ] Clicking either opens the OfferOrGrantPresentationDialog
+- [ ] Dialog shows credential selector with view selector
+- [ ] Disclosure checkboxes appear on oneOf sections
+- [ ] Full disclosure grant/offer: succeeds with "Credential presentation granted/offered" snackbar
+- [ ] Selective disclosure grant: sends elided ACDC to signify-ts (may fail if anc/iss validation rejects it)
+- [ ] Cancel closes dialog without action
+
 ### IPEX Agree (Issuance)
 ```js
 window.postMessage({type: '/KeriAuth/ipex/agree', requestId: crypto.randomUUID(), payload: {offerSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFkSnI87zTv7LPOPZdXjoV52wCChfpUqYt7oGp7CjriJ', isPresentation: false}}, window.location.origin);

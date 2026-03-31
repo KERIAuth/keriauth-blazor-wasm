@@ -56,7 +56,6 @@ public interface ISignifyClientBinding {
     ValueTask<string> IpexOfferAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> IpexAgreeAndSubmitAsync(string argsJson, CancellationToken cancellationToken = default);
     ValueTask<string> GrantReceivedCredentialAsync(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
-    ValueTask<string> GrantWithElidedAcdcAsync(string senderAidNameOrPrefix, string elidedAcdcJson, string credentialSaid, string recipientPrefix, CancellationToken cancellationToken = default);
 
     // ===================== OOBI Operations =====================
     ValueTask<string> OobiGetAsync(string name, string? role, CancellationToken cancellationToken = default);

@@ -1706,5 +1706,31 @@ namespace Extension.Services.SignifyService {
                 return Result.Fail<RecursiveDictionary>(new JavaScriptInteropError(nameof(GrantReceivedCredential), e.Message, e));
             }
         }
+
+        public async Task<Result<RecursiveDictionary>> GrantWithElidedAcdc(string senderAidNameOrPrefix, string elidedAcdcJson, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null) {
+            var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
+            try {
+                var timeoutResult = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.GrantWithElidedAcdcAsync(senderAidNameOrPrefix, elidedAcdcJson, credentialSaid, recipientPrefix, ct),
+                    timeout2
+                );
+                if (timeoutResult.IsFailed) {
+                    return Result.Fail<RecursiveDictionary>(timeoutResult.Errors);
+                }
+                var unwrapped = UnwrapJsResult(timeoutResult.Value);
+                if (unwrapped.IsFailed) return Result.Fail<RecursiveDictionary>(unwrapped.Errors);
+
+                var resultDict = JsonSerializer.Deserialize<Dictionary<string, object>>(unwrapped.Value, jsonSerializerOptions);
+                if (resultDict is null) {
+                    return Result.Fail<RecursiveDictionary>("Failed to deserialize GrantWithElidedAcdc result");
+                }
+                var result = RecursiveDictionary.FromObjectDictionary(resultDict);
+                return Result.Ok(result);
+            }
+            catch (JSException e) {
+                logger.LogError(e, "{Op}: Unexpected JSException", nameof(GrantWithElidedAcdc));
+                return Result.Fail<RecursiveDictionary>(new JavaScriptInteropError(nameof(GrantWithElidedAcdc), e.Message, e));
+            }
+        }
     }
 }

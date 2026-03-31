@@ -225,5 +225,12 @@ namespace Extension.Services.SignifyService {
         /// Get a received credential and grant it to another party.
         /// </summary>
         Task<Result<RecursiveDictionary>> GrantReceivedCredential(string senderAidNameOrPrefix, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Grant a credential with selective disclosure (elided ACDC).
+        /// The elided ACDC has undisclosed sections replaced with their SAID strings.
+        /// signify-ts recomputes the top-level d via Saider.saidify before granting.
+        /// </summary>
+        Task<Result<RecursiveDictionary>> GrantWithElidedAcdc(string senderAidNameOrPrefix, string elidedAcdcJson, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
     }
 }

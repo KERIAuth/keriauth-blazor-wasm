@@ -46,41 +46,10 @@
 
             @if (isLoaded)
             {
-                @if (matchingCredentials.Count == 0)
-                {
-                    <MudAlert Severity="Severity.Info">
-                        <MudText Typo="Typo.body2">You don't hold any credentials matching this request.</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                            Schema: @(SchemaName ?? "Unknown") (@(SchemaSaid ?? "?"))
-                        </MudText>
-                    </MudAlert>
-                }
-                else
-                {
-                    <MudText Typo="Typo.subtitle2">Select a credential to present (@matchingCredentials.Count matching)</MudText>
-
-                    @foreach (var credential in matchingCredentials)
-                    {
-                        var credSaid = credential.GetValueByPath("sad.d")?.Value?.ToString();
-                        var isSelected = credSaid == selectedCredentialSaid;
-
-                        @if (isSelected)
-                        {
-                            <CredentialComponent Credential="@credential"
-                                                  ViewOptions="@PresentationViewOptions"
-                                                  ElisionMapChanged="@OnElisionMapChanged"
-                                                  Expanded="true"
-                                                  IsSelected="true"
-                                                  OnClick="@(() => SelectCredential(null))" />
-                        }
-                        else
-                        {
-                            <CredentialComponent Credential="@credential"
-                                                  IsSelected="false"
-                                                  OnClick="@(() => SelectCredential(credSaid))" />
-                        }
-                    }
-                }
+                <CredentialPresentationSelector MatchingCredentials="@matchingCredentials"
+                                                 SchemaSaid="@SchemaSaid"
+                                                 SelectedCredentialSaidChanged="@OnSelectedCredentialSaidChanged"
+                                                 ElisionMapChanged="@OnElisionMapChanged" />
             }
         </MudStack>
     </DialogContent>
@@ -118,12 +87,6 @@
     string? HolderPrefix => ApplyExchange.Rp;
     string? SchemaName => SchemaSaid is not null ? viewSpecService.GetViewSpec(SchemaSaid)?.ShortName : null;
 
-    CredentialViewOptions PresentationViewOptions => new(
-        DisplayType: appCache.MyPreferences.CredentialsDisplayType,
-        DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
-        IsPresentation: true
-    );
-
     protected override async Task OnInitializedAsync()
     {
         await LoadMatchingCredentials();
@@ -141,11 +104,9 @@
 
                 if (SchemaSaid is not null)
                 {
-                    // Filter by schema SAID
                     matchingCredentials = CredentialHelper.FilterCredentials(
                         allCredentials, [("sad.s", SchemaSaid)]);
 
-                    // Further filter by issuee matching the holder
                     if (HolderPrefix is not null)
                     {
                         matchingCredentials = CredentialHelper.FilterCredentials(
@@ -160,10 +121,9 @@
         }
     }
 
-    void SelectCredential(string? credSaid)
+    void OnSelectedCredentialSaidChanged(string? credSaid)
     {
         selectedCredentialSaid = credSaid;
-        elisionMap = new();
     }
 
     void OnElisionMapChanged(Dictionary<string, bool> map)

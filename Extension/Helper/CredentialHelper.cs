@@ -232,4 +232,36 @@ public static class CredentialHelper {
         }
         return filteredCredentials;
     }
+
+    /// <summary>
+    /// Creates an elided copy of an ACDC by replacing undisclosed sections with their SAID strings.
+    /// For each section key in elisionMap where value is false, the section dictionary is replaced
+    /// with its "d" field value (the section's SAID).
+    /// The top-level "d" is set to "" as a placeholder for signify-ts Saider.saidify to recompute.
+    /// </summary>
+    public static RecursiveDictionary ElideAcdc(RecursiveDictionary fullAcdc, Dictionary<string, bool> elisionMap) {
+        var elided = new RecursiveDictionary();
+
+        // Copy all entries from the original ACDC
+        foreach (var kvp in fullAcdc) {
+            elided[kvp.Key] = kvp.Value;
+        }
+
+        // Replace undisclosed sections with their SAID strings
+        foreach (var (sectionKey, disclose) in elisionMap) {
+            if (disclose) continue;
+            if (!elided.TryGetValue(sectionKey, out var sectionValue)) continue;
+            if (sectionValue.Type != RecursiveValueType.Dictionary) continue;
+            if (sectionValue.Dictionary is null) continue;
+            if (!sectionValue.Dictionary.TryGetValue("d", out var dValue)) continue;
+            if (dValue.StringValue is null) continue;
+
+            elided[sectionKey] = new RecursiveValue { StringValue = dValue.StringValue };
+        }
+
+        // Set top-level "d" to placeholder — signify-ts will recompute via Saider.saidify
+        elided["d"] = new RecursiveValue { StringValue = "" };
+
+        return elided;
+    }
 }

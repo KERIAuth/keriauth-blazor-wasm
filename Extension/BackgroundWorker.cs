@@ -3604,38 +3604,81 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var isSelectiveDisclosure = grantRequest.ElisionMap is not null
                 && grantRequest.ElisionMap.Any(kv => !kv.Value);
 
-            if (isSelectiveDisclosure) {
-                // Selective disclosure path — not yet implemented
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(false, Error: "Selective disclosure is not yet implemented. Please disclose all sections or cancel."));
-                return;
-            }
-
             var actionLabel = grantRequest.IsOffer ? "offer" : "grant";
 
             logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
-                ": Full disclosure {Action} — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
+                ": {Disclosure} {Action} — sender={Sender} ({SenderName}), recipient={Recipient}, credSaid={CredSaid}",
+                isSelectiveDisclosure ? "Selective disclosure" : "Full disclosure",
                 actionLabel, grantRequest.SenderNameOrPrefix, senderName, grantRequest.RecipientPrefix, grantRequest.CredentialSaid);
 
             Result<string> result;
 
-            if (grantRequest.IsOffer) {
-                // Offer path: send IPEX offer with held credential
-                var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
-                    SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
-                    RecipientPrefix: grantRequest.RecipientPrefix,
-                    CredentialSaid: grantRequest.CredentialSaid,
-                    ApplySaid: grantRequest.ApplySaid
-                ));
-                result = offerResult.IsSuccess
-                    ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
-                    : Result.Fail<string>(offerResult.Errors);
-            }
-            else {
-                // Grant path: use existing PresentStep
-                result = await _primeDataService.PresentStep(
-                    senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
-                    nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync));
+            switch (isSelectiveDisclosure, grantRequest.IsOffer) {
+                case (true, true):
+                    // TODO P1 Selective disclosure + offer path: not yet designed
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IpexGrantResponsePayload(false, Error: "Selective disclosure with offer is not yet implemented."));
+                    return;
+
+                case (true, false): {
+                    // Selective disclosure grant path: elide ACDC, saidify in signify-ts, grant
+                    var credResult = await _signifyClientService.GetCredentials();
+                    if (credResult.IsFailed) {
+                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                            result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credResult.Errors[0].Message}"));
+                        return;
+                    }
+
+                    var credential = credResult.Value.FirstOrDefault(c =>
+                        c.GetValueByPath("sad.d")?.Value?.ToString() == grantRequest.CredentialSaid);
+                    if (credential is null) {
+                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                            result: new IpexGrantResponsePayload(false, Error: $"Credential {grantRequest.CredentialSaid} not found"));
+                        return;
+                    }
+
+                    var sad = credential.GetByPath("sad")?.Dictionary;
+                    if (sad is null) {
+                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                            result: new IpexGrantResponsePayload(false, Error: "Credential has no SAD"));
+                        return;
+                    }
+
+                    var elidedAcdc = Helper.CredentialHelper.ElideAcdc(sad, grantRequest.ElisionMap!);
+                    var elidedAcdcJson = JsonSerializer.Serialize(elidedAcdc.ToObjectDictionary(), JsonOptions.CamelCase);
+
+                    logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
+                        ": Elided ACDC prepared, calling grantWithElidedAcdc");
+
+                    var grantResult = await _signifyClientService.GrantWithElidedAcdc(
+                        senderName, elidedAcdcJson, grantRequest.CredentialSaid, grantRequest.RecipientPrefix);
+
+                    result = grantResult.IsSuccess
+                        ? Result.Ok(grantResult.Value["grantSaid"]?.StringValue ?? "")
+                        : Result.Fail<string>(grantResult.Errors);
+                    break;
+                }
+
+                case (false, true): {
+                    // Full disclosure offer path: send IPEX offer with held credential
+                    var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                        SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
+                        RecipientPrefix: grantRequest.RecipientPrefix,
+                        CredentialSaid: grantRequest.CredentialSaid,
+                        ApplySaid: grantRequest.ApplySaid
+                    ));
+                    result = offerResult.IsSuccess
+                        ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
+                        : Result.Fail<string>(offerResult.Errors);
+                    break;
+                }
+
+                case (false, false):
+                    // Full disclosure grant path: use existing PresentStep
+                    result = await _primeDataService.PresentStep(
+                        senderName, grantRequest.CredentialSaid, grantRequest.RecipientPrefix,
+                        nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync));
+                    break;
             }
 
             if (result.IsSuccess) {

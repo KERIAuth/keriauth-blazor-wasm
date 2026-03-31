@@ -36,6 +36,7 @@ import type {
 import {
     SignifyClient,
     Serder,
+    Saider,
     Salter,
     Tier,
     ready
@@ -1270,6 +1271,59 @@ export const grantReceivedCredential = async (
             const [grant, gsigs, gend] = await client.ipex().grant({
                 senderName: senderAidNameOrPrefix,
                 acdc: new Serder(cred.sad),
+                anc: new Serder(cred.anc),
+                iss: new Serder(cred.iss),
+                ancAttachment: cred.ancatc,
+                recipient: recipientPrefix,
+                datetime: createTimestamp(),
+            });
+
+            const grantSaid = grant.ked.d as string;
+
+            const op = await client.ipex().submitGrant(
+                senderAidNameOrPrefix, grant, gsigs, gend, [recipientPrefix]
+            );
+            const result = await waitAndDeleteOperation(client, op);
+            return { ...result, grantSaid };
+        },
+        { SenderAidNameOrPrefix: senderAidNameOrPrefix, CredentialSaid: credentialSaid, RecipientPrefix: recipientPrefix }
+    );
+};
+
+/**
+ * Grant a credential with selective disclosure (elided ACDC).
+ * The elided ACDC has sections replaced with their SAID strings and top-level "d" set to "".
+ * This function:
+ * 1. Parses the elided ACDC JSON
+ * 2. Recomputes the top-level "d" via Saider.saidify
+ * 3. Fetches original iss/anc/ancatc from the original credential
+ * 4. Constructs and submits the grant
+ *
+ * Note: Whether anc/iss/ancatc remain valid for an elided ACDC with a different top-level d
+ * is an open question. If KERIA rejects them, this path may need a different approach.
+ */
+export const grantWithElidedAcdc = async (
+    senderAidNameOrPrefix: string,
+    elidedAcdcJson: string,
+    credentialSaid: string,
+    recipientPrefix: string
+): Promise<string> => {
+    return withClientOperation(
+        'grantWithElidedAcdc',
+        async (client) => {
+            // Parse and saidify the elided ACDC
+            const elidedAcdc = JSON.parse(elidedAcdcJson);
+            const [, saidifiedAcdc] = Saider.saidify(elidedAcdc);
+
+            // Fetch original credential for iss/anc/ancatc
+            const cred = await client.credentials().get(credentialSaid, false);
+            if (!cred) {
+                throw new Error(`Credential ${credentialSaid} not found`);
+            }
+
+            const [grant, gsigs, gend] = await client.ipex().grant({
+                senderName: senderAidNameOrPrefix,
+                acdc: new Serder(saidifiedAcdc),
                 anc: new Serder(cred.anc),
                 iss: new Serder(cred.iss),
                 ancAttachment: cred.ancatc,
