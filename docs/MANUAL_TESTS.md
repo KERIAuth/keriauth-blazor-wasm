@@ -246,7 +246,7 @@ window.postMessage({type: '/KeriAuth/ipex/apply', requestId: crypto.randomUUID()
 Expected:
 - [ ] RequestApproveIpexPage opens with title "Request to Present a Credential"
 - [ ] Matching credentials are shown in a dropdown (first pre-selected)
-- [ ] Presentation View selector shows (Tree-Full default)
+- [ ] View selector shows (Tree-Full default)
 - [ ] Credential detail renders with disclosure checkboxes on oneOf sections
 - [ ] Switching between Card/Tree and Summary/Full updates the display
 - [ ] Checking/unchecking disclosure boxes logs elision map changes
