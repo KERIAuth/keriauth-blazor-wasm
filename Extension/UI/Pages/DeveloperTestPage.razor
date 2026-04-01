@@ -387,28 +387,78 @@
                 <MudLink Href="@Routes.Paths.OfferPasskey" Target="_self">Offer Passkey</MudLink>
                 <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_blank">Release History</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Dialog Pages</MudText>
-            <MudText Class="ml-8">These simulated pages will only appear in the <em>SidePanel</em> when open.</MudText>
-            <div class="bt-link-list">
-                <MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign In (/signify/authorize)</MudLink>
-                <MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Headers (/signify/sign-request)</MudLink>
-                <MudLink OnClick="@SimulateRequestSignData" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data (/signify/sign-data)</MudLink>
-                <MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Request Sign Data (/signify/sign-data customized)</MudLink>
-                <MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Request Create Credential (/signify/credential/create/data-attestation)</MudLink>
-                <MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Request Connection (RequestConnectionInvite)</MudLink>
-                <MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Application (/KeriAuth/ipex/apply)</MudLink>
-                @*
-                // TODO P2 /presentation or a separate type?
-                *@
-                <MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">Request Credential Presentation (/KeriAuth/ipex/apply  ??/presentation)</MudLink>
-                <MudLink OnClick="@SimulateRequestIpexOffer" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Offer</MudLink>
-                @*
-                // TODO P2 implement siumated IPEX agree, grant, admit, spurn
-                <MudLink OnClick="@SimulateRequestIpexAgree" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Agreement</MudLink>
-                <MudLink OnClick="@SimulateRequestIpexGrant" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Grant</MudLink>
-                <MudLink OnClick="@SimulateRequestIpexAdmit" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Admission</MudLink>
-                *@
-            </div>
+            <MudText Typo="Typo.h6">Page Request Dialog Pages</MudText>
+            <MudText Class="ml-8">These simulated pages will only appear in the <em>SidePanel</em> when its open.</MudText>
+            <MudSimpleTable Class="ml-8" Dense="true" Elevation="0" Style="border:none;">
+                <tbody>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Sign In</MudLink></td>
+                        <td>@nameof(RequestSignInPage)</td>
+                        <td>/signify/authorize</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Sign Headers</MudLink></td>
+                        <td>@nameof(RequestSignHeadersPage)</td>
+                        <td>/signify/sign-request</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestSignData" Disabled="@(!appCache.IsConnectedToKeria)">Sign Data</MudLink></td>
+                        <td>@nameof(RequestSignDataPage)</td>
+                        <td>/signify/sign-data</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Sign Data (customized)</MudLink></td>
+                        <td>@nameof(RequestSignDataPage)</td>
+                        <td>/signify/sign-data</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Create Credential</MudLink></td>
+                        <td>@nameof(RequestCreateCredentialPage)</td>
+                        <td>/signify/credential/create/data-attestation</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Connection</MudLink></td>
+                        <td>@nameof(RequestConnectPage)</td>
+                        <td>RequestConnectionInvite</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">Approve Credential Issuance Application</MudLink></td>
+                        <td>@nameof(RequestApproveIpexPage)</td>
+                        <td>/KeriAuth/ipex/apply</td>
+                    </tr>
+                    @*
+                    // TODO P2 /presentation or a separate type?
+                    *@
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">Credential Presentation</MudLink></td>
+                        <td>@nameof(RequestApproveIpexPage)</td>
+                        <td>/KeriAuth/ipex/apply ??/presentation</td>
+                    </tr>
+                    @*
+                    // TODO P2 implement simulated IPEX agree, grant, admit, spurn
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexOffer" Disabled="@(!appCache.IsConnectedToKeria)">Approve Credential Issuance Offer</MudLink></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexAgree" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Agreement</MudLink></td>
+                        <td>@nameof(RequestApproveIpexPage)</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexGrant" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Grant</MudLink></td>
+                        <td>@nameof(RequestApproveIpexPage)</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestIpexAdmit" Disabled="@(!appCache.IsConnectedToKeria)">Request Approve Credential Issuance Admission</MudLink></td>
+                        <td>@nameof(RequestApproveIpexPage)</td>
+                        <td></td>
+                    </tr>
+                    *@
+                </tbody>
+            </MudSimpleTable>
             <MudText Typo="Typo.h6">Parameterized Pages</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@NavigateToKeriaConfig">KERIA Config</MudLink>

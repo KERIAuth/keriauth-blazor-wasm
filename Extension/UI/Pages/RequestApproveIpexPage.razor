@@ -121,7 +121,7 @@
                 "approve credential application",
                 "The page requests you to apply for a credential from an issuer."),
             (IpexKind.Apply, true) => (
-                "present a credential",
+                "present credential",
                 "The page requests you to present a credential held by the indicated profile. (apply)"),
             (IpexKind.Agree, false) => (
                 "agree to offered credential and its accuracy",
@@ -130,10 +130,10 @@
                 "agree to offered credential presentation",
                 "The page requests you to agree to credential presentation offer and its accuracy."),
             (IpexKind.Admit, false) => (
-                "accept issued credential",
+                "admit issued credential into your wallet",
                 "The page requests you to acknowledge and admit receipt of granted credential."),
             (IpexKind.Admit, true) => (
-                "admit granted credential presentation",
+                "admit granted credential presentation into your wallet",
                 "The page requests you to acknowledge receipt of presented credential."),
             _ => LogUnexpectedKindAndReturn()
         };
@@ -387,7 +387,7 @@
                     <MudText Typo="Typo.body1" Class="mb-4">Unknown Page (tab not found)</MudText>
                 }
 
-                <MudText Class="ml-3" Typo="Typo.body2">@PageDescription</MudText>
+                <MudText Class="ml-9" Typo="Typo.body2">@PageDescription</MudText>
 
                 @if (IsPresentationApply)
                 {
@@ -409,7 +409,7 @@
                     </div>
 
                     <MudExpansionPanels Dense="true" Class="ml-9 mt-0 mb-0">
-                        <MudExpansionPanel Text="Request Details" Dense="true">
+                        <MudExpansionPanel Text="Request details" Dense="true">
                             <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
                                 <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem; text-wrap:auto;">
                                     @RequestPayloadForDisplay
@@ -463,6 +463,7 @@
                     }
                 </MudPaper>
                 }
+                
 
             </div>
         </MudStack>
