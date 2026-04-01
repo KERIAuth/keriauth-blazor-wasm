@@ -392,37 +392,37 @@
             <MudSimpleTable Class="ml-8" Dense="true" Elevation="0" Style="border:none;">
                 <tbody>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">Sign In</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestSignIn" Disabled="@(!appCache.IsConnectedToKeria)">sign in</MudLink></td>
                         <td>@nameof(RequestSignInPage)</td>
                         <td>/signify/authorize</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">Sign Headers</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestSignHeaders" Disabled="@(!appCache.IsConnectedToKeria)">sign HTTP request headers</MudLink></td>
                         <td>@nameof(RequestSignHeadersPage)</td>
                         <td>/signify/sign-request</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestSignData" Disabled="@(!appCache.IsConnectedToKeria)">Sign Data</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestSignData" Disabled="@(!appCache.IsConnectedToKeria)">sign data</MudLink></td>
                         <td>@nameof(RequestSignDataPage)</td>
                         <td>/signify/sign-data</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">Sign Data (customized)</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestSignDataCustomized" Disabled="@(!appCache.IsConnectedToKeria)">sign data (customized)</MudLink></td>
                         <td>@nameof(RequestSignDataPage)</td>
                         <td>/signify/sign-data</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">Create Credential</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestCreateCredential" Disabled="@(!appCache.IsConnectedToKeria)">create credential</MudLink></td>
                         <td>@nameof(RequestCreateCredentialPage)</td>
                         <td>/signify/credential/create/data-attestation</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">Connection</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestConnect" Disabled="@(!appCache.IsConnectedToKeria)">connect</MudLink></td>
                         <td>@nameof(RequestConnectPage)</td>
                         <td>RequestConnectionInvite</td>
                     </tr>
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">Approve Credential Issuance Application</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestIpexApply" Disabled="@(!appCache.IsConnectedToKeria)">approve credential application</MudLink></td>
                         <td>@nameof(RequestApproveIpexPage)</td>
                         <td>/KeriAuth/ipex/apply</td>
                     </tr>
@@ -430,7 +430,7 @@
                     // TODO P2 /presentation or a separate type?
                     *@
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">Credential Presentation</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">present credential</MudLink></td>
                         <td>@nameof(RequestApproveIpexPage)</td>
                         <td>/KeriAuth/ipex/apply ??/presentation</td>
                     </tr>
