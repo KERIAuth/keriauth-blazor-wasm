@@ -84,13 +84,118 @@ namespace Extension.Helper {
             if (recursiveValue == null) {
                 return null;
             }
-            
+
             var value = recursiveValue.Value;
             if (value == null) {
                 return null;
             }
-            
+
             return new TypedValue(value, value.GetType());
+        }
+
+        /// <summary>
+        /// Queries a value using JSONPath-subset notation.
+        /// Supports: optional $ root, dot-separated keys, bracket array indices [n], and key[n] combos.
+        /// Examples: "a.LEI", "$.a.LEI", "chains[0].sad.a.personLegalName", "a.addresses[0].city"
+        /// </summary>
+        public RecursiveValue? QueryPath(string path) {
+            if (string.IsNullOrEmpty(path)) {
+                return null;
+            }
+
+            var segments = ParseJsonPathSegments(path);
+            RecursiveValue? current = new RecursiveValue { Dictionary = this };
+
+            foreach (var segment in segments) {
+                if (current == null) {
+                    return null;
+                }
+
+                if (segment.IsIndex) {
+                    if (current.List != null && segment.Index >= 0 && segment.Index < current.List.Count) {
+                        current = current.List[segment.Index];
+                    } else {
+                        return null;
+                    }
+                } else {
+                    if (current.Dictionary != null && current.Dictionary.TryGetValue(segment.Key!, out var value)) {
+                        current = value;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+
+            return current;
+        }
+
+        /// <summary>
+        /// Queries a value using JSONPath-subset notation and returns it as TypedValue for compatibility.
+        /// </summary>
+        public TypedValue? QueryValueByPath(string path) {
+            var recursiveValue = QueryPath(path);
+            if (recursiveValue == null) {
+                return null;
+            }
+
+            var value = recursiveValue.Value;
+            if (value == null) {
+                return null;
+            }
+
+            return new TypedValue(value, value.GetType());
+        }
+
+        private readonly record struct PathSegment(string? Key, int Index, bool IsIndex);
+
+        private static List<PathSegment> ParseJsonPathSegments(string path) {
+            var segments = new List<PathSegment>();
+
+            // Strip leading "$." or "$"
+            if (path.StartsWith("$.", StringComparison.Ordinal)) {
+                path = path[2..];
+            } else if (path == "$") {
+                return segments;
+            } else if (path.StartsWith('$')) {
+                path = path[1..];
+            }
+
+            // Split on dots, then parse each part for bracket indices
+            var parts = path.Split('.');
+            foreach (var part in parts) {
+                if (string.IsNullOrEmpty(part)) {
+                    continue;
+                }
+
+                var bracketPos = part.IndexOf('[');
+                if (bracketPos < 0) {
+                    // Simple key: "LEI", "sad", "a"
+                    segments.Add(new PathSegment(part, 0, false));
+                } else {
+                    // Key with index(es): "addresses[0]" or "[0]" or "items[0][1]"
+                    if (bracketPos > 0) {
+                        segments.Add(new PathSegment(part[..bracketPos], 0, false));
+                    }
+
+                    // Parse all bracket indices in this part
+                    var remaining = part[bracketPos..];
+                    while (remaining.Length > 0) {
+                        if (remaining[0] != '[') {
+                            break;
+                        }
+                        var closeBracket = remaining.IndexOf(']');
+                        if (closeBracket < 0) {
+                            break;
+                        }
+                        if (int.TryParse(remaining[1..closeBracket], out var index)) {
+                            segments.Add(new PathSegment(null, index, true));
+                        }
+                        remaining = remaining[(closeBracket + 1)..];
+                    }
+                }
+            }
+
+            return segments;
         }
     }
     
