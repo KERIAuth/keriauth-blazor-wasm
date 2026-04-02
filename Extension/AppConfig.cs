@@ -123,8 +123,19 @@ namespace Extension {
         public const string WebsiteUrl = "https://dign.id";
         public const string UninstallUrl = "https://dign.id/uninstall.html";
 
+        public static readonly Typography Typography = new()
+        {
+            H3 = new H3Typography { FontSize = "1.35rem", LineHeight = "1.25" },
+            H4 = new H4Typography { FontSize = "1.15rem", LineHeight = "1.25" },
+            H5 = new H5Typography { FontSize = "1.00rem", LineHeight = "1.20" },
+            H6 = new H6Typography { FontSize = "0.95rem", LineHeight = "1.20" },
+            Body1 = new Body1Typography { FontSize = "0.92rem" },
+            Body2 = new Body2Typography { FontSize = "0.85rem" },
+        };
+
         public static readonly MudTheme MyCustomTheme = new() {
             // See also https://mudblazor.com/customization/default-theme
+            Typography = Typography,
             PaletteLight = new PaletteLight() {
                 Primary = new MudColor(201, 1.0, 0.38, 1.0), // Colors.Indigo.Default,
                 PrimaryLighten = Colors.Indigo.Lighten1,

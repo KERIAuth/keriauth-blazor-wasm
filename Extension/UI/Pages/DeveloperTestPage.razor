@@ -373,7 +373,7 @@
 
 
 
-            <MudText Typo="Typo.h6">Pages not on main menu</MudText>
+            <MudText Class="bt-section-title">Pages not on main menu</MudText>
             <div class="bt-link-list">
                 <MudLink Href="@Routes.Paths.Welcome" Target="_self">Welcome</MudLink>
                 <MudLink Href="@Routes.Paths.NewRelease" Target="_self">Release</MudLink>
@@ -387,7 +387,7 @@
                 <MudLink Href="@Routes.Paths.OfferPasskey" Target="_self">Offer passkey</MudLink>
                 <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_blank">Release history</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Page request dialog pages</MudText>
+            <MudText Class="bt-section-title">Page request dialog pages</MudText>
             <MudText Class="ml-8">These simulated pages will only appear in the <em>SidePanel</em> when its open.</MudText>
             <MudSimpleTable Class="ml-8" Dense="true" Elevation="0" Style="border:none;">
                 <tbody>
@@ -459,13 +459,13 @@
                     *@
                 </tbody>
             </MudSimpleTable>
-            <MudText Typo="Typo.h6">Parameterized pages</MudText>
+            <MudText Class="bt-section-title">Parameterized pages</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@NavigateToKeriaConfig">KERIA Config</MudLink>
                 <MudLink OnClick="@NavigateToProfile">Profile</MudLink>
                 <MudLink OnClick="@NavigateToWebsite">Website</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Dialogs</MudText>
+            <MudText Class="bt-section-title">Dialogs</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@ShowAddConnectionDialogExample">Add connection</MudLink>
                 <MudLink OnClick="@ShowConnectionChoiceDialogExample">Connection choice</MudLink>
@@ -473,11 +473,11 @@
                 <MudLink OnClick="@ShowConfirmDeleteConfigExample">Confirm delete config</MudLink>
                 <MudLink OnClick="@ShowMessageBoxExample">Message Box Example</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Other</MudText>
+            <MudText Class="bt-section-title">Other</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick='@(async () => snackbar.Add("testing testing testing testing"))'>Snackbar</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Port testing</MudText>
+            <MudText Class="bt-section-title">Port testing</MudText>
             <MudStack>
                 <MudText>To disconnect/stop/inactivate: navigate to chrome://serviceworker-internals and Stop the service-worker. Should restart based on its listener events.</MudText>
             </MudStack>
