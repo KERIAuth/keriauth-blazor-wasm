@@ -229,7 +229,7 @@ const openPopupIfNotOpen = async (): Promise<void> => {
 
         // Set the popup URL (required before openPopup when no default_popup in manifest)
         // console.debug("app.ts: openPopupIfNotOpen - setting popup URL");
-        await chrome.action.setPopup({ popup: '/indexInPopup.html' });
+        await chrome.action.setPopup({ popup: '/index.html?context=popup' });
 
         // Open the popup
         // console.debug("app.ts: openPopupIfNotOpen - calling openPopup()");
@@ -528,6 +528,8 @@ if (_isSW) {
     chrome.contextMenus.onClicked.addListener((info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) => {
         if (info.menuItemId !== 'openSidePanel') return;
         if (!tab?.id) return;
+        // Set path with query string so setExtContext.ts detects SIDEPANEL context
+        chrome.sidePanel.setOptions({ path: 'index.html?context=sidepanel', tabId: tab.id });
         chrome.sidePanel.open({ tabId: tab.id }).catch((err: unknown) => {
             console.warn(`app.ts: ${_logTag} sidePanel.open failed:`, err);
         });

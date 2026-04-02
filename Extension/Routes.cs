@@ -83,6 +83,10 @@ public static class Routes {
         public const string DeveloperState = "/DeveloperState.html";
         public const string ReleaseHistory = "/content/release_history.html";
     }
+    public static class IndexPaths {
+        public const string InTab = Paths.Index;
+        public const string InPopup = Paths.Index + "?context=popup";
+    }
 
     public static readonly Dictionary<Type, PageRoute> Pages = new() {
         // Primary navigation (auth required)
@@ -162,25 +166,6 @@ public static class Routes {
         Pages[typeof(RequestApproveIpexPage)].Path,
     ];
 
-    /// <summary>
-    /// Additional paths that don't require auth but aren't separate page types.
-    /// Index.razor handles multiple route paths.
-    /// </summary>
-    private static readonly HashSet<string> AdditionalPathsNotRequiringAuth =
-    [
-        IndexPaths.InTab,
-        IndexPaths.InPopup,
-        IndexPaths.InSidePanel
-    ];
-
-    /// <summary>
-    /// Context-specific Index page paths (all handled by Index.razor).
-    /// </summary>
-    public static class IndexPaths {
-        public const string InTab = "/indexInTab.html";
-        public const string InPopup = "/indexInPopup.html";
-        public const string InSidePanel = "/indexInSidePanel.html";
-    }
 
     public static readonly Dictionary<ContentPage, ContentRoute> Content = new() {
         [ContentPage.Terms] = new("Terms", "content/terms.html",
@@ -226,8 +211,7 @@ public static class Routes {
         !Pages
             .Where(p => !p.Value.RequiresAuth)
             .Select(p => p.Value.Path)
-            .Contains(path)
-        && !AdditionalPathsNotRequiringAuth.Contains(path);
+            .Contains(path);
 
     /// <summary>
     /// Get the path for a page type.

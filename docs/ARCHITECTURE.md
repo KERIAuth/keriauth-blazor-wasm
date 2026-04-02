@@ -99,7 +99,7 @@ Extension/                        # Main Blazor WASM project (App + BackgroundWo
   wwwroot/                        # Static web assets
     manifest.json                 # Chrome extension manifest (MV3)
     app.ts                        # Blazor startup hooks (beforeStart/afterStarted)
-    index*.html                   # Entry points (Tab, Popup, SidePanel variants)
+    index.html                    # Entry point (?context=popup|sidepanel for non-tab contexts)
     scripts/
       es6/                        # Compiled TypeScript modules (from scripts/types + modules)
       esbuild/                    # Bundled scripts (from scripts/bundles)
