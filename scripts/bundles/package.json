@@ -18,7 +18,7 @@
     "libsodium-sumo": "^0.7.15",
     "mathjs": "^12.4.0",
     "signify-polaris-web": "github:weboftrust/polaris-web#7d7dd13",
-    "signify-ts": "github:cardano-foundation/signify-ts#build/v1.2",
+    "signify-ts": "github:WebOfTrust/signify-ts#62a646f1eb67c30c8f1aecfe628d81dd693b60f2",
     "structured-headers": "^0.5.0",
     "urlsafe-base64": "^1.0.0"
   },

@@ -101,6 +101,72 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("datetime")] string? Datetime = null
     );
 
+    /// <summary>
+    /// Represents a complete credential as returned by signify-ts credentials.get()/list().
+    /// Mirrors KERIA's ClonedCredential structure. All fields use RecursiveDictionary
+    /// to preserve CESR/SAID field ordering.
+    /// </summary>
+    public class ClonedCredential {
+        public required RecursiveDictionary Sad { get; init; }
+        public string? Atc { get; init; }
+        public RecursiveDictionary? Iss { get; init; }
+        public string? IssAtc { get; init; }
+        public string? Pre { get; init; }
+        public RecursiveDictionary? Schema { get; init; }
+        public List<ClonedCredential> Chains { get; init; } = [];
+        public RecursiveDictionary? Status { get; init; }
+        public RecursiveDictionary? Anc { get; init; }
+        public string? AncAtc { get; init; }
+
+        public string? SchemaSaid => Sad.QueryPath("s")?.StringValue;
+
+        /// <summary>
+        /// Extracts a ClonedCredential from a RecursiveDictionary representing the full
+        /// credential structure returned by signify-ts.
+        /// </summary>
+        public static ClonedCredential FromRecursiveDictionary(RecursiveDictionary credential) {
+            var sad = credential.QueryPath("sad")?.Dictionary
+                ?? throw new ArgumentException("Credential must contain 'sad' field");
+
+            var chains = new List<ClonedCredential>();
+            var chainList = credential.QueryPath("chains")?.List;
+            if (chainList != null) {
+                foreach (var chainValue in chainList) {
+                    if (chainValue.Dictionary is { } chainDict) {
+                        chains.Add(FromRecursiveDictionary(chainDict));
+                    }
+                }
+            }
+
+            return new ClonedCredential {
+                Sad = sad,
+                Atc = credential.QueryPath("atc")?.StringValue,
+                Iss = credential.QueryPath("iss")?.Dictionary,
+                IssAtc = credential.QueryPath("issatc")?.StringValue,
+                Pre = credential.QueryPath("pre")?.StringValue,
+                Schema = credential.QueryPath("schema")?.Dictionary,
+                Chains = chains,
+                Status = credential.QueryPath("status")?.Dictionary,
+                Anc = credential.QueryPath("anc")?.Dictionary,
+                AncAtc = credential.QueryPath("ancatc")?.StringValue,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Represents a credential issuance event (iss/bis).
+    /// Mirrors KERIA's IssEvent structure.
+    /// </summary>
+    public record IssEvent(
+        [property: JsonPropertyName("v")] string V,
+        [property: JsonPropertyName("t")] string T,
+        [property: JsonPropertyName("d")] string D,
+        [property: JsonPropertyName("i")] string I,
+        [property: JsonPropertyName("s")] string S,
+        [property: JsonPropertyName("ri")] string Ri,
+        [property: JsonPropertyName("dt")] string Dt
+    );
+
     public record CredentialFilter(
         [property: JsonPropertyName("filter")] KeriDictionary Filter,
         [property: JsonPropertyName("skip")] int? Skip = null,

@@ -14,6 +14,8 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("type")] string Type,
         [property: JsonPropertyName("credentialType")] string? CredentialType = null,
         [property: JsonPropertyName("version")] string? Version = null,
-        [property: JsonPropertyName("properties")] RecursiveDictionary? Properties = null
+        [property: JsonPropertyName("properties")] RecursiveDictionary? Properties = null,
+        [property: JsonPropertyName("required")] List<string>? Required = null,
+        [property: JsonPropertyName("additionalProperties")] bool? AdditionalProperties = null
     );
 }
