@@ -17,12 +17,29 @@
     private int _currentDeviceIdx;
     private IJSObjectReference? _audioModule;
     private IJSObjectReference? _cameraModule;
+    private IJSObjectReference? _scriptLoader;
     private string? _cameraPermissionStatus;
     private bool _prevIsVisible;
+    private bool _scriptsLoaded;
 
     // Works on Chrome, Edge, and Brave
     private string SiteDetailsUrl => $"chrome://settings/content/siteDetails?site=chrome-extension://{_extensionId}";
     private string _extensionId = "";
+
+    private async Task EnsureBarcodeScannerScriptsAsync() {
+        if (_scriptsLoaded) return;
+        _scriptLoader ??= await js.InvokeAsync<IJSObjectReference>(
+            "import", "./scripts/helpers/loadScript.js");
+        await _scriptLoader.InvokeAsync<object>("loadScript",
+            "content/BlazorBarcodeScanner.ZXing.JS/zxingjs.index.min.js");
+        await _scriptLoader.InvokeAsync<object>("loadScript",
+            "content/BlazorBarcodeScanner.ZXing.JS/BlazorBarcodeScanner.js");
+        _scriptsLoaded = true;
+    }
+
+    protected override async Task OnInitializedAsync() {
+        await EnsureBarcodeScannerScriptsAsync();
+    }
 
     protected override async Task OnParametersSetAsync() {
         if (IsVisible && !_prevIsVisible) {
@@ -33,6 +50,7 @@
                 _extensionId = await _cameraModule.InvokeAsync<string>("getExtensionId");
             }
             _cameraPermissionStatus = await _cameraModule.InvokeAsync<string>("requestCameraPermission");
+            await EnsureBarcodeScannerScriptsAsync();
         }
         else if (!IsVisible) {
             _cameraPermissionStatus = null;
@@ -163,7 +181,7 @@
                 <MudText Typo="Typo.h6">Scan QR code</MudText>
 
                 <div style="display: flex; justify-content: center;">
-                    @if (_cameraPermissionStatus == "granted")
+                    @if (_cameraPermissionStatus == "granted" && _scriptsLoaded)
                     {
                         @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:
                            - "Trying to play video that is already playing."

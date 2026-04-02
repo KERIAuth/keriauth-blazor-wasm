@@ -19,6 +19,14 @@ export async function requestCameraPermission() {
         // permissions.query may not support "camera" in all contexts; fall through to getUserMedia
     }
 
+    // Enumerate devices first to initialise the media subsystem — without this,
+    // getUserMedia can fail in extension contexts when scripts are lazily loaded.
+    try {
+        await navigator.mediaDevices.enumerateDevices();
+    } catch {
+        // non-fatal; proceed to getUserMedia
+    }
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         stream.getTracks().forEach(t => t.stop());
