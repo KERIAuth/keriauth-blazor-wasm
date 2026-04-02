@@ -42,7 +42,7 @@
 }
 
 .mud-button {
-    text-transform: capitalize;
+    text-transform: none;
 }
 
 .mud-chip {

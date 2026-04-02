@@ -70,7 +70,7 @@
                 CloseButton = true,
                 Position = DialogPosition.Center,
             };
-        var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
+        var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add profile", parameters, options);
         var result = await dialog.Result;
         if (result is null || result.Canceled)
         {
@@ -192,6 +192,6 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add Profile</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Disabled="@IsAddingAid" OnClick="async () => await AddIdentifier()" Variant="Variant.Filled" Color="Color.Primary">Add profile</MudButton>
     </MudStack>
 </div>

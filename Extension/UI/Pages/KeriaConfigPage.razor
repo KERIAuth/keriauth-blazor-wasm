@@ -176,7 +176,7 @@
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
-        var dialog = await dialogService.ShowAsync<ConfirmDeleteConfigDialog>("Delete Configuration", parameters, options);
+        var dialog = await dialogService.ShowAsync<ConfirmDeleteConfigDialog>("Delete configuration", parameters, options);
         var result = await dialog.Result;
 
         if (result is null || result.Canceled) return;
@@ -251,7 +251,7 @@
                     <MudTooltip Delay="0.5" Placement="Placement.Bottom"
                                 Text="View and manage this connection to a KERIA service. Your signing keys always remain in the DIGN Identity Wallet.">
                         <MudStack Row="true">
-                            <MudText Class="bt-page-title">KERIA Service Connection</MudText>
+                            <MudText Class="bt-page-title">KERIA service connection</MudText>
                             <MudIcon Icon="@Icons.Material.Outlined.Info" Class="bt-info-icon" />
                         </MudStack>
                     </MudTooltip>
@@ -259,7 +259,7 @@
 
                 @if (IsSelected)
                 {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Class="mt-2">Active Configuration</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Class="mt-2">Active configuration</MudChip>
                 }
 
                 <!-- Agency-Level Service Section -->
@@ -366,7 +366,7 @@
             }
             else
             {
-                <MudText>Loading...</MudText>
+                <MudText>Loading…</MudText>
             }
         </div>
     </MudStack>

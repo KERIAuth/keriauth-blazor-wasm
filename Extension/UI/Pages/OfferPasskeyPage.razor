@@ -88,7 +88,7 @@
 <div id="@this.GetType().Name" class="bt-body-page" @onkeydown="HandleKeyDown" tabindex="0">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Create a Passkey?" />
+            <PageHeading Title="Create a passkey?" />
             <MudStack Class="mt-4">
                 <MudText>
                     You may now (or later) create a convenient passkey that lets you unlock @AppConfig.ProductName instead of typing your passcode.
@@ -101,7 +101,7 @@
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudSpacer />
-        <MudButton Variant="Variant.Text" OnClick="DeclineOffer">Maybe Later</MudButton>
-        <MudButton @ref="createPasskeyButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer">Create Passkey</MudButton>
+        <MudButton Variant="Variant.Text" OnClick="DeclineOffer">Maybe later</MudButton>
+        <MudButton @ref="createPasskeyButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer">Create passkey</MudButton>
     </MudStack>
 </div>

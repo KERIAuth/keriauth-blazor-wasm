@@ -331,7 +331,7 @@
             { x => x.PasskeyCount, 999 }
         };
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
-        var dialog = await dialogService.ShowAsync<ConfirmDeleteConfigDialog>("Delete Configuration", parameters, options);
+        var dialog = await dialogService.ShowAsync<ConfirmDeleteConfigDialog>("Delete configuration", parameters, options);
     }
 
     async Task ShowAddProfileDialogExample()
@@ -346,13 +346,13 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add Profile", parameters, options);
+        var dialog = await dialogService.ShowAsync<AddProfileDialog>("Add profile", parameters, options);
     }
 
     async Task ShowConnectionChoiceDialogExample()
     {
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
-        var dialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add Connection", new DialogParameters(), options);
+        var dialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add connection", new DialogParameters(), options);
     }
 
     async Task ShowAddConnectionDialogExample()
@@ -362,14 +362,14 @@
             { x => x.DefaultName, "" }
         };
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
-        var dialog = await dialogService.ShowAsync<AddConnectionDialog>("Add Connection", parameters, options);
+        var dialog = await dialogService.ShowAsync<AddConnectionDialog>("Add connection", parameters, options);
     }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Developer Test" />
+            <PageHeading Title="Developer test" />
 
 
 
@@ -380,14 +380,14 @@
                 <MudLink Href="@Routes.Paths.Terms" Target="_self">Terms</MudLink>
                 <MudLink Href="@Routes.Paths.Configure" Target="_self">Configure</MudLink>
                 <MudLink Href="@Routes.Paths.Connecting" Target="_self">Connecting</MudLink>
-                <MudLink Href="@Routes.Paths.AddPasskey" Target="_self">Add Passkey</MudLink>
-                <MudLink Href="@Routes.Paths.Delete" Target="_self">Delete Local Config</MudLink>
-                <MudLink Href="@Routes.Paths.GettingStarted" Target="_self">Getting Started</MudLink>
+                <MudLink Href="@Routes.Paths.AddPasskey" Target="_self">Add passkey</MudLink>
+                <MudLink Href="@Routes.Paths.Delete" Target="_self">Delete local config</MudLink>
+                <MudLink Href="@Routes.Paths.GettingStarted" Target="_self">Getting started</MudLink>
                 <MudLink Href="@Routes.Paths.KeriaHelp" Target="_self">KERIA Help</MudLink>
-                <MudLink Href="@Routes.Paths.OfferPasskey" Target="_self">Offer Passkey</MudLink>
-                <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_blank">Release History</MudLink>
+                <MudLink Href="@Routes.Paths.OfferPasskey" Target="_self">Offer passkey</MudLink>
+                <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_blank">Release history</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Page Request Dialog Pages</MudText>
+            <MudText Typo="Typo.h6">Page request dialog pages</MudText>
             <MudText Class="ml-8">These simulated pages will only appear in the <em>SidePanel</em> when its open.</MudText>
             <MudSimpleTable Class="ml-8" Dense="true" Elevation="0" Style="border:none;">
                 <tbody>
@@ -459,7 +459,7 @@
                     *@
                 </tbody>
             </MudSimpleTable>
-            <MudText Typo="Typo.h6">Parameterized Pages</MudText>
+            <MudText Typo="Typo.h6">Parameterized pages</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick="@NavigateToKeriaConfig">KERIA Config</MudLink>
                 <MudLink OnClick="@NavigateToProfile">Profile</MudLink>
@@ -467,17 +467,17 @@
             </div>
             <MudText Typo="Typo.h6">Dialogs</MudText>
             <div class="bt-link-list">
-                <MudLink OnClick="@ShowAddConnectionDialogExample">Add Connection</MudLink>
-                <MudLink OnClick="@ShowConnectionChoiceDialogExample">Connection Choice</MudLink>
-                <MudLink OnClick="@ShowAddProfileDialogExample">Add Profile</MudLink>
-                <MudLink OnClick="@ShowConfirmDeleteConfigExample">Confirm Delete Config</MudLink>
+                <MudLink OnClick="@ShowAddConnectionDialogExample">Add connection</MudLink>
+                <MudLink OnClick="@ShowConnectionChoiceDialogExample">Connection choice</MudLink>
+                <MudLink OnClick="@ShowAddProfileDialogExample">Add profile</MudLink>
+                <MudLink OnClick="@ShowConfirmDeleteConfigExample">Confirm delete config</MudLink>
                 <MudLink OnClick="@ShowMessageBoxExample">Message Box Example</MudLink>
             </div>
             <MudText Typo="Typo.h6">Other</MudText>
             <div class="bt-link-list">
                 <MudLink OnClick='@(async () => snackbar.Add("testing testing testing testing"))'>Snackbar</MudLink>
             </div>
-            <MudText Typo="Typo.h6">Port Testing</MudText>
+            <MudText Typo="Typo.h6">Port testing</MudText>
             <MudStack>
                 <MudText>To disconnect/stop/inactivate: navigate to chrome://serviceworker-internals and Stop the service-worker. Should restart based on its listener events.</MudText>
             </MudStack>

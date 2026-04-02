@@ -245,7 +245,7 @@
                     Your digital signature enables this website to verify your identity and confirm that the request is authorized by you.
                 </MudText>
                 <WebsiteConfigDisplay OriginStr="@OriginStr" IsOriginShown="false" IsCredentialShown="false" IsAutoSignShown="false" ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
-                <MudText Class="bt-section-title">Request to Sign</MudText>
+                <MudText Class="bt-section-title">Request to sign</MudText>
                 <MudPaper Elevation="0" Class="ml-4 pa-2" Style="background-color: var(--mud-palette-background-grey);">
                     <MudText><b>Method:</b> @RequestMethod</MudText>
                     <MudText Style="word-break: break-all;"><b>URL:</b> @RequestUrl</MudText>
@@ -265,7 +265,7 @@
                 @if (HeadersDict.Count > 0)
                 {
                     <MudStack Row>
-                        <MudCheckBox Label="Show Additional Headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
+                        <MudCheckBox Label="Show additional headers" Value="IsDetailShown" ValueChanged="async (bool b) => await SetIsDetailShown(b)" Style="padding-left:0;"></MudCheckBox>
                     </MudStack>
                     @if (IsDetailShown)
                     {

@@ -591,7 +591,7 @@
         <!-- Recovery Phrase Mode -->
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
-                <PageHeading Title="Unlock with Recovery Phrase"
+                <PageHeading Title="Unlock with recovery phrase"
                              HelpText="Enter your 18-word recovery phrase to unlock. Type at least 3 characters to see suggestions." />
 
                 <!-- Word input with Undo button -->
@@ -604,7 +604,7 @@
                                   Immediate="true"
                                   Disabled="@IsRecoveryComplete"
                                   Style="flex: 1;"
-                                  Placeholder="Type a word..." />
+                                  Placeholder="Type a word…" />
                     <MudTooltip Text="Undo last word">
                         <MudIconButton Icon="@Icons.Material.Filled.Undo"
                                        Color="Color.Secondary"
@@ -750,18 +750,18 @@
             {
                 <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
                            OnClick="async () => await SetIsPasskeyUsePreferred(false)">
-                    Use Passcode
+                    Use passcode
                 </MudButton>
                 <MudButton @ref="unlockWithPasskeyButton" Disabled="@(!CanUsePasskey || _isUnlocking)" Class="bt-button-wrap"
                            Variant="Variant.Filled" Color="Color.Primary" OnClick="async () => await UnlockWithPasskey()">
                     @if (_isUnlocking)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <span>Unlocking...</span>
+                        <span>Unlocking…</span>
                     }
                     else
                     {
-                        <span>Unlock with Passkey</span>
+                        <span>Unlock with passkey</span>
                     }
                 </MudButton>
             }
@@ -771,7 +771,7 @@
                 {
                     <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
                                OnClick="async () => await SetIsPasskeyUsePreferred(true)">
-                        Use Passkey
+                        Use passkey
                     </MudButton>
                 }
                 <MudButton Disabled="@(!isValid || (unlockPasscodeModel.Passcode?.Length ?? 0) != 21 || _isUnlocking)" Class="bt-button-wrap"
@@ -779,7 +779,7 @@
                     @if (_isUnlocking)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <span>Unlocking...</span>
+                        <span>Unlocking…</span>
                     }
                     else
                     {

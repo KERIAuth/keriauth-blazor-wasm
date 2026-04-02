@@ -101,12 +101,12 @@
                 @if (IsAlreadyOffered)
                 {
                     <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.LocalOffer">Credential Offered</MudChip>
+                             Icon="@Icons.Material.Filled.LocalOffer">Credential offered</MudChip>
                 }
                 else if (IsAlreadyGranted)
                 {
                     <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.CardGiftcard">Credential Granted</MudChip>
+                             Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
                 }
                 else
                 {
@@ -121,11 +121,11 @@
                             @if (IsOffering)
                             {
                                 <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Offering...</text>
+                                <text>Offering…</text>
                             }
                             else
                             {
-                                <text>Offer Credential</text>
+                                <text>Offer credential</text>
                             }
                         </MudButton>
                     }
@@ -140,11 +140,11 @@
                             @if (IsOfferingPresentation)
                             {
                                 <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Offering...</text>
+                                <text>Offering…</text>
                             }
                             else
                             {
-                                <text>Offer Presentation</text>
+                                <text>Offer presentation</text>
                             }
                         </MudButton>
                     }
@@ -159,11 +159,11 @@
                             @if (IsGranting)
                             {
                                 <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Granting...</text>
+                                <text>Granting…</text>
                             }
                             else
                             {
-                                <text>Grant Credential</text>
+                                <text>Grant credential</text>
                             }
                         </MudButton>
                     }
@@ -178,11 +178,11 @@
                             @if (IsGrantingPresentation)
                             {
                                 <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Granting...</text>
+                                <text>Granting…</text>
                             }
                             else
                             {
-                                <text>Grant Presentation</text>
+                                <text>Grant presentation</text>
                             }
                         </MudButton>
                     }
@@ -211,7 +211,7 @@
                         @if (IsAgreeing)
                         {
                             <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Agreeing...</text>
+                            <text>Agreeing…</text>
                         }
                         else
                         {
@@ -230,7 +230,7 @@
                 @if (IsAlreadyGranted)
                 {
                     <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.CardGiftcard">Credential Granted</MudChip>
+                             Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
                 }
                 else if (OnGrant.HasDelegate)
                 {
@@ -243,7 +243,7 @@
                         @if (IsGranting)
                         {
                             <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Granting...</text>
+                            <text>Granting…</text>
                         }
                         else
                         {
@@ -275,7 +275,7 @@
                         @if (IsAdmitting)
                         {
                             <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Admitting...</text>
+                            <text>Admitting…</text>
                         }
                         else
                         {

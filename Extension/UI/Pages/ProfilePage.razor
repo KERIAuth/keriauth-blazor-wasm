@@ -610,7 +610,7 @@
                         </MudExpansionPanel>
                         <MudExpansionPanel Class="my-3">
                             <TitleContent>
-                                <MudText>Key State</MudText>
+                                <MudText>Key state</MudText>
                             </TitleContent>
                             <ChildContent>
                                 @if (IsTransferrable)
@@ -623,7 +623,7 @@
                                 }
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Signing Keys (@signingKeys.Count())</MudText>
+                                        <MudText>Signing keys (@signingKeys.Count())</MudText>
                                     </TitleContent>
                                     <ChildContent>
                                         <MudText>Threshold = @signingThreshold</MudText>
@@ -677,20 +677,20 @@
                                                     </MudTd>
                                                 </RowTemplate>
                                             </MudTable>
-                                            <MudButton StartIcon="@Icons.Material.Filled.PersonRemove" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Revoke Delegatee</MudButton>
-                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add Delegatee</MudButton>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonRemove" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Revoke delegatee</MudButton>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add delegatee</MudButton>
                                         }
                                         else
                                         {
                                             <MudText>No delegatees. You have not delegated signing authority to any other profiles.</MudText>
-                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add Delegatee</MudButton>
+                                            <MudButton StartIcon="@Icons.Material.Filled.PersonAddAlt1" OnClick="async () => await UpdateKeyState()" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" Disabled>Add delegatee</MudButton>
                                         }
                                     </ChildContent>
                                 </MudExpansionPanel>
 
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>Key Update Authorities (@nextKeys.Count())</MudText>
+                                        <MudText>Key update authorities (@nextKeys.Count())</MudText>
                                     </TitleContent>
                                     <ChildContent>
                                         <MudText>Total Threshold = @nextThreshold</MudText>
@@ -717,7 +717,7 @@
                                                     @if (nextKeys.Any() && @context.PubKey == nextKeys.First().PubKey)
                                                     {
                                                         // TODO P3 remove hack that shows action only on first row as an example
-                                                        <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="@(async () => await UpdateKeyState())" Variant="Variant.Filled" Color="Color.Primary">Initiate Update</MudButton>
+                                                        <MudButton StartIcon="@Icons.Material.Filled.Update" OnClick="@(async () => await UpdateKeyState())" Variant="Variant.Filled" Color="Color.Primary">Initiate update</MudButton>
                                                     }
                                                 </MudTd>
                                             </RowTemplate>
@@ -755,7 +755,7 @@
                                 </MudExpansionPanel>
                                 <MudExpansionPanel>
                                     <TitleContent>
-                                        <MudText>More...</MudText>
+                                        <MudText>More…</MudText>
                                     </TitleContent>
                                     <ChildContent>
                                         <MudText>Oobis, Endroles, Members, Registries, Contacts, Credentials, Exchanges, Multisig, Ipex, ... See http://localhost:3901/spec.yaml</MudText>

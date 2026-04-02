@@ -246,7 +246,7 @@
             </div>
             <MudStack Row="true" Class="mt-3 mb-3 d-flex justify-end pr-2" Style="flex-shrink:0;">
                 <MudSpacer></MudSpacer>
-                <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@Routes.Paths.Profiles" OnClick="() => IsProfilePanelOpen = false">Manage Profiles</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@Routes.Paths.Profiles" OnClick="() => IsProfilePanelOpen = false">Manage profiles</MudButton>
             </MudStack>
         </div>
     </MudOverlay>
@@ -284,14 +284,14 @@
                     <MudNavGroup Ripple="false" Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperState" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTest" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
-                        <MudNavLink Ripple="false" Href="@Routes.Paths.PrimeData" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime Data</MudNavLink>
+                        <MudNavLink Ripple="false" Href="@Routes.Paths.PrimeData" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime data</MudNavLink>
                         <MudNavGroup Ripple="false" Title="Draft Pages" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                             <MudNavLink Ripple="false" Href="@Routes.Paths.Presentations" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
-                            <MudNavLink Ripple="false" Href="@Routes.Paths.Mnemonic" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery Phrase</MudNavLink>
+                            <MudNavLink Ripple="false" Href="@Routes.Paths.Mnemonic" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery phrase</MudNavLink>
 
                         </MudNavGroup>
                     </MudNavGroup>
-                    <MudNavLink Ripple="false" Href="@Routes.Paths.Delete" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset All...</MudNavLink>
+                    <MudNavLink Ripple="false" Href="@Routes.Paths.Delete" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset all…</MudNavLink>
                 </MudNavGroup>
 
                 <MudNavGroup Ripple="false" Title="About" Icon="@Icons.Material.Filled.Info" IconColor="Color.Surface">
@@ -302,8 +302,8 @@
                     <!-- TODO P4 provide licenses -->
 
                     <MudNavLink Ripple="false" Style="display:none !important;" Href="@Routes.PathFor(ContentPage.Licenses)" Target="licenses" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Licenses</MudNavLink>
-                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.Release)" Target="releaseNotes" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release Notes</MudNavLink>
-                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.ReleaseHistory)" Target="releaseHistory" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release History<br /></MudNavLink>
+                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.Release)" Target="releaseNotes" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release notes</MudNavLink>
+                    <MudNavLink Ripple="false" Href="@Routes.PathFor(ContentPage.ReleaseHistory)" Target="releaseHistory" Icon="@Icons.Material.Filled.StickyNote2" IconColor="Color.Surface">Release history<br /></MudNavLink>
                     <MudText Typo="Typo.body2" Style="font-style:italic; opacity:0.4;" Class="ml-9">version @version_name</MudText>
                 </MudNavGroup>
             </MudNavMenu>

@@ -196,10 +196,10 @@
 
             <MudStack Row="false">
                 <MudText Class="bt-pref-group-label0">
-                    Menu Mode
+                    Menu mode
                 </MudText>
                 <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
-                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In Browser Tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInTab" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVIT(a)" Label="In browser tab" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInTab)))
                         {
                             <MudSelectItem Value="item">@item</MudSelectItem>
@@ -208,7 +208,7 @@
                     <MudCheckBox T="bool" Value="IsMenuOpenInTabOnStartup" ValueChanged="async (bool v) => await SetAndPersistIsMenuOpenInTabOnStartup(v)" Label="Expand on initial open" Color="Color.Primary" />
                 </MudStack>
                 <MudStack Row="true" Class="ml-5" AlignItems="AlignItems.Center">
-                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In SidePanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
+                    <MudSelect T="DrawerVariant" MultiSelection="false" Value="DrawerVariantInSidePanel" ValueChanged="async (DrawerVariant a) => await SetAndPersistDVISP(a)" Label="In sidepanel" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Style="width:14.286rem;">
                         @foreach (DrawerVariant item in Enum.GetValues(typeof(DrawerVariantSupportedInSidePanel)))
                         {
                             <MudSelectItem Value="item">@item</MudSelectItem>
@@ -220,7 +220,7 @@
 
             <MudStack Row="false">
                 <MudText Class="bt-pref-group-label0">
-                    Inactivity Timeout
+                    Inactivity timeout
                 </MudText>
                 <MudStack Row="false" Class="ml-5" Style="width:14.286rem;">
                     @*
@@ -233,14 +233,14 @@
 
             <MudStack Row="false">
                 <MudText Class="bt-pref-group-label0">
-                    Optional Features
+                    Optional features
                 </MudText>
                 <MudStack Class="ml-5">
                     <MudStack Row="true" AlignItems="AlignItems.Center">
                         <MudSwitch Value="IsMultiKeriaConfigEnabled"
                                ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaConfigEnabled(isOn)"
                                T="bool" Color="Color.Primary" />
-                        <MudText>Multiple KERIA Service Configurations</MudText>
+                        <MudText>Multiple KERIA service configurations</MudText>
                     </MudStack>
                     @if (IsMultiKeriaConfigEnabled)
                     {
@@ -249,7 +249,7 @@
                             <MudSwitch Value="IsMultiKeriaOnUnlock"
                                    ValueChanged="async (bool isOn) => await SetAndPersistIsMultiKeriaOnUnlock(isOn)"
                                    T="bool" Color="Color.Primary" />
-                            <MudText>Show on Unlock page</MudText>
+                            <MudText>Show on unlock page</MudText>
                         </MudStack>
                             @if (_availableKeriaConfigItems.Count > 0)
                             {
@@ -264,7 +264,7 @@
                                 {
                                     <MudSelectItem Value="@item.Digest">@item.Alias</MudSelectItem>
                                 }
-                                <MudSelectItem Value="@ManageKeriaConfigsValue">Manage...</MudSelectItem>
+                                <MudSelectItem Value="@ManageKeriaConfigsValue">Manage…</MudSelectItem>
                             </MudSelect>
                             
                             }
@@ -277,7 +277,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         <MudSpacer />
-        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-8" Style="justify-content:left;">Reset to Default</MudButton>
+        <MudButton OnClick="ResetToDefault" Color="Color.Secondary" Variant="Variant.Filled" Class="ml-8" Style="justify-content:left;">Reset to default</MudButton>
     </MudStack>
 </div>
 

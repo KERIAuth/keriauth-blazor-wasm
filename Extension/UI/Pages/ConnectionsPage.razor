@@ -89,7 +89,7 @@
             { nameof(ConnectionChoiceDialog.Prefix), appCache.SelectedPrefix ?? "" },
             { nameof(ConnectionChoiceDialog.Name), ProfileNameForPrefix(appCache.SelectedPrefix) }
         };
-        var choiceDialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add Connection", choiceParams, options);
+        var choiceDialog = await dialogService.ShowAsync<ConnectionChoiceDialog>("Add connection", choiceParams, options);
         var choiceResult = await choiceDialog.Result;
         if (choiceResult is null || choiceResult.Canceled) return;
 
@@ -133,7 +133,7 @@
                 { nameof(AddConnectionDialog.DefaultName), activeAid.Name },
                 { nameof(AddConnectionDialog.GeneratedOobi), generatedOobi }
             };
-            var inviteDialog = await dialogService.ShowAsync<AddConnectionDialog>("Share my Introduction", inviteParams, options);
+            var inviteDialog = await dialogService.ShowAsync<AddConnectionDialog>("Share my introduction", inviteParams, options);
             await inviteDialog.Result;
         }
         finally {
@@ -154,7 +154,7 @@
             { nameof(AddConnectionDialog.Mode), "receive" },
             { nameof(AddConnectionDialog.DefaultName), "" }
         };
-        var receiveDialog = await dialogService.ShowAsync<AddConnectionDialog>("Receive their Introduction", receiveParams, receiveOptions);
+        var receiveDialog = await dialogService.ShowAsync<AddConnectionDialog>("Receive their introduction", receiveParams, receiveOptions);
         var receiveResult = await receiveDialog.Result;
         if (receiveResult is null || receiveResult.Canceled) return;
 
@@ -255,8 +255,8 @@
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             <MudMenuItem OnClick="@(() => DeleteConnection(conn))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">Delete</MudMenuItem>
-                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.Badge">Issue Credential</MudMenuItem>
-                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.PresentToAll">Request Presentation</MudMenuItem>
+                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.Badge">Issue credential</MudMenuItem>
+                            <MudMenuItem Disabled="true" Icon="@Icons.Material.Filled.PresentToAll">Request presentation</MudMenuItem>
                         </MudMenu>
                     </div>
                 </MudCard>

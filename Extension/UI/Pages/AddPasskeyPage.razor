@@ -288,7 +288,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Create Passkey" />
+            <PageHeading Title="Create passkey" />
             <MudStack>
                 <MudText Class="mt-4" Style="font-weight:bold;">
                     Passkey Type
@@ -312,7 +312,7 @@
                 {
                     <MudPaper Elevation="0" Class="mt-0 pt-0 ml-16">
                         <MudStack Class="pa-4">
-                            <MudText Typo="Typo.subtitle1"><strong>Registration Settings</strong> (ordered by impact on provider selection)</MudText>
+                            <MudText Typo="Typo.subtitle1"><strong>Registration settings</strong> (ordered by impact on provider selection)</MudText>
 
                             <MudText Class="mt-3" Style="font-weight:500;">Attachment</MudText>
                             <MudRadioGroup T="string" @bind-Value="_authenticatorAttachment" Class="ml-4">
@@ -328,7 +328,7 @@
                                 <MudRadio Value=@("discouraged")>Discouraged</MudRadio>
                             </MudRadioGroup>
 
-                            <MudText Class="mt-3" Style="font-weight:500;">User Verification</MudText>
+                            <MudText Class="mt-3" Style="font-weight:500;">User verification</MudText>
                             <MudRadioGroup T="string" @bind-Value="_userVerification" Class="ml-4">
                                 <MudRadio Value=@("required")>Required</MudRadio>
                                 <MudRadio Value=@("preferred")>Preferred</MudRadio>
@@ -390,7 +390,7 @@
                             @if (HasMisalignmentWarnings)
                             {
                                 <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-4">
-                                    <MudText Typo="Typo.body2" Style="font-weight:bold;">Settings Conflicts</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:bold;">Settings conflicts</MudText>
                                     @if (MisalignmentAuthenticatorAttachment1 != null)
                                     {
                                         <MudText Typo="Typo.body2">@MisalignmentAuthenticatorAttachment1</MudText>
@@ -414,7 +414,7 @@
                 }
 
                 <MudExpansionPanels Elevation="0" Class="mt-4">
-                    <MudExpansionPanel Text="More information...">
+                    <MudExpansionPanel Text="More information…">
                         <MudStack>
                             <MudText Style="font-weight:bold;">What do I need?</MudText>
                             <MudText>

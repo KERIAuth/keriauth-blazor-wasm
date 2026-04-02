@@ -45,7 +45,7 @@
     string CountLabel => (FilteredCount, SubtotalCount, TotalCount,
                           SelectedViewDef?.CountStyle) switch
     {
-        (null, _, _, _) => "...",
+        (null, _, _, _) => "\u2026",
         (int f, _, _, CountStyle.Total) => $"({f})",
         (int f, _, _, CountStyle.ForProfile) => $"({f})", //" for profile)",
         (int f, _, int t, CountStyle.OfTotal) => $"({f} of {t})",

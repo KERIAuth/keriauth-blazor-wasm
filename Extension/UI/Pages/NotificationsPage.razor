@@ -483,7 +483,7 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<OfferCredentialDialog>("Offer Credential", parameters, options);
+        var dialog = await dialogService.ShowAsync<OfferCredentialDialog>("Offer credential", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is null || dialogResult.Canceled) return;
