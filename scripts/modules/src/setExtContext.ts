@@ -28,4 +28,4 @@ const contextType = detectContext();
     type: contextType
 };
 
-console.debug(`[${contextType}] setExtContext: globalThis.__EXT_CONTEXT__.type = "${contextType}"`);
+console.debug(`setExtContext.ts: [${contextType}] globalThis.__EXT_CONTEXT__.type`);

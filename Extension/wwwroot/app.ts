@@ -259,6 +259,10 @@ const openPopupIfNotOpen = async (): Promise<void> => {
 // If registered later (e.g., inside beforeStart()), the wake event is already dispatched
 // and the listener misses it. See BackgroundWorkerRunner.js fromReference() for context.
 if (_isSW) {
+    // Override manifest's default_path globally so all side panel opens (Chrome menu,
+    // context menu, etc.) use the query string for context detection in setExtContext.ts
+    chrome.sidePanel.setOptions({ path: 'index.html?context=sidepanel' });
+
     // Clean up icon cache when tabs are closed
     chrome.tabs.onRemoved.addListener((tabId) => {
         tabIconState.delete(tabId);
@@ -528,8 +532,6 @@ if (_isSW) {
     chrome.contextMenus.onClicked.addListener((info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) => {
         if (info.menuItemId !== 'openSidePanel') return;
         if (!tab?.id) return;
-        // Set path with query string so setExtContext.ts detects SIDEPANEL context
-        chrome.sidePanel.setOptions({ path: 'index.html?context=sidepanel', tabId: tab.id });
         chrome.sidePanel.open({ tabId: tab.id }).catch((err: unknown) => {
             console.warn(`app.ts: ${_logTag} sidePanel.open failed:`, err);
         });
