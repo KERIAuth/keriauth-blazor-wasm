@@ -68,6 +68,8 @@ Extension/                        # Main Blazor WASM project (App + BackgroundWo
     Identifier.cs                 # KERI identifier model
     Website.cs                    # Website metadata
     CachedCredential.cs           # Cached credential wrapper
+    CredentialViewNode.cs         # View model tree records (CredentialViewNode, CredentialViewTree)
+    CredentialViewModels.cs       # View spec records (CredentialFieldSpec, CredentialViewSpec, CredentialViewOptions)
     PortSession.cs                # Port session state
     OnboardState.cs               # Onboarding state machine
     Storage/                      # Persistent storage models (IStorageModel)
@@ -83,6 +85,8 @@ Extension/                        # Main Blazor WASM project (App + BackgroundWo
       Request*.razor              # Pages UX to handle requests from page
     Components/                   # Reusable components (~21 .razor files)
       CredentialPanel.razor       # Credential display (compact + detail variants)
+      CredentialViewTreeRenderer.razor  # Pipeline-driven credential tree renderer
+      CredentialViewNodeRenderer.razor  # Recursive node renderer (Value/Dictionary/SaidReference)
       SessionStatusIndicator.razor  # Session status badge
       ProfileSelectors.razor      # Profile/identifier selector overlay
   Helper/                         # Utility helpers
@@ -186,6 +190,43 @@ Implementation: `NotificationPollingService` handles the actual KERIA fetch, enr
 ### Chrome Extension APIs
 - C# bindings via [WebExtensions.Net](https://github.com/mingyaulee/WebExtensions.Net) NuGet package
 - Listeners registered in `BackgroundWorker.Main()` are auto-generated as module-level JavaScript by `Blazor.BrowserExtension.Analyzer`, ensuring they run before WASM boots and can wake the service worker on cold start
+
+## Credential View Generation Pipeline
+
+Transforms a credential (`RecursiveDictionary`) and its embedded schema into a view model tree for rendering.
+
+### Data Flow
+
+```
+RecursiveDictionary (credential with sad, schema, chains[])
+  → ClonedCredential.FromRecursiveDictionary()
+  → CredentialViewPipeline.MergeAcdcAndSchema()    // walks sad + schema in parallel
+  → CredentialViewPipeline.Prune()                  // applies ViewSpec + ViewOptions
+  → CredentialViewTree                              // view model tree
+  → CredentialViewTreeRenderer.razor                // recursive Razor rendering
+```
+
+For credentials with chained credentials (e.g., ECR → ECR Auth → LE vLEI → QVI), `BuildFullTree()` recursively applies the pipeline to each level, looking up the appropriate `CredentialViewSpec` by schema SAID.
+
+### Key Components
+
+| Component | Location | Role |
+|-----------|----------|------|
+| `ClonedCredential` | `Services/SignifyService/Models/Credential.cs` | Typed wrapper extracting sad, schema, chains[] from RecursiveDictionary |
+| `CredentialViewNode` / `CredentialViewTree` | `Models/CredentialViewNode.cs` | View model records — each node carries label, format, tooltip, oneOf state, component hints |
+| `CredentialViewPipeline` | `Services/CredentialViewPipeline.cs` | Static pure functions: `MergeAcdcAndSchema`, `Prune`, `BuildFullTree` |
+| `CredentialViewSpecService` | `Services/CredentialViewSpecService.cs` | Loads `credentialViewSpecs.json` — per-schema field visibility, labels, formats |
+| `CredentialViewNodeRenderer` | `UI/Components/CredentialViewNodeRenderer.razor` | Recursive component switching on node Kind (Value, Dictionary, SaidReference, etc.) |
+| `CredentialViewTreeRenderer` | `UI/Components/CredentialViewTreeRenderer.razor` | Top-level renderer with DisclosureState for elision toggles |
+
+### oneOf and Elision
+
+ACDC schemas use `oneOf` for sections (`a`, `e`, `r`) that can be either a SAID digest (elided) or an expanded object (disclosed). The pipeline:
+1. **Merge** detects `oneOf` in the schema and tags nodes with `IsOneOf`
+2. **Prune** marks `IsOneOf` nodes as `IsElisionToggleable` when in presentation mode
+3. **Renderer** shows disclosure checkboxes; toggling updates `DisclosureState` without rebuilding the tree
+
+Chained credentials follow the same pattern — in presentation mode, entire chain sections can be disclosed or elided.
 
 ## Session Lifecycle
 
