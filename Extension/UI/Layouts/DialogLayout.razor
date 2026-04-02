@@ -154,10 +154,10 @@
                 await ClosePopupAsync();
                 break;
             case ContextType.SIDEPANEL:
-                navManager.NavigateTo(Routes.Paths.Index);
+                navManager.NavigateTo(Routes.Paths.Router);
                 break;
             case ContextType.TAB:
-                navManager.NavigateTo(Routes.Paths.Index);
+                navManager.NavigateTo(Routes.Paths.Router);
                 break;
             default:
                 logger.LogWarning("ReturnToPriorUI: Unknown AppContextType {AppContextType}", App.AppContext);

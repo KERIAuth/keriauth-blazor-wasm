@@ -108,7 +108,7 @@
         };
         _ = await storageService.SetItem<OnboardState>(newOnboardState);
         StateHasChanged();
-        navManager.NavigateTo(Routes.Paths.Index);
+        navManager.NavigateTo(Routes.Paths.Router);
     }
 }
 

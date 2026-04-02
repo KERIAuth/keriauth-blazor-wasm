@@ -65,7 +65,7 @@
             // Only navigate if we're still on ConnectingPage (another handler may have navigated away, e.g., to handle a pending request)
             if ("/" + navManager.ToBaseRelativePath(navManager.Uri) == Routes.Paths.Connecting)
             {
-                navManager.NavigateTo(Routes.Paths.Index);
+                navManager.NavigateTo(Routes.Paths.Router);
             }
         }
         else

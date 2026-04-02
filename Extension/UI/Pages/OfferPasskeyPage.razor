@@ -48,7 +48,7 @@
     {
         logger.LogInformation("User declined passkey offer");
         await PersistWasPasskeySuggested();
-        navManager.NavigateTo(Routes.Paths.Index);
+        navManager.NavigateTo(Routes.Paths.Router);
     }
 
     async Task PersistWasPasskeySuggested()

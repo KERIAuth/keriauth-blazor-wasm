@@ -166,7 +166,7 @@
         // If we came from the passkey offer flow during onboarding, go to Index (which routes to GettingStarted/Dashboard)
         if (!appCache.ShowedGettingStarted)
         {
-            navManager.NavigateTo(Routes.Paths.Index);
+            navManager.NavigateTo(Routes.Paths.Router);
         }
         // TODO P3 what if the user got here by adding a new Config. How do we detect that and route to the appropriate page, probably KeriaConfigsPage?  Pass a parameter in on navigation?
         else
@@ -269,7 +269,7 @@
         if (!appCache.ShowedGettingStarted)
         {
             logger.LogInformation("User cancelled passkey creation from offer flow");
-            navManager.NavigateTo(Routes.Paths.Index);
+            navManager.NavigateTo(Routes.Paths.Router);
         }
         else
         {

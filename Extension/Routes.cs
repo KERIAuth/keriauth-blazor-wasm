@@ -62,7 +62,7 @@ public static class Routes {
         public const string RequestConnect = "/RequestConnect.html";
         public const string RequestApproveIpex = "/RequestApproveIpex.html";
         public const string AddPasskey = "/AddPasskey.html";
-        public const string Index = "/index.html";
+        public const string Router = "/Router.html";
         public const string Welcome = "/Welcome.html";
         public const string NewRelease = "/NewRelease.html";
         public const string Configure = "/Configure.html";
@@ -84,8 +84,8 @@ public static class Routes {
         public const string ReleaseHistory = "/content/release_history.html";
     }
     public static class IndexPaths {
-        public const string InTab = Paths.Index;
-        public const string InPopup = Paths.Index + "?context=popup";
+        public const string InTab = Paths.Router;
+        public const string InPopup = Paths.Router + "?context=popup";
     }
 
     public static readonly Dictionary<Type, PageRoute> Pages = new() {
@@ -121,8 +121,8 @@ public static class Routes {
         [typeof(RequestApproveIpexPage)] = new("Request Approve IPEX", Paths.RequestApproveIpex, RequiresAuth: true),
         [typeof(AddPasskeyPage)] = new("Add Passkey", Paths.AddPasskey, RequiresAuth: true),
 
-        // Index pages (no auth) - Index.razor handles multiple routes
-        [typeof(Index)] = new("Index", Paths.Index, RequiresAuth: false),
+        // Router page (no auth) - RouterPage.razor determines where to navigate based on app state
+        [typeof(RouterPage)] = new("Router", Paths.Router, RequiresAuth: false),
 
         // Setup/config pages (no auth)
         [typeof(WelcomePage)] = new("Welcome", Paths.Welcome, RequiresAuth: false),

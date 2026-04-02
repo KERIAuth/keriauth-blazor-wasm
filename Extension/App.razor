@@ -56,8 +56,9 @@
             // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
             // forceLoad reloads as TAB context. Popup/SidePanel contexts are opened fresh by Chrome, not reloaded here.
             // Must NOT navigate back to InitialUri — that's the current auth-required page, which would cause an infinite reload loop.
-            logger.LogInformation("Not authenticated on auth-required page, redirecting to {IndexPath}", Routes.Paths.Index);
-            navManager.NavigateTo(Routes.Paths.Index, true);
+            // forceLoad uses the physical index.html (not the Blazor route) to trigger a full browser reload
+            logger.LogInformation("Not authenticated on auth-required page, redirecting to index.html");
+            navManager.NavigateTo("/index.html", true);
             return;
         }
 

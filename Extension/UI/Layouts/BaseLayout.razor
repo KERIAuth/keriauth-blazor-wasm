@@ -149,7 +149,7 @@
                 appCache.LogAuthDiagnostic(logger);
                 logger.LogWarning("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated, currentPath={Path}",
                     "/" + navManager.ToBaseRelativePath(navManager.Uri));
-                navManager.NavigateTo(Routes.Paths.Index);
+                navManager.NavigateTo(Routes.Paths.Router);
                 return;
             }
         }
@@ -208,7 +208,7 @@
 
         logger.LogInformation("HandleBwRequests: Navigating to Index for routing, pendingRequest Type={type}, RequestId={requestId}",
             pendingRequest.Type, pendingRequest.RequestId);
-        navManager.NavigateTo(Routes.Paths.Index);
+        navManager.NavigateTo(Routes.Paths.Router);
     }
 
     private async Task AssertHydratedCache()

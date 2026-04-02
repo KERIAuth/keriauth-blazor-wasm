@@ -1,4 +1,6 @@
-﻿@page "/index.html"
+﻿@page "/Router.html"
+@* Blazor boots from physical index.html — this route catches the initial browser URL so the router doesn't 404 *@
+@page "/index.html"
 @using Extension.Models
 @using Extension.Models.Messages.BwApp
 @using Extension.Models.Messages.BwApp.Requests
@@ -12,7 +14,7 @@
 
 @inject AppCache appCache
 @inject NavigationManager navManager
-@inject ILogger<IndexPage> logger
+@inject ILogger<RouterPage> logger
 @inject IWebauthnService webauthnService
 
 @* 
@@ -168,7 +170,7 @@
             switch (pendingRequest.Type, willRedirectToDialog)
             {
                 case (BwAppMessageType.Values.RequestNotifyUserOfUpdate, _):
-                    route = Routes.Paths.Index;
+                    route = Routes.Paths.Router;
                     break;
                 case (BwAppMessageType.Values.RequestSelectAuthorize, true):
                     route = Routes.Paths.RequestSignIn;
