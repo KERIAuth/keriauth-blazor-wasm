@@ -113,8 +113,8 @@ namespace Extension {
         // Display inactivity countdown on AppBar when this many seconds are remaining
         public const int AppBarRefreshTimerDueTimeSeconds = 20;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
-        public const int ExpectedTermsDigest = 676316907;
-        public const int ExpectedPrivacyDigest = -1813179267;
+        public const int ExpectedTermsDigest = -2032710982;
+        public const int ExpectedPrivacyDigest = -660950952;
 
         // Branding
         public const string ProductName = "DIGN";
