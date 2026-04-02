@@ -328,6 +328,6 @@
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
         <MudButton OnClick="async () => await testAll()" Variant="Variant.Outlined" Disabled="@(!HasPasskeys)">Test all</MudButton>
-        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="async () => await AddPasskey()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
+        <MudButton OnClick="async () => await AddPasskey()" Variant="Variant.Filled" Color="Color.Primary">Add</MudButton>
     </MudStack>
 </div>

@@ -240,9 +240,8 @@
         </MudStack>
 
         <MudStack Row="true" class="bt-button-tray">
-            <MudButton StartIcon="@Icons.Material.Filled.Cancel" Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Cancel</MudButton>
             <MudButton @ref="signInButton"
-                       StartIcon="@Icons.Material.Filled.Login"
                        Disabled="IsSignInDisabled"
                        Variant="Variant.Filled"
                        Color="Color.Primary"

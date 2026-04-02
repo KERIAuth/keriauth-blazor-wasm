@@ -61,6 +61,12 @@ These are firm constraints. Do not change or work around them without explicit a
 4. **Performance** — optimize after functionality is verified
 5. **Code Style** — apply formatting rules last
 
+## UX Style
+
+- **Buttons should not have icons** — keep button trays text-only. Exception: icons may be used to warn users of potentially dangerous actions (e.g., destructive operations).
+- **Back button** — use the minimal "<" (`ArrowBackIosNew`) icon button in the bottom button tray.
+- **Prefer CSS classes for typography** over scattering `Typo=` attributes in razor files.
+
 ## Building This Project
 
 See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (Ubuntu).
