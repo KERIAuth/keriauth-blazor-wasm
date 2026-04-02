@@ -167,7 +167,7 @@
 
             @foreach (Aid aid in DisplayedIdentifiers)
             {
-                <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Profile + aid.Prefix)">
+                <MudLink OnClick='() => navManager.NavigateTo(Routes.Paths.Profile + "?prefix=" + aid.Prefix)'>
                     <MudCard Elevation="0" Class="py-0 my-1">
                         <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.SelectedPrefix ?? "", aid.Prefix))>
                             <MudTooltip Text=@("Set profile as active ("+ ElideText(aid.Prefix) + ")") Delay="1000">

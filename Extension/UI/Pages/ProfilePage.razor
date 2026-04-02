@@ -1,4 +1,4 @@
-@page "/Profile.html/{prefix}"
+@page "/Profile.html"
 @using Extension.Services.Storage
 @using Extension.Services.Port
 @using Extension.Models.Messages.AppBw
@@ -20,8 +20,8 @@
 
 @code {
     // "Prefix" here is the Prefix under inspection, not necessarily the one in MyPreferences.Prefix
-    [Parameter]
-    public required string Prefix { get; set; }
+    [SupplyParameterFromQuery]
+    public string? Prefix { get; set; }
     
     public Preferences Prefs => appCache.MyPreferences;
 
@@ -111,6 +111,7 @@
 
     async Task LoadIdentifierDetails()
     {
+        if (string.IsNullOrEmpty(Prefix)) return;
         try
         {
             IsWaiting = true;
@@ -165,7 +166,7 @@
         {
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetKeyState,
-                new { payload = new GetKeyStateRequestPayload(Prefix) });
+                new { payload = new GetKeyStateRequestPayload(Prefix!) });
 
             if (!response.Ok)
             {
@@ -200,7 +201,7 @@
         {
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetKeyEvents,
-                new { payload = new GetKeyEventsRequestPayload(Prefix) });
+                new { payload = new GetKeyEventsRequestPayload(Prefix!) });
 
             if (!response.Ok)
             {
@@ -531,15 +532,30 @@
     }
 }
 
+@if (string.IsNullOrEmpty(Prefix))
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <PageHeading Title="Profile" />
+                <MudAlert Severity="Severity.Info">This page needs to be reloaded. Press F5 or reload the browser to continue.</MudAlert>
+            </div>
+        </MudStack>
+        <MudStack Row="true" class="bt-button-tray">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+            <MudSpacer />
+        </MudStack>
+    </div>
+}
+else
+{
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
             <PageHeading Title="Profile" />
-            @if (!string.IsNullOrEmpty(Prefix))
-            {
                 <MudStack Row Class="pb-3">
                     <MudTooltip Text="Set Profile as active" Delay="1000">
-                        <MudButton OnClick="async () => await SetActiveAid(Prefix)">
+                        <MudButton OnClick="async () => await SetActiveAid(Prefix!)">
                             <MudIcon ViewBox="0 0 100 100" Icon="@Identicon" Class="bt-identicon" />
                         </MudButton>
                     </MudTooltip>
@@ -788,12 +804,12 @@
                     </MudExpansionPanels>
                 </div>
                 </LoadingDiv>
-            }
         </div>
     </div>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@( async () => await GoBack(js) )' Class="justify-start" />
         <MudSpacer />
-        <MudButton Disabled="@(IsWaiting || IsActiveProfile)" OnClick="async () => await SetActiveAid(Prefix)" Variant="Variant.Filled" Color="Color.Primary">Set as Active</MudButton>
+        <MudButton Disabled="@(IsWaiting || IsActiveProfile)" OnClick="async () => await SetActiveAid(Prefix!)" Variant="Variant.Filled" Color="Color.Primary">Set as Active</MudButton>
     </MudStack>
 </div>
+}

@@ -282,7 +282,7 @@
             snackbar.Add("No KERIA configurations found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.Paths.KeriaConfig + digest);
+        navManager.NavigateTo($"{Routes.Paths.KeriaConfig}?digest={digest}");
     }
 
     void NavigateToProfile()
@@ -293,7 +293,7 @@
             snackbar.Add("No identifiers found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.Paths.Profile + prefix);
+        navManager.NavigateTo($"{Routes.Paths.Profile}?prefix={prefix}");
     }
 
     async Task NavigateToWebsite()
@@ -305,7 +305,7 @@
             snackbar.Add("No websites found in storage");
             return;
         }
-        navManager.NavigateTo(Routes.Paths.Website + HttpUtility.UrlEncode(origin.OriginalString));
+        navManager.NavigateTo($"{Routes.Paths.Website}?encodedOrigin={HttpUtility.UrlEncode(origin.OriginalString)}");
     }
 
     async Task ShowMessageBoxExample()

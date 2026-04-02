@@ -52,8 +52,8 @@ public static class Routes {
         public const string Notifications = "/Notifications.html";
         public const string Passkeys = "/Passkeys.html";
         public const string Mnemonic = "/Mnemonic.html";
-        public const string Profile = "/Profile.html/";
-        public const string Website = "/Website.html/";
+        public const string Profile = "/Profile.html";
+        public const string Website = "/Website.html";
         public const string Connecting = "/Connecting.html";
         public const string RequestSignIn = "/RequestSignIn.html";
         public const string RequestSignHeaders = "/RequestSignHeaders.html";
@@ -71,7 +71,7 @@ public static class Routes {
         public const string Unlock = "/Unlock.html";
         public const string Preferences = "/ManagePreferences.html";
         public const string KeriaConfigs = "/KeriaConfigs.html";
-        public const string KeriaConfig = "/KeriaConfig.html/";
+        public const string KeriaConfig = "/KeriaConfig.html";
         public const string KeriaHelp = "/KeriaHelp.html";
         public const string Delete = "/Delete.html";
         public const string Terms = "/Terms.html";

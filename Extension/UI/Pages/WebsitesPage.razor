@@ -24,7 +24,7 @@
 @code {
     // fields
     List<WebsiteConfig>? allWebsites;
-    string selectedViewDefId = ViewDefIds.WebActive;
+    string selectedViewDefId = ViewDefIds.WebAll; // intentionally default to "All" view which shows all websites, since users may not understand the "Active Profile" concept yet and we don't want them to think the extension is broken when they see no websites in the default view
     string? SelectedWebsiteOrigin { get; set; }
 
     // Sort
@@ -104,7 +104,7 @@
 
     void navigateToWebsitePage(string origin)
     {
-        navManager.NavigateTo(Routes.Paths.Website + HttpUtility.UrlEncode(origin.ToString()));
+        navManager.NavigateTo($"{Routes.Paths.Website}?encodedOrigin={HttpUtility.UrlEncode(origin.ToString())}");
     }
 
     public void Dispose()

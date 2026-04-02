@@ -1,4 +1,4 @@
-@page "/Website.html/{encodedOrigin}"
+@page "/Website.html"
 @layout Layouts.MainLayout
 @using Extension.Services.Storage
 
@@ -35,14 +35,15 @@
 
 @code {
     // parameters
-    [Parameter] public required string encodedOrigin { get; init; }
+    [SupplyParameterFromQuery]
+    public string? EncodedOrigin { get; set; }
 
     // fields
 
     // properties
 
     // reactive properties
-    string OriginStr => HttpUtility.UrlDecode(encodedOrigin).Trim().Trim('"');
+    string OriginStr => HttpUtility.UrlDecode(EncodedOrigin ?? "").Trim().Trim('"');
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,6 +69,23 @@
     }
 }
 
+@if (string.IsNullOrEmpty(EncodedOrigin))
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <PageHeading Title="Website" />
+                <MudAlert Severity="Severity.Info">This page needs to be reloaded. Press F5 or reload the browser to continue.</MudAlert>
+            </div>
+        </MudStack>
+        <MudStack Row="true" class="bt-button-tray">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+            <MudSpacer />
+        </MudStack>
+    </div>
+}
+else
+{
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
@@ -81,3 +99,4 @@
         <MudButton Color="Color.Error" OnClick="Delete" Variant="Variant.Filled">Delete</MudButton>
     </MudStack>
 </div>
+}

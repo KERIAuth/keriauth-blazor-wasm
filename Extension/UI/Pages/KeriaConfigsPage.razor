@@ -69,7 +69,7 @@
     }
 
     private void NavigateToConfigDetail(string digest) {
-        navManager.NavigateTo($"/KeriaConfig.html/{digest}");
+        navManager.NavigateTo($"{Routes.Paths.KeriaConfig}?digest={digest}");
     }
 
     private void NavigateToAddConfig() {
