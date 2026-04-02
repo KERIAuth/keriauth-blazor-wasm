@@ -247,6 +247,12 @@
                     }
                 </div>
 
+                @if (_devices.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Align="Align.Center" Style="opacity: 0.7;">
+                        @_devices[_currentDeviceIdx].Label
+                    </MudText>
+                }
                 @if (_hasMultipleCameras)
                 {
                     <MudButton StartIcon="@Icons.Material.Filled.CameraAlt"
