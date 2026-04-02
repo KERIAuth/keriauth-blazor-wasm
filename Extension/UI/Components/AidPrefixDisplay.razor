@@ -99,35 +99,3 @@
         await js.InvokeVoidAsync("navigator.clipboard.writeText", Prefix);
     }
 }
-
-<style>
-    .bt-aid-prefix-display {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-
-    .bt-aid-text {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 0;
-        width: 9rem;
-    }
-
-    .bt-aid-text-left {
-        text-align: right;
-    }
-
-    .bt-aid-text-right {
-        text-align: left;
-    }
-
-    .bt-aid-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-weight: 600;
-    }
-</style>

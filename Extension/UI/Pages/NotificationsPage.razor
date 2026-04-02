@@ -915,17 +915,19 @@
             @foreach (var n in FilteredNotifications)
             {
                 <MudCard Elevation="0" Class="py-0 my-1">
-                    <div class="d-flex" style="align-items: center; padding: 8px 4px; cursor: pointer;"
+                    <div class="d-flex align-center bt-notif-row"
                          @onclick="@(() => ToggleNotificationDetail(n))">
-                        <AidPrefixDisplay Prefix="@(n.SenderPrefix ?? "")"
-                                          Name="@ResolveName(n.SenderPrefix)"
-                                          TextPosition="AidPrefixDisplay.TextSide.Left"
-                                          ShowCopyButton="false" />
-                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin: 0 4px; opacity: 0.5;" />
-                        <AidPrefixDisplay Prefix="@(n.TargetPrefix ?? "")"
-                                          Name="@ResolveName(n.TargetPrefix)"
-                                          ShowCopyButton="false" />
-                        <div style="flex:1; min-width:0;">
+                        <div class="d-flex align-center bt-notif-aids">
+                            <AidPrefixDisplay Prefix="@(n.SenderPrefix ?? "")"
+                                              Name="@ResolveName(n.SenderPrefix)"
+                                              TextPosition="AidPrefixDisplay.TextSide.Left"
+                                              ShowCopyButton="false" />
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="bt-notif-arrow" />
+                            <AidPrefixDisplay Prefix="@(n.TargetPrefix ?? "")"
+                                              Name="@ResolveName(n.TargetPrefix)"
+                                              ShowCopyButton="false" />
+                        </div>
+                        <div class="bt-notif-details">
                             <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route, n)</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
                             <MudTooltip Text="@n.Id" Delay="300">
