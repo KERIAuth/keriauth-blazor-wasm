@@ -241,16 +241,18 @@
             @foreach (var conn in FilteredConnections)
             {
                 <MudCard Elevation="0" Class="py-0 my-1">
-                    <div class="d-flex" style="align-items: center; padding: 8px 4px;">
+                    <div class="d-flex bt-conn-row">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
                         <AidPrefixDisplay Prefix="@conn.SenderPrefix"
                                           Name="@(ProfileNameForPrefix(conn.SenderPrefix))"
                                           TextPosition="AidPrefixDisplay.TextSide.Left"
                                           ShowCopyButton="false" />
-                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin: 0 4px; opacity: 0.5;" />
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="bt-conn-arrow" />
                         <AidPrefixDisplay Prefix="@conn.ReceiverPrefix"
                                           Name="@conn.Name"
                                           ShowCopyButton="false" />
-                        <div style="flex:1; min-width:0;">
+                        </MudStack>
+                        <div class="bt-conn-details">
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">

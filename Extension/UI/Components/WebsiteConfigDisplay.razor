@@ -451,7 +451,7 @@
                                 @foreach (RecursiveDictionary credential in IssueeCredentials)
                                 {
                                     var isSelected = credential.GetValueByPath("sad.d")?.Value as string == SelectedCredSaidOrNothing;
-                                    <div @onclick="async () => await updateSelectedCredential(credential)" style="cursor: pointer;">
+                                    <div @onclick="async () => await updateSelectedCredential(credential)" class="bt-clickable">
                                         <CredentialPanelCompact Credential="@credential" IsSelected="@isSelected" />
                                     </div>
                                 }

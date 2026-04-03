@@ -347,9 +347,9 @@
                                     <MudList Dense="true" T="string" Class="ml-2">
                                         @foreach (var hint in _selectedHints)
                                         {
-                                            <MudListItem Style="background:var(--mud-palette-background); height:2.286rem; width:fit-content;">
+                                            <MudListItem Class="bt-hint-list-item">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                    <MudText Typo="Typo.body2" Style="width: 6.786rem;">@hint</MudText>
+                                                    <MudText Typo="Typo.body2" Class="bt-hint-text">@hint</MudText>
                                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Primary" Disabled="@IsFirstHint(hint)" OnClick="() => MoveHintUp(hint)" />
                                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Primary" Disabled="@IsLastHint(hint)" OnClick="() => MoveHintDown(hint)" />
                                                     <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Primary" OnClick="() => RemoveHint(hint)" />
@@ -368,9 +368,9 @@
                                     <MudList Dense="true" T="string" Class="ml-2">
                                         @foreach (var hint in AvailableHints)
                                         {
-                                            <MudListItem Style="background:var(--mud-palette-background); height:2.286rem; width:fit-content;">
+                                            <MudListItem Class="bt-hint-list-item">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center">
-                                                    <MudText Typo="Typo.body2" Style="width: 6.786rem;">@hint</MudText>
+                                                    <MudText Typo="Typo.body2" Class="bt-hint-text">@hint</MudText>
                                                     <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="() => AddHint(hint)" />
                                                 </MudStack>
                                             </MudListItem>

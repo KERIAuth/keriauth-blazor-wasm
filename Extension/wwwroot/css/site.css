@@ -4,6 +4,97 @@
     --bt-buttontray-height: 4.3rem;
 }
 
+/* --- Shared utility classes extracted from inline styles --- */
+
+.bt-clickable {
+    cursor: pointer;
+}
+
+.bt-text-light-small {
+    font-weight: 100;
+    font-size: small;
+}
+
+/* --- ConnectionsPage --- */
+
+.bt-conn-row {
+    align-items: center;
+    padding: 8px 4px;
+    flex-wrap: wrap;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.bt-conn-arrow {
+    margin: 0 4px;
+    opacity: 0.5;
+}
+
+.bt-conn-details {
+    flex: 1;
+    min-width: 8rem;
+}
+
+/* --- MainLayout profile panel --- */
+
+.bt-profile-stack {
+    display: inline-flex !important;
+    align-items: center;
+}
+
+/* --- Mnemonic word chips (UnlockPage, MnemonicPage) --- */
+
+.bt-mnemonic-chip {
+    width: 100%;
+    justify-content: flex-start;
+    font-family: monospace;
+}
+
+.bt-mnemonic-number {
+    color: var(--mud-palette-text-secondary);
+    min-width: 1.5rem;
+    display: inline-block;
+}
+
+/* --- Passkeys --- */
+
+.bt-checkbox-compact {
+    margin: 0;
+    padding: 0;
+}
+
+.bt-transport-wrap {
+    flex-wrap: wrap;
+    gap: 0.286rem;
+}
+
+.bt-avatar-transparent {
+    background-color: transparent;
+}
+
+.bt-passkey-card-actions {
+    justify-content: flex-end;
+    padding: 0;
+}
+
+/* --- AddPasskeyPage hint list --- */
+
+.bt-hint-list-item {
+    background: var(--mud-palette-background);
+    height: 2.286rem;
+    width: fit-content;
+}
+
+.bt-hint-text {
+    width: 6.786rem;
+}
+
+/* --- NotificationsPage --- */
+
+.bt-notif-detail-content {
+    padding: 8px 12px;
+}
+
 .bt-aid-prefix-name-only {
     font-size: 0.8rem;
     white-space: normal;

@@ -268,7 +268,7 @@
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         @if (!string.IsNullOrEmpty(iconUrl))
                                         {
-                                            <MudAvatar Size="Size.Medium" Style="background-color:transparent;">
+                                            <MudAvatar Size="Size.Medium" Class="bt-avatar-transparent">
                                                 <MudImage Src="@iconUrl" Alt="Passkey icon" Width="40" Height="40" ObjectFit="ObjectFit.Contain" />
                                             </MudAvatar>
                                         }
@@ -278,10 +278,10 @@
                                                 <MudIcon Icon="@Icons.Material.Filled.Key" />
                                             </MudAvatar>
                                         }
-                                        <MudTextField Value="@pk.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, pk.CredentialBase64))" Style="flex:1;" />
+                                        <MudTextField Value="@pk.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, pk.CredentialBase64))" Class="flex-grow-1" />
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
-                                    <MudText Color="Color.Secondary" Style="font-weight:100; font-size:small;"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Class="bt-text-light-small"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
+                                    <MudText Color="Color.Secondary" Class="bt-text-light-small"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
                                     @{
                                         var isConsistent = IsConsistentWithCurrentKeriaConnection(pk);
                                     }
@@ -289,12 +289,12 @@
                                         <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
                                                  Color="@(isConsistent ? Color.Success : Color.Error)"
                                                  Size="Size.Small" />
-                                        <MudText Color="@(isConsistent ? Color.Success : Color.Error)" Style="font-weight:100; font-size:small;">
+                                        <MudText Color="@(isConsistent ? Color.Success : Color.Error)" Class="bt-text-light-small">
                                             Consistent with configured KERIA Service
                                         </MudText>
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Class="mt-2" Style="font-weight:100; font-size:small;">Transports:</MudText>
-                                    <MudStack Row="true" Class="ml-2" Style="flex-wrap:wrap; gap:0.286rem;">
+                                    <MudText Color="Color.Secondary" Class="mt-2 bt-text-light-small">Transports:</MudText>
+                                    <MudStack Row="true" Class="ml-2 bt-transport-wrap">
                                         @foreach (var transport in AllTransports)
                                         {
                                             var credId = pk.CredentialBase64;
@@ -302,18 +302,18 @@
                                             <MudCheckBox T="bool" Label="@transport" Size="Size.Small" Dense="true"
                                                          Value="@isEnabled"
                                                          ValueChanged="@(async (bool val) => await UpdateTransport(credId, transport, val))"
-                                                         Style="margin:0; padding:0;" />
+                                                         Class="bt-checkbox-compact" />
                                         }
                                     </MudStack>
                                     @if (pk.Transports.Contains("internal"))
                                     {
-                                        <MudText Color="Color.Secondary" Class="mt-2 ml-2" Style="font-weight:100; font-size:small;">
+                                        <MudText Color="Color.Secondary" Class="mt-2 ml-2 bt-text-light-small">
                                             <b>Note:</b> Passkeys with "internal" transport (e.g., Windows Hello, Touch ID)
                                             are prioritized by the browser. To prefer a USB security key, uncheck "internal".
                                         </MudText>
                                     }
                                 </MudCardContent>
-                                <MudCardActions Style="justify-content:flex-end; padding:0;">
+                                <MudCardActions Class="bt-passkey-card-actions">
                                     <MudButton OnClick="async () => await test(pk.CredentialBase64)">Test</MudButton>
                                     <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" OnClick="async () => await delete(pk.CredentialBase64)">Delete</MudIconButton>
                                 </MudCardActions>
