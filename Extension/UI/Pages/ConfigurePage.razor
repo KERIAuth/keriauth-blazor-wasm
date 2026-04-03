@@ -130,7 +130,7 @@
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
-    bool IsKeriaConfigured => appCache.IsKeriaConfigValidated;
+    bool IsKeriaConfigured => appCache.IsConnectedToKeria;
 
     // Focus state - determines which element should have focus
     enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next, Reset }
@@ -406,8 +406,17 @@
             return;
         }
 
-        // Wait for AppCache to reflect the connected state
-        await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria]);
+        // Wait for AppCache to reflect the connected state (identifiers fetched by BW handler)
+        logger.LogInformation("Waiting for IsConnectedToKeria: IsIdentifierFetched={IIF}, IsAuthenticated={IA}, AgentAid={AAP}, IdList={IL}",
+            appCache.IsIdentifierFetched, appCache.IsAuthenticated,
+            appCache.MyKeriaConnectConfig.AgentAidPrefix ?? "(null)",
+            appCache.MyKeriaConnectionInfo?.IdentifiersList?.FirstOrDefault()?.Aids?.Count ?? -1);
+        var connected = await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria], 30000);
+        if (!connected)
+        {
+            logger.LogWarning("Timed out waiting for IsConnectedToKeria. IsIdentifierFetched={IIF}, IsAuthenticated={IA}",
+                appCache.IsIdentifierFetched, appCache.IsAuthenticated);
+        }
 
         IsConnected = true;
         IsProcessing = false;

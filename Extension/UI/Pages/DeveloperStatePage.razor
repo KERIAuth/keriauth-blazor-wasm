@@ -33,8 +33,10 @@
     // private const string popupTestUrl = "chrome-extension://dkjahajaknoahpngklccdmbgdnjlempj/index.html?message=%257B%2522type%2522%253A%2522%252Fsignify%252Fauthorize%2522%252C%2522requestId%2522%253A%252247705f1b-d4ba-43b0-ac3b-7637bcd9c572%2522%252C%2522payload%2522%253A%257B%2522message%2522%253A%2522Message%25201765134849911%2522%257D%257D&origin=\"http%3a%2f%2flocalhost%3a5173%2f\"&popupType=SelectAuthorize&tabId=1716420357&environment=ActionPopup";
     private List<BoolItem> Conditions = new();
 
-    // Computed properties for consistency checks
+    // Computed properties for consistency checks and expression-tree-safe wrappers
     bool IsSelectedPrefixConsistent => appCache.ValidateSelectedPrefixAmongIdentifiers();
+    bool HasAgentAidPrefix => appCache.MyKeriaConnectConfig.AgentAidPrefix != null;
+    bool HasIdentifierListEntries => appCache.MyKeriaConnectionInfo?.IdentifiersList?.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,12 +63,14 @@
             */
             new BoolItem(() => appCache.IsConnectedToKeria, null, 1),
             new BoolItem(() => appCache.IsIdentifierFetched, null, 2),
+            new BoolItem(() => HasAgentAidPrefix, "AgentAidPrefix set", 3),
+            new BoolItem(() => HasIdentifierListEntries, "IdentifiersList fetched (count > 0)", 3),
             new BoolItem(() => IsSelectedPrefixConsistent, "SelectedPrefix among identifiers (diagnostic)", 3),
             new BoolItem(() => appCache.IsAuthenticated, null, 2),
             new BoolItem(() => appCache.IsSessionUnlocked, null, 3),
+            new BoolItem(() => appCache.IsPasscodeHashSet, null, 4),
+            new BoolItem(() => appCache.IsSessionExpirationSet, null, 4),
             new BoolItem(() => appCache.IsSessionNotExpired, null, 4),
-            new BoolItem(() => appCache.IsPasscodeHashSet, null, 5),
-            new BoolItem(() => appCache.IsSessionExpirationSet, null, 5),
             new BoolItem(() => appCache.IsInitialized, null, 3),
             new BoolItem(() => appCache.IsConfigured, null, 4),
             new BoolItem(() => appCache.IsKeriaConfigValidated, null, 5),
@@ -83,8 +87,7 @@
             new BoolItem(() => appCache.IsInstallAcknowledged, null, 7),
             new BoolItem(() => appCache.IsInstalledVersionAcknowledged, null, 8),
             new BoolItem(() => appCache.MyOnboardState.IsWelcomed, null, 8),
-
-            new BoolItem(() => appCache.MyPreferences.IsStored, "Preferences stored", 1),
+            new BoolItem(() => appCache.MyPreferences.IsStored, "Preferences stored", 5),
         };
     }
 

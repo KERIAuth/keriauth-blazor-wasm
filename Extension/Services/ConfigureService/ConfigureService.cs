@@ -16,7 +16,7 @@ public class ConfigureService : IConfigureService {
     private readonly SessionManager _sessionManager;
     private readonly ILogger<ConfigureService> _logger;
 
-    private const int TotalSteps = 6;
+    private const int TotalSteps = 4;
 
     public ConfigureService(
         ISignifyClientService signifyClient,
@@ -103,66 +103,32 @@ public class ConfigureService : IConfigureService {
                 return await FailAndCleanupAsync(3, unlockResult.Errors.Count > 0 ? unlockResult.Errors[0].Message : "Unlock failed");
             }
 
-            // Step 4: Retrieve identifiers
-            await ReportProgress(4, TotalSteps, "Retrieving identifiers");
+            // Step 4: Mark config as proven + store KeriaConnectionInfo
+            // Identifiers, credentials, and notifications are fetched lazily by the BW handler after success.
+            await ReportProgress(4, TotalSteps, "Finalizing configuration");
 
-            var identifiersResult = await _signifyClient.GetIdentifiers();
-            if (identifiersResult.IsFailed || identifiersResult.Value is null) {
-                return await FailAndCleanupAsync(4, "Failed to retrieve identifiers");
-            }
-
-            var identifiers = identifiersResult.Value;
-
-            // Step 5: Create identifier if none exist
-            if (identifiers.Aids.Count == 0) {
-                await ReportProgress(5, TotalSteps, "Creating personal profile");
-
-                var createResult = await _signifyClient.CreateAidWithEndRole("Alias1");
-                if (createResult.IsFailed) {
-                    return await FailAndCleanupAsync(5, "Failed to create identifier", createResult.Errors);
-                }
-
-                // Re-fetch identifiers after creation
-                var refreshResult = await _signifyClient.GetIdentifiers();
-                if (refreshResult.IsFailed || refreshResult.Value is null || refreshResult.Value.Aids.Count == 0) {
-                    return await FailAndCleanupAsync(5, "Failed to retrieve identifiers after creation");
-                }
-                identifiers = refreshResult.Value;
-            } else {
-                await ReportProgress(5, TotalSteps, "Existing identifiers found");
-            }
-
-            // Step 6: Set selected prefix + store KeriaConnectionInfo + mark proven
-            await ReportProgress(6, TotalSteps, "Finalizing configuration");
-
-            var selectedPrefix = identifiers.Aids[0].Prefix;
-
-            // Update config with SelectedPrefix and mark as proven
             var existingConfigs = await GetConfigsAsync();
             if (existingConfigs.Configs.TryGetValue(completeDigest, out var currentConfig)) {
-                var provenConfig = currentConfig with {
-                    SelectedPrefix = selectedPrefix,
-                    ProvenAt = DateTime.UtcNow
-                };
+                var provenConfig = currentConfig with { ProvenAt = DateTime.UtcNow };
                 var updatedDict = new Dictionary<string, KeriaConnectConfig>(existingConfigs.Configs) {
                     [completeDigest] = provenConfig
                 };
                 var storeResult = await _storageService.SetItem(existingConfigs with { Configs = updatedDict });
                 if (storeResult.IsFailed) {
-                    return await FailAndCleanupAsync(6, "Failed to store selected identifier", storeResult.Errors);
+                    return await FailAndCleanupAsync(4, "Failed to finalize configuration", storeResult.Errors);
                 }
             } else {
-                return await FailAndCleanupAsync(6, "Configuration not found for computed digest");
+                return await FailAndCleanupAsync(4, "Configuration not found for computed digest");
             }
 
-            // Store KeriaConnectionInfo to session storage
+            // Store KeriaConnectionInfo with empty identifiers — BW handler will populate lazily
             var connectionInfo = new KeriaConnectionInfo {
                 KeriaConnectionDigest = completeDigest,
-                IdentifiersList = [identifiers]
+                IdentifiersList = []
             };
             var storeConnectionResult = await _storageService.SetItem(connectionInfo, StorageArea.Session);
             if (storeConnectionResult.IsFailed) {
-                return await FailAndCleanupAsync(6, "Failed to cache connection info", storeConnectionResult.Errors);
+                return await FailAndCleanupAsync(4, "Failed to cache connection info", storeConnectionResult.Errors);
             }
 
             await ReportComplete();

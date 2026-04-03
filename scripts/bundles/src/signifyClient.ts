@@ -342,9 +342,9 @@ const waitForAgentReady = async (
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            // Try to list identifiers as a readiness check
-            // This uses authenticated requests which will fail if agent isn't ready
-            await client.identifiers().list();
+            // Use state() as a lightweight readiness check — avoids identifiers().list()
+            // which can return 401 on some KERIA instances immediately after boot
+            await client.state();
             return;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);

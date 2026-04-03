@@ -340,7 +340,7 @@
 
         public bool IsIdentifierFetched =>
             MyKeriaConnectConfig.AgentAidPrefix is not null &&
-            MyKeriaConnectionInfo?.IdentifiersList?.FirstOrDefault()?.Aids?.Count > 0;
+            MyKeriaConnectionInfo?.IdentifiersList?.Count > 0;
         public bool IsAuthenticated => IsSessionUnlocked && IsInitialized;
 
         public bool ShowedGettingStarted => MyOnboardState.ShowedGettingStarted;
