@@ -235,7 +235,7 @@
                 <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4 pa-0">
                     @foreach (var aid in appCache.Aids)
                     {
-                        <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Style=@("border-left:" + @ProfilesPage.CardClass(ActivePrefix, aid.Prefix)) Class="bt-sad-5">
+                        <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Class="@("bt-sad-5 " + ProfilesPage.CardClass(ActivePrefix, aid.Prefix))">
                             <MudStack Row="true" Class="bt-profile-stack">
                                 <AidPrefixDisplay Prefix="@aid.Prefix" Name="@aid.Name" ShowCopyButton="false" ShowPrefix="false" TextClass="bt-aid-prefix-name-only" TextPosition="AidPrefixDisplay.TextSide.Right" />
                             </MudStack>
@@ -282,6 +282,7 @@
                     <MudNavLink Ripple="false" Href="@Routes.Paths.Passkeys" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Ripple="false" Href="@Routes.Paths.KeriaConfigs" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA</MudNavLink>
                     <MudNavGroup Ripple="false" Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
+                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTheme" Icon="@Icons.Material.Filled.Palette" IconColor="Color.Surface">Theme</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperState" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTest" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.PrimeData" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Prime data</MudNavLink>

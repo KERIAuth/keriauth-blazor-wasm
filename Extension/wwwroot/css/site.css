@@ -2,6 +2,17 @@
     /* Override MudBlazor variables here */
     --bt-appbar-height: 4.5rem;
     --bt-buttontray-height: 4.3rem;
+    /* Accent border — used for selection indicators (left-border on cards, lists, nav) */
+    --bt-accent-border: hsl(183, 100%, 40%);
+}
+
+.mud-theme-dark {
+    --bt-accent-border: hsl(183, 100%, 50%);
+}
+
+/* Selection accent: 4px left border */
+.bt-accent-left {
+    border-left: 4px solid var(--bt-accent-border);
 }
 
 /* --- Shared utility classes extracted from inline styles --- */
@@ -176,7 +187,7 @@
 .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
     color: #eaff00;
     background-color: #373737;
-    border-left: 4px solid var(--mud-palette-primary);
+    border-left: 4px solid var(--bt-accent-border);
 }
 
 .mud-nav-link.active:not(.mud-nav-link-disabled) {
@@ -404,15 +415,11 @@
 }
 
 .credential-panel.selected-credential {
-    border-left: 4px solid var(--mud-palette-primary);
+    border-left: 4px solid var(--bt-accent-border);
 }
 
 .mud-theme-dark .credential-panel {
     border: 1px solid rgba(255,255,255,0.12);
-}
-
-.mud-theme-dark .credential-panel.selected-credential {
-    border-left: 4px solid var(--mud-palette-primary);
 }
 
 .credential-panel .mud-expand-panel {
@@ -424,7 +431,7 @@
 }
 
 .credential-compact.selected-credential {
-    border-left: 4px solid var(--mud-palette-primary);
+    border-left: 4px solid var(--bt-accent-border);
     width:stretch;
 }
 
@@ -443,7 +450,7 @@
 }
 
 .selected-item {
-    border-left: 4px solid blue;
+    border-left: 4px solid var(--bt-accent-border);
 }
 
 .bt-section-title {

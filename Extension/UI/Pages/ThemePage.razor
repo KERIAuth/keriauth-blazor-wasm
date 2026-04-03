@@ -1,0 +1,261 @@
+@page "/DeveloperTheme.html"
+@layout Layouts.MainLayout
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
+@using Extension.Services
+@using Extension.Services.Port
+@using Extension.Services.Storage
+@implements IDisposable
+
+<div id="@this.GetType().Name" class="bt-body-page">
+    <div class="d-flex gap-3 bt-main">
+        <div class="bt-main-inside-scroll">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Class="bt-page-title">Theme</MudText>
+                <MudSpacer />
+                <MudIcon Icon="@Icons.Material.Filled.WbSunny" Title="Light" />
+                <MudSwitch Value="IsDarkTheme" ValueChanged="async (bool isOn) => await SetAndPersistIsDarkTheme(isOn)" T="bool" Color="Color.Primary" Class="mr-n2 ml-1" />
+                <MudIcon Icon="@Icons.Material.Filled.Nightlight" Title="Dark" />
+            </MudStack>
+
+            @* === TYPOGRAPHY === *@
+            <MudText Typo="Typo.h5" Class="mt-4 mb-2">Typography</MudText>
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h3">Heading 3</MudText>
+                <MudText Typo="Typo.h4">Heading 4</MudText>
+                <MudText Typo="Typo.h5">Heading 5</MudText>
+                <MudText Typo="Typo.h6">Heading 6</MudText>
+                <MudText Typo="Typo.subtitle1">Subtitle 1</MudText>
+                <MudText Typo="Typo.subtitle2">Subtitle 2</MudText>
+                <MudText Typo="Typo.body1">Body 1 — The quick brown fox jumps over the lazy dog.</MudText>
+                <MudText Typo="Typo.body2">Body 2 — The quick brown fox jumps over the lazy dog.</MudText>
+                <MudText Typo="Typo.caption">Caption text</MudText>
+                <MudText Typo="Typo.overline">Overline text</MudText>
+            </MudPaper>
+
+            @* === BUTTONS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Buttons</MudText>
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Filled</MudText>
+                <MudStack Row="true" Spacing="2" Class="mb-4" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary">Primary</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary">Secondary</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Tertiary">Tertiary</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Default">Default</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Info">Info</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success">Success</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning">Warning</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error">Error</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="true">Disabled</MudButton>
+                </MudStack>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Outlined</MudText>
+                <MudStack Row="true" Spacing="2" Class="mb-4" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary">Primary</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary">Secondary</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Tertiary">Tertiary</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default">Default</MudButton>
+                </MudStack>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Text</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Text" Color="Color.Primary">Primary</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary">Secondary</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Tertiary">Tertiary</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default">Default</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @* === INPUTS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Inputs</MudText>
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudTextField @bind-Value="sampleText" Label="Text Field" Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="sampleText" Label="Text Field (Filled)" Variant="Variant.Filled" Class="mt-3" />
+                <MudSelect @bind-Value="sampleSelect" Label="Select" Variant="Variant.Outlined" Class="mt-3">
+                    <MudSelectItem Value="@("Option A")">Option A</MudSelectItem>
+                    <MudSelectItem Value="@("Option B")">Option B</MudSelectItem>
+                    <MudSelectItem Value="@("Option C")">Option C</MudSelectItem>
+                </MudSelect>
+                <MudStack Row="true" Spacing="4" Class="mt-3" AlignItems="AlignItems.Center">
+                    <MudCheckBox @bind-Value="sampleCheck" Label="Checkbox" Color="Color.Primary" />
+                    <MudSwitch @bind-Value="sampleSwitch" Label="Switch" Color="Color.Primary" />
+                </MudStack>
+                <MudRadioGroup @bind-Value="sampleRadio" Class="mt-2">
+                    <MudRadio Value="@("A")" Color="Color.Primary">Radio A</MudRadio>
+                    <MudRadio Value="@("B")" Color="Color.Primary">Radio B</MudRadio>
+                    <MudRadio Value="@("C")" Color="Color.Primary">Radio C</MudRadio>
+                </MudRadioGroup>
+            </MudPaper>
+
+            @* === ALERTS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Alerts</MudText>
+            <MudStack Spacing="2">
+                <MudAlert Severity="Severity.Info">Info alert — informational message.</MudAlert>
+                <MudAlert Severity="Severity.Success">Success alert — operation completed.</MudAlert>
+                <MudAlert Severity="Severity.Warning">Warning alert — proceed with caution.</MudAlert>
+                <MudAlert Severity="Severity.Error">Error alert — something went wrong.</MudAlert>
+                <MudAlert Severity="Severity.Normal">Normal alert — neutral message.</MudAlert>
+            </MudStack>
+
+            @* === CHIPS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Chips</MudText>
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudChip T="string" Color="Color.Primary">Primary</MudChip>
+                    <MudChip T="string" Color="Color.Secondary">Secondary</MudChip>
+                    <MudChip T="string" Color="Color.Tertiary">Tertiary</MudChip>
+                    <MudChip T="string" Color="Color.Info">Info</MudChip>
+                    <MudChip T="string" Color="Color.Success">Success</MudChip>
+                    <MudChip T="string" Color="Color.Warning">Warning</MudChip>
+                    <MudChip T="string" Color="Color.Error">Error</MudChip>
+                    <MudChip T="string" Color="Color.Default">Default</MudChip>
+                </MudStack>
+            </MudPaper>
+
+            @* === PAPER & SURFACE === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Paper &amp; Surface</MudText>
+            <MudStack Row="true" Spacing="3">
+                <MudPaper Class="pa-4" Elevation="0" Style="flex:1;">Elevation 0</MudPaper>
+                <MudPaper Class="pa-4" Elevation="1" Style="flex:1;">Elevation 1</MudPaper>
+                <MudPaper Class="pa-4" Elevation="4" Style="flex:1;">Elevation 4</MudPaper>
+                <MudPaper Class="pa-4" Elevation="8" Style="flex:1;">Elevation 8</MudPaper>
+            </MudStack>
+            <MudPaper Class="pa-4 mt-3" Outlined="true">Outlined Paper</MudPaper>
+
+            @* === TABLE === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Table</MudText>
+            <MudSimpleTable>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Value</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Alpha</td><td>100</td><td>Active</td></tr>
+                    <tr><td>Beta</td><td>200</td><td>Pending</td></tr>
+                    <tr><td>Gamma</td><td>300</td><td>Inactive</td></tr>
+                </tbody>
+            </MudSimpleTable>
+
+            @* === EXPANSION PANELS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Expansion Panels</MudText>
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Panel One">
+                    <MudText>Content inside the first expansion panel.</MudText>
+                </MudExpansionPanel>
+                <MudExpansionPanel Text="Panel Two">
+                    <MudText>Content inside the second expansion panel.</MudText>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            @* === LIST === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">List</MudText>
+            <MudPaper Elevation="1">
+                <MudList T="string">
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Label">List item one</MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Label">List item two</MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Label">List item three</MudListItem>
+                </MudList>
+            </MudPaper>
+
+            @* === PROGRESS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Progress</MudText>
+            <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Small" />
+                <MudProgressCircular Color="Color.Secondary" Indeterminate="true" Size="Size.Medium" />
+                <MudProgressCircular Color="Color.Tertiary" Indeterminate="true" Size="Size.Large" />
+            </MudStack>
+
+            @* === DIVIDER === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Divider</MudText>
+            <MudDivider />
+            <MudText Typo="Typo.body2" Class="my-2">Content between dividers</MudText>
+            <MudDivider />
+
+            @* === ACCENT BORDER === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Accent Border (bt-accent-left)</MudText>
+            <MudStack Spacing="2">
+                <MudPaper Class="pa-3 bt-accent-left" Elevation="1">
+                    <MudText>Selected item with accent border</MudText>
+                </MudPaper>
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText>Unselected item (no accent)</MudText>
+                </MudPaper>
+                <MudPaper Class="pa-3 bt-accent-left" Elevation="1">
+                    <MudText>Another selected item</MudText>
+                </MudPaper>
+            </MudStack>
+
+            @* === ICON BUTTONS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Icon Buttons</MudText>
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" />
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Default" />
+                <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Secondary" />
+                <MudIconButton Icon="@Icons.Material.Filled.Info" Color="Color.Info" Disabled="true" />
+            </MudStack>
+
+            @* === LINKS === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Links</MudText>
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudLink Href="#" Color="Color.Primary">Primary link</MudLink>
+                    <MudLink Href="#" Color="Color.Secondary">Secondary link</MudLink>
+                    <MudLink Href="#" Color="Color.Tertiary">Tertiary link</MudLink>
+                    <MudLink Href="#" Color="Color.Info">Info link</MudLink>
+                    <MudLink Href="#" Color="Color.Warning">Warning link</MudLink>
+                    <MudLink Href="#" Color="Color.Error">Error link</MudLink>
+                    <MudLink Href="#" Typo="Typo.body2" Color="Color.Primary">Body2 sized link</MudLink>
+                    <MudLink Href="#" Underline="Underline.Always" Color="Color.Primary">Always underlined</MudLink>
+                    <MudLink Href="#" Underline="Underline.None" Color="Color.Primary">Never underlined</MudLink>
+                </MudStack>
+            </MudPaper>
+
+            @* === TOOLTIP === *@
+            <MudText Typo="Typo.h5" Class="mt-6 mb-2">Tooltip</MudText>
+            <MudTooltip Text="This is a tooltip">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary">Hover me</MudButton>
+            </MudTooltip>
+
+            <div class="mb-6"></div>
+        </div>
+    </div>
+    <MudStack Row="true" Class="bt-button-tray">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" OnClick="@(() => navManager.NavigateTo(Routes.Paths.Dashboard))" />
+        <MudSpacer />
+    </MudStack>
+</div>
+
+@code {
+    [Inject] private NavigationManager navManager { get; set; } = default!;
+    [Inject] private AppCache appCache { get; set; } = default!;
+    [Inject] private IStorageService storageService { get; set; } = default!;
+    [Inject] private IAppBwPortService appBwPortService { get; set; } = default!;
+
+    private string sampleText = "Sample text";
+    private string sampleSelect = "Option A";
+    private bool sampleCheck = true;
+    private bool sampleSwitch = true;
+    private string sampleRadio = "A";
+
+    private bool IsDarkTheme => appCache.MyPreferences.IsDarkTheme;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+        GC.SuppressFinalize(this);
+    }
+
+    private async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
+    {
+        var prefs = appCache.MyPreferences with { IsDarkTheme = isDarkTheme };
+        await storageService.SetItem<Preferences>(prefs);
+        await appBwPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
+    }
+}

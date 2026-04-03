@@ -43,7 +43,7 @@
             : ViewDefIds.ProfilesAll;
     ViewDef<Aid>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<Aid> DisplayedIdentifiers => ViewDefHelper.Apply(AllIdentifiers, SelectedViewDef);
-    public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
+    public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "bt-accent-left" : "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -182,7 +182,7 @@
             {
                 <MudLink OnClick='() => navManager.NavigateTo(Routes.Paths.Profile + "?prefix=" + aid.Prefix)'>
                     <MudCard Elevation="0" Class="py-0 my-1">
-                        <div class="d-flex" style=@("align-items:center; border-left: " + CardClass(appCache.SelectedPrefix ?? "", aid.Prefix))>
+                        <div class="@("d-flex align-center " + CardClass(appCache.SelectedPrefix ?? "", aid.Prefix))">
                             <MudTooltip Text=@("Set profile as active ("+ ElideText(aid.Prefix) + ")") Delay="1000">
                                 <MudButton OnClick="async () => await SetActiveAid(aid.Prefix)">
                                     <MudIcon ViewBox="0 0 100 100" Icon="@Helper.Identicon.MakeIdenticon(aid.Prefix)" Class="bt-identicon" />

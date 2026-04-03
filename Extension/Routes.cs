@@ -81,6 +81,7 @@ public static class Routes {
         public const string PrimeData = "/PrimeData.html";
         public const string Credential = "/Credential.html";
 
+        public const string DeveloperTheme = "/DeveloperTheme.html";
         public const string DeveloperState = "/DeveloperState.html";
         public const string ReleaseHistory = "/content/release_history.html";
     }
@@ -152,6 +153,8 @@ public static class Routes {
 
         [typeof(DeveloperStatePage)] = new("DeveloperState", Paths.DeveloperState, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
+        [typeof(ThemePage)] = new("DeveloperTheme", Paths.DeveloperTheme, RequiresAuth: false,
+            Icons.Material.Filled.Palette, Color.Surface),
     };
 
     /// <summary>

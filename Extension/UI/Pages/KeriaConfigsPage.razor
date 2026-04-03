@@ -49,11 +49,9 @@
         };
     }
 
-    // Left-edge highlight style for active config
-    static string CardBorderStyle(string? selectedDigest, string configDigest) =>
-        selectedDigest == configDigest
-            ? "border-left: 4px solid var(--mud-palette-primary);"
-            : "border-left: 4px solid transparent;";
+    // Left-edge highlight class for active config
+    static string CardBorderClass(string? selectedDigest, string configDigest) =>
+        selectedDigest == configDigest ? "bt-accent-left" : "";
 
     protected override async Task OnInitializedAsync() {
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
@@ -115,7 +113,7 @@
                     var passkeyLabel = GetPasskeyCountLabel(digest);
 
                     <MudCard Elevation="0" Class="py-0 my-1 cursor-pointer" @onclick="() => NavigateToConfigDetail(digest)">
-                        <div class="d-flex align-center" style="@CardBorderStyle(SelectedDigest, digest)">
+                        <div class="@("d-flex align-center " + CardBorderClass(SelectedDigest, digest))">
                             <MudIcon Icon="@Icons.Material.Filled.Cloud"
                                      Color="@(isSelected ? Color.Primary : Color.Default)"
                                      Class="mx-3" />
