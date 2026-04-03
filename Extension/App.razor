@@ -8,6 +8,7 @@
 @inject IAppBwPortService appBwPortService
 @inject AppCache appCache
 @inject IJsRuntimeAdapter jsRuntimeAdapter
+@inject IJSRuntime jsRuntime
 
 @implements IAsyncDisposable
 
@@ -26,9 +27,9 @@
     /// </summary>
     public static ContextType? AppContext { get; private set; }
 
-    public static bool IsInPopup => AppContext is not null ? AppContext == ContextType.POPUP : false;
-    public static bool IsInSidePanel => AppContext is not null ? AppContext == ContextType.SIDEPANEL : false;
-    public static bool IsInTab => !(IsInPopup || IsInSidePanel);
+    public static bool IsInPopup => AppContext == ContextType.POPUP;
+    public static bool IsInSidePanel => AppContext == ContextType.SIDEPANEL;
+    public static bool IsInTab => AppContext == ContextType.TAB;
 
     protected override async Task OnInitializedAsync()
     {
@@ -50,8 +51,11 @@
         logger.LogInformation("Connected to BackgroundWorker via port, portSessionId={PortSessionId}, originTabId={OriginTabId}",
             appBwPortService.PortSessionId, appBwPortService.OriginTabId);
 
-        // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to the context-appropriate index page for redirection, e.g. to UnlockPage
-        if (!appCache.IsAuthenticated && Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
+        // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to the context-appropriate index page for redirection, e.g. to UnlockPage.
+        // Note: "/index.html" is a Blazor route alias for RouterPage (which does not require auth),
+        // but it's not in Routes.Pages so PathRequiresAuth would incorrectly return true for it.
+        var currentPath = "/" + navManager.ToBaseRelativePath(navManager.Uri);
+        if (!appCache.IsAuthenticated && currentPath != "/index.html" && Routes.PathRequiresAuth(currentPath))
         {
             // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
             // forceLoad reloads as TAB context. Popup/SidePanel contexts are opened fresh by Chrome, not reloaded here.
@@ -70,6 +74,9 @@
     /// <summary>
     /// Reads the extension context from globalThis.__EXT_CONTEXT__ set in the HTML page.
     /// Sets AppContext to the mapped ContextType enum value (TAB, POPUP, SIDEPANEL) or null if not set/unknown.
+    /// When the synchronous detection defaulted to TAB (no ?context= query param),
+    /// verifies via chrome.runtime.getContexts() since the service worker's setOptions/setPopup
+    /// may not have completed before the page loaded.
     /// </summary>
     private async Task ReadAppContextAsync()
     {
@@ -81,6 +88,29 @@
             {
                 var ctx = await globalThis.GetAsync<ExtContext>("__EXT_CONTEXT__");
                 AppContext = MapStringToContextType(ctx?.Type);
+
+                // When context defaulted to TAB (no ?context= query param), verify using
+                // chrome.runtime.getContexts() since the service worker's setOptions/setPopup
+                // may not have completed before the page loaded.
+                if (AppContext == ContextType.TAB)
+                {
+                    var verified = await jsRuntime.InvokeAsync<string>("__verifyExtContext");
+                    var verifiedContext = MapStringToContextType(verified);
+                    switch (verifiedContext)
+                    {
+                        case ContextType.SIDEPANEL:
+                        case ContextType.POPUP:
+                            logger.LogInformation("Context verified from TAB to {ctx}", verifiedContext);
+                            AppContext = verifiedContext.Value;
+                            break;
+                        case ContextType.TAB:
+                            break;
+                        default:
+                            logger.LogWarning("Unexpected verified context: {ctx}, keeping TAB", verified);
+                            break;
+                    }
+                }
+
                 logger.LogInformation("AppContext: {ctx}", AppContext?.ToString() ?? "null");
             }
             else
