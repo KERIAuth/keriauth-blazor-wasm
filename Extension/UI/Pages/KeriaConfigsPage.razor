@@ -146,8 +146,10 @@
         <MudSpacer />
         @if (IsMultiKeriaConfigEnabled)
         {
+            @* TODO P1 Add is disabled until storage structure, re-fetching, and other bugs fixed *@
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       OnClick="NavigateToAddConfig">
+                       OnClick="NavigateToAddConfig"
+                       Disabled="@(AllConfigs.Count > 0)">
                 Add Config
             </MudButton>
         }
