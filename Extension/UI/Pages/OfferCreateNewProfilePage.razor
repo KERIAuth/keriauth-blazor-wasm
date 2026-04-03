@@ -1,0 +1,169 @@
+@page "/OfferCreateNewProfile.html"
+@layout Layouts.MainLayout
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.AppBw.Requests
+@using Extension.Services.Storage
+@using Extension.Models.Messages.AppBw.Responses
+@using Extension.Services.Port
+
+@inject NavigationManager navManager
+@inject ILogger<OfferCreateNewProfilePage> logger
+@inject AppCache appCache
+@inject IStorageService storageService
+@inject IDialogService dialogService
+@inject IAppBwPortService appBwPortService
+@inject ISnackbar snackbar
+
+@code {
+    private MudButton? createProfileButton;
+    private bool _shouldFocusButton = true;
+    private bool _isCreating;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusButton && createProfileButton is not null)
+        {
+            _shouldFocusButton = false;
+            await Task.Delay(100);
+            await createProfileButton.FocusAsync();
+        }
+    }
+
+    async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await DeclineOffer();
+        }
+    }
+
+    async Task AcceptOffer()
+    {
+        logger.LogInformation("User accepted profile creation offer");
+
+        var parameters = new DialogParameters();
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+        var dialog = await dialogService.ShowAsync<Extension.UI.Components.AddProfileDialog>("Create your first profile", parameters, options);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled)
+        {
+            return;
+        }
+
+        var alias = result.Data?.ToString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            snackbar.Add("Profile alias cannot be empty", Severity.Warning);
+            return;
+        }
+
+        _isCreating = true;
+        StateHasChanged();
+
+        try
+        {
+            var message = new AppBwRequestAddIdentifierMessage(alias);
+            var addResult = await appBwPortService.SendRequestAsync<RequestAddIdentifierPayload, AddIdentifierResponse>(message);
+
+            if (addResult.IsFailed)
+            {
+                snackbar.Add(addResult.Errors.FirstOrDefault()?.Message ?? "Request failed", Severity.Error);
+                return;
+            }
+            else if (addResult.Value is null || !addResult.Value.Success)
+            {
+                snackbar.Add(addResult.Value?.Error ?? "Failed to create profile", Severity.Error);
+                return;
+            }
+
+            snackbar.Add($"Profile '{alias}' created successfully", Severity.Success);
+            await PersistWasProfileSuggested();
+            navManager.NavigateTo(Routes.Paths.Router);
+        }
+        finally
+        {
+            _isCreating = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    async Task DeclineOffer()
+    {
+        logger.LogInformation("User declined profile creation offer");
+        await PersistWasProfileSuggested();
+        navManager.NavigateTo(Routes.Paths.Router);
+    }
+
+    async Task PersistWasProfileSuggested()
+    {
+        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
+        {
+            logger.LogWarning("PersistWasProfileSuggested: No selected KERIA connection digest");
+            return;
+        }
+
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
+        {
+            logger.LogWarning("PersistWasProfileSuggested: Config not found for digest {Digest}", selectedDigest);
+            return;
+        }
+
+        var updatedConfig = currentConfig with { WasProfileSuggested = true };
+        var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+            [selectedDigest] = updatedConfig
+        };
+        var storeResult = await storageService.SetItem(new KeriaConnectConfigs {
+            Configs = updatedConfigs,
+            IsStored = true
+        });
+        if (storeResult.IsFailed)
+        {
+            logger.LogError("PersistWasProfileSuggested: Failed to store config: {Errors}", string.Join(", ", storeResult.Errors));
+            return;
+        }
+
+        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfigs.Configs.TryGetValue(selectedDigest, out var c) && c.WasProfileSuggested]);
+    }
+}
+
+<div id="@this.GetType().Name" class="bt-body-page" @onkeydown="HandleKeyDown" tabindex="0">
+    <MudStack Class="bt-main">
+        <div class="bt-main-inside-scroll">
+            <PageHeading Title="Create your first profile?" />
+            <MudStack Class="mt-4">
+                <MudText>
+                    A <strong>Profile</strong> is your digital identity anchored in KERI. It gives you a unique, cryptographically verifiable identifier (AID) that you control.
+                </MudText>
+                <MudText Class="mt-2">
+                    Each profile has an <strong>Identicon</strong> -- a visual pattern generated from your identifier. It helps you quickly recognize which profile you're using.
+                </MudText>
+                <MudText Class="mt-2">
+                    You need at least one profile to use credentials, sign data, or interact with websites.
+                </MudText>
+            </MudStack>
+            @if (_isCreating)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-4">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <MudText>Creating profile...</MudText>
+                </MudStack>
+            }
+        </div>
+    </MudStack>
+    <MudStack Row="true" class="bt-button-tray">
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" OnClick="DeclineOffer" Disabled="@_isCreating">Maybe later</MudButton>
+        <MudButton @ref="createProfileButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptOffer" Disabled="@_isCreating">Create profile</MudButton>
+    </MudStack>
+</div>

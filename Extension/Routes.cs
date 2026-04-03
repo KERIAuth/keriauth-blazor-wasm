@@ -67,6 +67,7 @@ public static class Routes {
         public const string NewRelease = "/NewRelease.html";
         public const string Configure = "/Configure.html";
         public const string OfferPasskey = "/OfferPasskey.html";
+        public const string OfferCreateNewProfile = "/OfferCreateNewProfile.html";
         public const string GettingStarted = "/GettingStarted.html";
         public const string Unlock = "/Unlock.html";
         public const string Preferences = "/ManagePreferences.html";
@@ -129,6 +130,7 @@ public static class Routes {
         [typeof(NewReleasePage)] = new("New Release", Paths.NewRelease, RequiresAuth: false),
         [typeof(ConfigurePage)] = new("Configure", Paths.Configure, RequiresAuth: false),
         [typeof(OfferPasskeyPage)] = new("Offer Passkey", Paths.OfferPasskey, RequiresAuth: false),
+        [typeof(OfferCreateNewProfilePage)] = new("Offer Create New Profile", Paths.OfferCreateNewProfile, RequiresAuth: true),
         [typeof(GettingStartedPage)] = new("Getting Started", Paths.GettingStarted, RequiresAuth: false),
         [typeof(UnlockPage)] = new("Unlock", Paths.Unlock, RequiresAuth: false,
             Icons.Material.Filled.LockOpen, Color.Surface),

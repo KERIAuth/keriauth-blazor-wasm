@@ -6,7 +6,7 @@ using FluentResults;
 namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false, bool wasPasskeySuggested = false, DateTime? provenAt = null) {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false, bool wasPasskeySuggested = false, bool wasProfileSuggested = false, DateTime? provenAt = null) {
             ProviderName = providerName;  // Agency Alias
             Alias = providerName; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC"; // Connection Alias
             AdminUrl = adminUrl;
@@ -17,6 +17,7 @@ namespace Extension.Models {
             SelectedPrefix = selectedPrefix;
             IsStored = isStored;
             WasPasskeySuggested = wasPasskeySuggested;
+            WasProfileSuggested = wasProfileSuggested;
             ProvenAt = provenAt;
         }
 
@@ -56,6 +57,9 @@ namespace Extension.Models {
 
         [JsonPropertyName("WasPasskeySuggested")]
         public bool WasPasskeySuggested { get; init; }
+
+        [JsonPropertyName("WasProfileSuggested")]
+        public bool WasProfileSuggested { get; init; }
 
         /// <summary>
         /// When this config was first proven to work end-to-end.

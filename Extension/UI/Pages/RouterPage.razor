@@ -154,6 +154,14 @@
             }
         }
 
+        // Offer profile creation once per config when no AIDs exist
+        if (appCache.Aids.Count == 0 && !appCache.MyKeriaConnectConfig.WasProfileSuggested)
+        {
+            logger.LogInformation("RedirectIfNeeded: No AIDs and profile offer not yet shown, navigating to OfferCreateNewProfilePage");
+            NavigateIfNeeded(Routes.Paths.OfferCreateNewProfile);
+            return;
+        }
+
         if (!appCache.ShowedGettingStarted)
         {
             NavigateIfNeeded(Routes.Paths.GettingStarted);
