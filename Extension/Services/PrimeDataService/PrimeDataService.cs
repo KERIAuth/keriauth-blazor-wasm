@@ -23,36 +23,59 @@ namespace Extension.Services.PrimeDataService {
             _logger = logger;
         }
 
+        private async Task ReportProgress(int step, int totalSteps, string description) {
+            _logger.LogInformation("Progress: Step {Step} of {Total}: {Description}", step, totalSteps, description);
+            await _storageService.SetItem(new PrimeDataProgress {
+                Step = step,
+                TotalSteps = totalSteps,
+                Description = description
+            }, StorageArea.Session);
+        }
+
+        private async Task ReportComplete() {
+            await _storageService.SetItem(new PrimeDataProgress { IsComplete = true }, StorageArea.Session);
+        }
+
+        private async Task ReportError(string description) {
+            await _storageService.SetItem(new PrimeDataProgress { IsError = true, Description = description }, StorageArea.Session);
+        }
+
         public async Task<Result<PrimeDataGoResponse>> GoAsync(PrimeDataGoPayload? payload = null) {
             var prepend = payload?.Prepend ?? string.Empty;
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
+            const int goTotalSteps = 39;
             var generatedExchangeSaids = new HashSet<string>();
 
             // Steps 1-4: Create AIDs
             var nameToPrefix = new Dictionary<string, string>();
 
+            await ReportProgress(1, goTotalSteps, "Creating GEDA profile");
             var gedaName = $"{prepend}geda";
             var gedaResult = await CreateAidStep(gedaName, "Step 1");
-            if (gedaResult.IsFailed) return FailResponse(gedaResult.Errors[0].Message);
+            if (gedaResult.IsFailed) return await FailResponseWithProgress(gedaResult.Errors[0].Message);
             nameToPrefix[gedaName] = gedaResult.Value.Prefix;
 
+            await ReportProgress(2, goTotalSteps, "Creating QVI profile");
             var qviName = $"{prepend}qvi";
             var qviResult = await CreateAidStep(qviName, "Step 2");
-            if (qviResult.IsFailed) return FailResponse(qviResult.Errors[0].Message);
+            if (qviResult.IsFailed) return await FailResponseWithProgress(qviResult.Errors[0].Message);
             nameToPrefix[qviName] = qviResult.Value.Prefix;
 
+            await ReportProgress(3, goTotalSteps, "Creating LE profile");
             var leName = $"{prepend}le";
             var leResult = await CreateAidStep(leName, "Step 3");
-            if (leResult.IsFailed) return FailResponse(leResult.Errors[0].Message);
+            if (leResult.IsFailed) return await FailResponseWithProgress(leResult.Errors[0].Message);
             nameToPrefix[leName] = leResult.Value.Prefix;
 
+            await ReportProgress(4, goTotalSteps, "Creating Person profile");
             var personName = $"{prepend}person";
             var personResult = await CreateAidStep(personName, "Step 4");
-            if (personResult.IsFailed) return FailResponse(personResult.Errors[0].Message);
+            if (personResult.IsFailed) return await FailResponseWithProgress(personResult.Errors[0].Message);
             nameToPrefix[personName] = personResult.Value.Prefix;
 
             // Step 5: Resolve OOBIs between roles
+            await ReportProgress(5, goTotalSteps, "Resolving OOBIs between roles");
             var step5Pairs = new[] {
                 (gedaName, qviResult.Value.Oobi, qviName),
                 (qviName, gedaResult.Value.Oobi, gedaName),
@@ -60,42 +83,46 @@ namespace Extension.Services.PrimeDataService {
                 (qviName, leResult.Value.Oobi, leName),
             };
             var step5 = await ResolveOobiPairsStep(step5Pairs, "Step 5");
-            if (step5.IsFailed) return FailResponse(step5.Errors[0].Message);
+            if (step5.IsFailed) return await FailResponseWithProgress(step5.Errors[0].Message);
             var step5Store = await StoreConnectionsStep(step5Pairs, nameToPrefix, "Step 5");
-            if (step5Store.IsFailed) return FailResponse(step5Store.Errors[0].Message);
+            if (step5Store.IsFailed) return await FailResponseWithProgress(step5Store.Errors[0].Message);
 
             // Steps 6-8: GEDA challenges QVI
+            await ReportProgress(6, goTotalSteps, "GEDA challenging QVI");
             var step6 = await ChallengeExchangeStep(
                 gedaName, gedaResult.Value.Prefix,
                 qviName, qviResult.Value.Prefix,
                 "Step 6", "Step 7", "Step 8");
-            if (step6.IsFailed) return FailResponse(step6.Errors[0].Message);
+            if (step6.IsFailed) return await FailResponseWithProgress(step6.Errors[0].Message);
 
             // Steps 9-11: QVI challenges GEDA
+            await ReportProgress(7, goTotalSteps, "QVI challenging GEDA");
             var step9 = await ChallengeExchangeStep(
                 qviName, qviResult.Value.Prefix,
                 gedaName, gedaResult.Value.Prefix,
                 "Step 9", "Step 10", "Step 11");
-            if (step9.IsFailed) return FailResponse(step9.Errors[0].Message);
+            if (step9.IsFailed) return await FailResponseWithProgress(step9.Errors[0].Message);
 
             // Step 12: GEDA creates credential registry
+            await ReportProgress(8, goTotalSteps, "Creating GEDA credential registry");
             var gedaRegistryName = $"{prepend}geda_registry";
             var registryResult = await CreateRegistryStep(gedaName, gedaRegistryName, "Step 12");
-            if (registryResult.IsFailed) return FailResponse(registryResult.Errors[0].Message);
+            if (registryResult.IsFailed) return await FailResponseWithProgress(registryResult.Errors[0].Message);
 
             // Step 12b: Resolve credential schema OOBIs
-            _logger.LogInformation("Step 12b: Resolving credential schema OOBIs...");
+            await ReportProgress(9, goTotalSteps, "Resolving credential schema OOBIs");
             var schemaOobis = new[] {
                 QviSchemaSaid, LeSchemaSaid, OorAuthSchemaSaid, OorSchemaSaid, EcrAuthSchemaSaid, EcrSchemaSaid
             };
             foreach (var said in schemaOobis) {
                 var schemaResolveResult = await ResolveSchemaOobiWithFallbackAsync(said);
                 if (schemaResolveResult.IsFailed) {
-                    return FailResponse(schemaResolveResult.Errors[0].Message);
+                    return await FailResponseWithProgress(schemaResolveResult.Errors[0].Message);
                 }
             }
 
             // Step 13a: GEDA issues QVI credential
+            await ReportProgress(10, goTotalSteps, "Issuing QVI credential");
             var qviCredData = new RecursiveDictionary();
             qviCredData["LEI"] = new RecursiveValue { StringValue = "5493001KJTIIGC8Y1R17" };
             var qviCredIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
@@ -105,9 +132,10 @@ namespace Extension.Services.PrimeDataService {
                 HolderPrefix: qviResult.Value.Prefix,
                 CredData: qviCredData
             ), "Step 13a", "QVI credential");
-            if (qviCredIssued.IsFailed) return FailResponse(qviCredIssued.Errors[0].Message);
+            if (qviCredIssued.IsFailed) return await FailResponseWithProgress(qviCredIssued.Errors[0].Message);
 
             // Step 13b: GEDA grants QVI credential to QVI via IPEX
+            await ReportProgress(11, goTotalSteps, "Granting QVI credential");
             var qviGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: gedaName,
                 RecipientPrefix: qviResult.Value.Prefix,
@@ -115,74 +143,82 @@ namespace Extension.Services.PrimeDataService {
                 Anc: qviCredIssued.Value.Anc,
                 Iss: qviCredIssued.Value.Iss
             ), "Step 13b");
-            if (qviGrantSaid.IsFailed) return FailResponse(qviGrantSaid.Errors[0].Message);
+            if (qviGrantSaid.IsFailed) return await FailResponseWithProgress(qviGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(qviGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { qviGrantSaid.Value }, "Step 13b propagation");
 
             // Step 14: QVI admits QVI credential
+            await ReportProgress(12, goTotalSteps, "Admitting QVI credential");
             var step14 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: gedaResult.Value.Prefix,
                 GrantSaid: qviGrantSaid.Value
             ), "Step 14");
-            if (step14.IsFailed) return FailResponse(step14.Errors[0].Message);
+            if (step14.IsFailed) return await FailResponseWithProgress(step14.Errors[0].Message);
             generatedExchangeSaids.Add(step14.Value);
 
             // Step 15a: Create Verifier AID
+            await ReportProgress(13, goTotalSteps, "Creating Verifier profile");
             var verifierName = $"{prepend}verifier";
             var verifierResult = await CreateAidStep(verifierName, "Step 15a");
-            if (verifierResult.IsFailed) return FailResponse(verifierResult.Errors[0].Message);
+            if (verifierResult.IsFailed) return await FailResponseWithProgress(verifierResult.Errors[0].Message);
             nameToPrefix[verifierName] = verifierResult.Value.Prefix;
 
             // Step 15b: Resolve OOBIs between QVI and Verifier
+            await ReportProgress(14, goTotalSteps, "Resolving OOBIs for Verifier");
             var step15bPairs = new[] {
                 (qviName, verifierResult.Value.Oobi, verifierName),
                 (verifierName, qviResult.Value.Oobi, qviName),
             };
             var step15b = await ResolveOobiPairsStep(step15bPairs, "Step 15b");
-            if (step15b.IsFailed) return FailResponse(step15b.Errors[0].Message);
+            if (step15b.IsFailed) return await FailResponseWithProgress(step15b.Errors[0].Message);
             var step15bStore = await StoreConnectionsStep(step15bPairs, nameToPrefix, "Step 15b");
-            if (step15bStore.IsFailed) return FailResponse(step15bStore.Errors[0].Message);
+            if (step15bStore.IsFailed) return await FailResponseWithProgress(step15bStore.Errors[0].Message);
 
             // Step 16a: Verifier requests QVI credential via IPEX apply
+            await ReportProgress(15, goTotalSteps, "Requesting QVI credential");
             var applyStepResult = await ApplyStep(new IpexApplySubmitArgs(
                 SenderNameOrPrefix: verifierName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 SchemaSaid: QviSchemaSaid
             ), "Step 16a");
-            if (applyStepResult.IsFailed) return FailResponse(applyStepResult.Errors[0].Message);
+            if (applyStepResult.IsFailed) return await FailResponseWithProgress(applyStepResult.Errors[0].Message);
             var applySaid = applyStepResult.Value;
             generatedExchangeSaids.Add(applySaid);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { applySaid }, "Step 16a propagation");
 
             // Step 16b: QVI offers credential to Verifier
+            await ReportProgress(16, goTotalSteps, "Offering QVI credential to Verifier");
             var offerStepResult = await OfferStep(new IpexOfferSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: verifierResult.Value.Prefix,
                 CredentialSaid: qviCredIssued.Value.Said,
                 ApplySaid: applySaid
             ), "Step 16b");
-            if (offerStepResult.IsFailed) return FailResponse(offerStepResult.Errors[0].Message);
+            if (offerStepResult.IsFailed) return await FailResponseWithProgress(offerStepResult.Errors[0].Message);
             var offerSaid = offerStepResult.Value;
             generatedExchangeSaids.Add(offerSaid);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { offerSaid }, "Step 16b propagation");
 
             // Step 16c: Verifier agrees to credential offer
+            await ReportProgress(17, goTotalSteps, "Agreeing to QVI credential offer");
             var agreeStepResult = await AgreeStep(new IpexAgreeSubmitArgs(
                 SenderNameOrPrefix: verifierName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 OfferSaid: offerSaid
             ), "Step 16c");
-            if (agreeStepResult.IsFailed) return FailResponse(agreeStepResult.Errors[0].Message);
+            if (agreeStepResult.IsFailed) return await FailResponseWithProgress(agreeStepResult.Errors[0].Message);
             var agreeSaid = agreeStepResult.Value;
             generatedExchangeSaids.Add(agreeSaid);
 
             // Step 17: QVI creates credential registry for LE credentials
+            await ReportProgress(18, goTotalSteps, "Creating QVI credential registry");
             var qviRegistryName = $"{prepend}qvi_le_registry";
             var qviRegistryResult = await CreateRegistryStep(qviName, qviRegistryName, "Step 17");
-            if (qviRegistryResult.IsFailed) return FailResponse(qviRegistryResult.Errors[0].Message);
+            if (qviRegistryResult.IsFailed) return await FailResponseWithProgress(qviRegistryResult.Errors[0].Message);
 
             // Step 18a: QVI issues LE credential
+            await ReportProgress(19, goTotalSteps, "Issuing LE credential");
             var leCredData = new RecursiveDictionary();
             leCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
 
@@ -202,9 +238,10 @@ namespace Extension.Services.PrimeDataService {
                 CredEdge: leCredEdge,
                 CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 18a", "LE credential");
-            if (leCredIssued.IsFailed) return FailResponse(leCredIssued.Errors[0].Message);
+            if (leCredIssued.IsFailed) return await FailResponseWithProgress(leCredIssued.Errors[0].Message);
 
             // Step 18b: QVI grants LE credential to LE via IPEX
+            await ReportProgress(20, goTotalSteps, "Granting LE credential");
             var leGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
@@ -212,35 +249,39 @@ namespace Extension.Services.PrimeDataService {
                 Anc: leCredIssued.Value.Anc,
                 Iss: leCredIssued.Value.Iss
             ), "Step 18b");
-            if (leGrantSaid.IsFailed) return FailResponse(leGrantSaid.Errors[0].Message);
+            if (leGrantSaid.IsFailed) return await FailResponseWithProgress(leGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(leGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { leGrantSaid.Value }, "Step 18b propagation");
 
             // Step 19: LE admits LE credential
+            await ReportProgress(21, goTotalSteps, "Admitting LE credential");
             var step19 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: leGrantSaid.Value
             ), "Step 19");
-            if (step19.IsFailed) return FailResponse(step19.Errors[0].Message);
+            if (step19.IsFailed) return await FailResponseWithProgress(step19.Errors[0].Message);
             generatedExchangeSaids.Add(step19.Value);
 
             // Step 20: Resolve OOBIs between LE and Verifier
+            await ReportProgress(22, goTotalSteps, "Resolving OOBIs for LE and Verifier");
             var step20Pairs = new[] {
                 (leName, verifierResult.Value.Oobi, verifierName),
                 (verifierName, leResult.Value.Oobi, leName),
             };
             var step20 = await ResolveOobiPairsStep(step20Pairs, "Step 20");
-            if (step20.IsFailed) return FailResponse(step20.Errors[0].Message);
+            if (step20.IsFailed) return await FailResponseWithProgress(step20.Errors[0].Message);
             var step20Store = await StoreConnectionsStep(step20Pairs, nameToPrefix, "Step 20");
-            if (step20Store.IsFailed) return FailResponse(step20Store.Errors[0].Message);
+            if (step20Store.IsFailed) return await FailResponseWithProgress(step20Store.Errors[0].Message);
 
             // Step 21: LE presents LE credential to Verifier
+            await ReportProgress(23, goTotalSteps, "Presenting LE credential");
             var step21 = await PresentStep(leName, leCredIssued.Value.Said, verifierResult.Value.Prefix, "Step 21");
-            if (step21.IsFailed) return FailResponse(step21.Errors[0].Message);
+            if (step21.IsFailed) return await FailResponseWithProgress(step21.Errors[0].Message);
             generatedExchangeSaids.Add(step21.Value);
 
             // Step 22: Resolve OOBIs for Person
+            await ReportProgress(24, goTotalSteps, "Resolving OOBIs for Person");
             var step22Pairs = new[] {
                 (personName, leResult.Value.Oobi, leName),
                 (leName, personResult.Value.Oobi, personName),
@@ -250,16 +291,18 @@ namespace Extension.Services.PrimeDataService {
                 (verifierName, personResult.Value.Oobi, personName),
             };
             var step22 = await ResolveOobiPairsStep(step22Pairs, "Step 22");
-            if (step22.IsFailed) return FailResponse(step22.Errors[0].Message);
+            if (step22.IsFailed) return await FailResponseWithProgress(step22.Errors[0].Message);
             var step22Store = await StoreConnectionsStep(step22Pairs, nameToPrefix, "Step 22");
-            if (step22Store.IsFailed) return FailResponse(step22Store.Errors[0].Message);
+            if (step22Store.IsFailed) return await FailResponseWithProgress(step22Store.Errors[0].Message);
 
             // Step 23: LE creates credential registry
+            await ReportProgress(25, goTotalSteps, "Creating LE OOR registry");
             var leRegistryName = $"{prepend}le_oor_registry";
             var leRegistryResult = await CreateRegistryStep(leName, leRegistryName, "Step 23");
-            if (leRegistryResult.IsFailed) return FailResponse(leRegistryResult.Errors[0].Message);
+            if (leRegistryResult.IsFailed) return await FailResponseWithProgress(leRegistryResult.Errors[0].Message);
 
             // Step 24a: LE issues OOR Auth credential to QVI
+            await ReportProgress(26, goTotalSteps, "Issuing OOR Auth credential");
             var oorAuthCredData = new RecursiveDictionary();
             oorAuthCredData["AID"] = new RecursiveValue { StringValue = personResult.Value.Prefix };
             oorAuthCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
@@ -282,9 +325,10 @@ namespace Extension.Services.PrimeDataService {
                 CredEdge: oorAuthEdge,
                 CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 24a", "OOR Auth credential");
-            if (oorAuthIssued.IsFailed) return FailResponse(oorAuthIssued.Errors[0].Message);
+            if (oorAuthIssued.IsFailed) return await FailResponseWithProgress(oorAuthIssued.Errors[0].Message);
 
             // Step 24b: LE grants OOR Auth to QVI via IPEX
+            await ReportProgress(27, goTotalSteps, "Granting OOR Auth credential");
             var oorAuthGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
@@ -292,20 +336,22 @@ namespace Extension.Services.PrimeDataService {
                 Anc: oorAuthIssued.Value.Anc,
                 Iss: oorAuthIssued.Value.Iss
             ), "Step 24b");
-            if (oorAuthGrantSaid.IsFailed) return FailResponse(oorAuthGrantSaid.Errors[0].Message);
+            if (oorAuthGrantSaid.IsFailed) return await FailResponseWithProgress(oorAuthGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(oorAuthGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { oorAuthGrantSaid.Value }, "Step 24b propagation");
 
             // Step 25: QVI admits OOR Auth credential
+            await ReportProgress(28, goTotalSteps, "Admitting OOR Auth credential");
             var step25 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: oorAuthGrantSaid.Value
             ), "Step 25");
-            if (step25.IsFailed) return FailResponse(step25.Errors[0].Message);
+            if (step25.IsFailed) return await FailResponseWithProgress(step25.Errors[0].Message);
             generatedExchangeSaids.Add(step25.Value);
 
             // Step 26a: QVI issues OOR credential to Person
+            await ReportProgress(29, goTotalSteps, "Issuing OOR credential");
             var oorCredData = new RecursiveDictionary();
             oorCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
             oorCredData["personLegalName"] = new RecursiveValue { StringValue = "John Smith" };
@@ -328,9 +374,10 @@ namespace Extension.Services.PrimeDataService {
                 CredEdge: oorEdge,
                 CredRules: VleiCredentialHelper.BuildVleiRules()
             ), "Step 26a", "OOR credential");
-            if (oorIssued.IsFailed) return FailResponse(oorIssued.Errors[0].Message);
+            if (oorIssued.IsFailed) return await FailResponseWithProgress(oorIssued.Errors[0].Message);
 
             // Step 26b: QVI grants OOR credential to Person via IPEX
+            await ReportProgress(30, goTotalSteps, "Granting OOR credential");
             var oorGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: personResult.Value.Prefix,
@@ -338,25 +385,28 @@ namespace Extension.Services.PrimeDataService {
                 Anc: oorIssued.Value.Anc,
                 Iss: oorIssued.Value.Iss
             ), "Step 26b");
-            if (oorGrantSaid.IsFailed) return FailResponse(oorGrantSaid.Errors[0].Message);
+            if (oorGrantSaid.IsFailed) return await FailResponseWithProgress(oorGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(oorGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { oorGrantSaid.Value }, "Step 26b propagation");
 
             // Step 27: Person admits OOR credential
+            await ReportProgress(31, goTotalSteps, "Admitting OOR credential");
             var step27 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: personName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: oorGrantSaid.Value
             ), "Step 27");
-            if (step27.IsFailed) return FailResponse(step27.Errors[0].Message);
+            if (step27.IsFailed) return await FailResponseWithProgress(step27.Errors[0].Message);
             generatedExchangeSaids.Add(step27.Value);
 
             // Step 28: Person presents OOR credential to Verifier
+            await ReportProgress(32, goTotalSteps, "Presenting OOR credential");
             var step28 = await PresentStep(personName, oorIssued.Value.Said, verifierResult.Value.Prefix, "Step 28");
-            if (step28.IsFailed) return FailResponse(step28.Errors[0].Message);
+            if (step28.IsFailed) return await FailResponseWithProgress(step28.Errors[0].Message);
             generatedExchangeSaids.Add(step28.Value);
 
             // Step 29a: LE issues ECR Auth credential to QVI
+            await ReportProgress(33, goTotalSteps, "Issuing ECR Auth credential");
             var ecrAuthCredData = new RecursiveDictionary();
             ecrAuthCredData["AID"] = new RecursiveValue { StringValue = personResult.Value.Prefix };
             ecrAuthCredData["LEI"] = new RecursiveValue { StringValue = "254900OPPU84GM83MG36" };
@@ -379,9 +429,10 @@ namespace Extension.Services.PrimeDataService {
                 CredEdge: ecrAuthEdge,
                 CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrAuthPrivacyDisclaimer)
             ), "Step 29a", "ECR Auth credential");
-            if (ecrAuthIssued.IsFailed) return FailResponse(ecrAuthIssued.Errors[0].Message);
+            if (ecrAuthIssued.IsFailed) return await FailResponseWithProgress(ecrAuthIssued.Errors[0].Message);
 
             // Step 29b: LE grants ECR Auth to QVI via IPEX
+            await ReportProgress(34, goTotalSteps, "Granting ECR Auth credential");
             var ecrAuthGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: leName,
                 RecipientPrefix: qviResult.Value.Prefix,
@@ -389,20 +440,22 @@ namespace Extension.Services.PrimeDataService {
                 Anc: ecrAuthIssued.Value.Anc,
                 Iss: ecrAuthIssued.Value.Iss
             ), "Step 29b");
-            if (ecrAuthGrantSaid.IsFailed) return FailResponse(ecrAuthGrantSaid.Errors[0].Message);
+            if (ecrAuthGrantSaid.IsFailed) return await FailResponseWithProgress(ecrAuthGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(ecrAuthGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { ecrAuthGrantSaid.Value }, "Step 29b propagation");
 
             // Step 30: QVI admits ECR Auth credential
+            await ReportProgress(35, goTotalSteps, "Admitting ECR Auth credential");
             var step30 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: leResult.Value.Prefix,
                 GrantSaid: ecrAuthGrantSaid.Value
             ), "Step 30");
-            if (step30.IsFailed) return FailResponse(step30.Errors[0].Message);
+            if (step30.IsFailed) return await FailResponseWithProgress(step30.Errors[0].Message);
             generatedExchangeSaids.Add(step30.Value);
 
             // Step 31a: QVI issues ECR credential to Person (private)
+            await ReportProgress(36, goTotalSteps, "Issuing ECR credential");
             var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData("Project Manager");
             var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthIssued.Value.Said);
 
@@ -416,9 +469,10 @@ namespace Extension.Services.PrimeDataService {
                 CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer),
                 Private: true
             ), "Step 31a", "ECR credential");
-            if (ecrIssued.IsFailed) return FailResponse(ecrIssued.Errors[0].Message);
+            if (ecrIssued.IsFailed) return await FailResponseWithProgress(ecrIssued.Errors[0].Message);
 
             // Step 31b: QVI grants ECR credential to Person via IPEX
+            await ReportProgress(37, goTotalSteps, "Granting ECR credential");
             var ecrGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: qviName,
                 RecipientPrefix: personResult.Value.Prefix,
@@ -426,23 +480,26 @@ namespace Extension.Services.PrimeDataService {
                 Anc: ecrIssued.Value.Anc,
                 Iss: ecrIssued.Value.Iss
             ), "Step 31b");
-            if (ecrGrantSaid.IsFailed) return FailResponse(ecrGrantSaid.Errors[0].Message);
+            if (ecrGrantSaid.IsFailed) return await FailResponseWithProgress(ecrGrantSaid.Errors[0].Message);
             generatedExchangeSaids.Add(ecrGrantSaid.Value);
             await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { ecrGrantSaid.Value }, "Step 31b propagation");
 
             // Step 32: Person admits ECR credential
+            await ReportProgress(38, goTotalSteps, "Admitting ECR credential");
             var step32 = await AdmitStep(new IpexAdmitSubmitArgs(
                 SenderNameOrPrefix: personName,
                 RecipientPrefix: qviResult.Value.Prefix,
                 GrantSaid: ecrGrantSaid.Value
             ), "Step 32");
-            if (step32.IsFailed) return FailResponse(step32.Errors[0].Message);
+            if (step32.IsFailed) return await FailResponseWithProgress(step32.Errors[0].Message);
             generatedExchangeSaids.Add(step32.Value);
 
             // Step 33: Wait for KERIA to propagate notifications, then mark as read
+            await ReportProgress(39, goTotalSteps, "Finalizing notifications");
             await WaitForNotificationsAndMarkAsReadStep(generatedExchangeSaids, "Step 33");
 
             _logger.LogInformation("PrimeData Go completed successfully");
+            await ReportComplete();
             return Result.Ok(new PrimeDataGoResponse(true));
         }
 
@@ -490,12 +547,16 @@ namespace Extension.Services.PrimeDataService {
             _logger.LogInformation("PrimeData IPEX starting: workflow={Workflow}, isPresentation={IsPresentation}, discloser={Discloser}, disclosee={Disclosee}, role={Role}",
                 payload.Workflow, payload.IsPresentation, payload.DiscloserPrefix, payload.DiscloseePrefix, payload.EcrRole);
 
+            var ipexTotalSteps = ComputeIpexStepCount(payload.Workflow);
+            var ipexStep = 0;
+
             var generatedExchangeSaids = new HashSet<string>();
 
             // Resolve ECR schema OOBI
+            await ReportProgress(++ipexStep, ipexTotalSteps, "Resolving schema OOBIs");
             var schemaResolve = await ResolveSchemaOobiWithFallbackAsync(EcrSchemaSaid);
             if (schemaResolve.IsFailed) {
-                return FailIpexResponse(schemaResolve.Errors[0].Message);
+                return await FailIpexResponseWithProgress(schemaResolve.Errors[0].Message);
             }
 
             var discloserPrefix = payload.DiscloserPrefix;
@@ -509,17 +570,18 @@ namespace Extension.Services.PrimeDataService {
             var workflowIncludesOfferOrGrant = workflow is not IpexWorkflow.Apply;
 
             if (workflowIncludesOfferOrGrant) {
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Preparing credential");
                 if (payload.IsPresentation) {
                     // Presentation: find existing ECR credential held by Discloser
                     var credsResult = await _signifyClient.GetCredentials();
-                    if (credsResult.IsFailed) return FailIpexResponse($"Failed to get credentials: {credsResult.Errors[0].Message}");
+                    if (credsResult.IsFailed) return await FailIpexResponseWithProgress($"Failed to get credentials: {credsResult.Errors[0].Message}");
 
                     var ecrCred = credsResult.Value.FirstOrDefault(c =>
                         c.GetValueByPath("sad.s")?.Value?.ToString() == EcrSchemaSaid &&
                         c.GetValueByPath("sad.a.i")?.Value?.ToString() == discloserPrefix);
 
                     if (ecrCred is null) {
-                        return FailIpexResponse($"Discloser {discloserPrefix} does not hold an ECR credential for presentation");
+                        return await FailIpexResponseWithProgress($"Discloser {discloserPrefix} does not hold an ECR credential for presentation");
                     }
                     credentialSaid = ecrCred.GetValueByPath("sad.d")?.Value?.ToString();
                     _logger.LogInformation("Found ECR credential for presentation: said={Said}", credentialSaid);
@@ -527,23 +589,23 @@ namespace Extension.Services.PrimeDataService {
                 else {
                     // Issuance: validate Discloser has ECR Auth, then issue ECR credential
                     var credsResult = await _signifyClient.GetCredentials();
-                    if (credsResult.IsFailed) return FailIpexResponse($"Failed to get credentials: {credsResult.Errors[0].Message}");
+                    if (credsResult.IsFailed) return await FailIpexResponseWithProgress($"Failed to get credentials: {credsResult.Errors[0].Message}");
 
                     var ecrAuthCred = VleiCredentialHelper.FindEcrAuthCredential(credsResult.Value, discloserPrefix);
 
                     if (ecrAuthCred is null) {
-                        return FailIpexResponse($"Discloser {discloserPrefix} does not hold an ECR Auth credential for issuance");
+                        return await FailIpexResponseWithProgress($"Discloser {discloserPrefix} does not hold an ECR Auth credential for issuance");
                     }
                     var ecrAuthSaid = ecrAuthCred.GetValueByPath("sad.d")?.Value?.ToString()!;
                     _logger.LogInformation("Found ECR Auth credential: said={Said}", ecrAuthSaid);
 
                     // Auto-create registry for Discloser (Issuer)
                     var discloserName = await GetAidName(discloserPrefix);
-                    if (discloserName is null) return FailIpexResponse($"Could not resolve AID name for prefix {discloserPrefix}");
+                    if (discloserName is null) return await FailIpexResponseWithProgress($"Could not resolve AID name for prefix {discloserPrefix}");
 
                     var registryName = $"{discloserName}_ecr_ipex_registry";
                     var registryResult = await CreateRegistryStep(discloserName, registryName, "IPEX registry");
-                    if (registryResult.IsFailed) return FailIpexResponse(registryResult.Errors[0].Message);
+                    if (registryResult.IsFailed) return await FailIpexResponseWithProgress(registryResult.Errors[0].Message);
 
                     // Issue ECR credential with ECR Auth edge
                     var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData(payload.EcrRole);
@@ -560,7 +622,7 @@ namespace Extension.Services.PrimeDataService {
                         Private: true
                     ), "IPEX issue", "ECR credential")).ValueOrDefault;
 
-                    if (issuedCred is null) return FailIpexResponse("Failed to issue ECR credential");
+                    if (issuedCred is null) return await FailIpexResponseWithProgress("Failed to issue ECR credential");
 
                     credentialSaid = issuedCred.Said;
                     _logger.LogInformation("ECR credential issued: said={Said}", credentialSaid);
@@ -581,6 +643,7 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) {
 
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Applying for credential");
                 var attributes = new RecursiveDictionary();
                 attributes["engagementContextRole"] = new RecursiveValue { StringValue = payload.EcrRole };
 
@@ -590,7 +653,7 @@ namespace Extension.Services.PrimeDataService {
                     SchemaSaid: EcrSchemaSaid,
                     Attributes: attributes
                 ), "IPEX apply");
-                if (applyResult.IsFailed) return FailIpexResponse(applyResult.Errors[0].Message);
+                if (applyResult.IsFailed) return await FailIpexResponseWithProgress(applyResult.Errors[0].Message);
                 applySaid = applyResult.Value;
                 generatedExchangeSaids.Add(applySaid);
                 lastStepSaid = applySaid;
@@ -607,13 +670,14 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Offering credential");
                 var offerResult = await OfferStep(new IpexOfferSubmitArgs(
                     SenderNameOrPrefix: discloserPrefix,
                     RecipientPrefix: discloseePrefix,
                     CredentialSaid: credentialSaid!,
                     ApplySaid: applySaid
                 ), "IPEX offer");
-                if (offerResult.IsFailed) return FailIpexResponse(offerResult.Errors[0].Message);
+                if (offerResult.IsFailed) return await FailIpexResponseWithProgress(offerResult.Errors[0].Message);
                 offerSaid = offerResult.Value;
                 generatedExchangeSaids.Add(offerSaid);
                 lastStepSaid = offerSaid;
@@ -631,12 +695,13 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit) {
 
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Agreeing to offer");
                 var agreeResult = await AgreeStep(new IpexAgreeSubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
                     RecipientPrefix: discloserPrefix,
                     OfferSaid: offerSaid!
                 ), "IPEX agree");
-                if (agreeResult.IsFailed) return FailIpexResponse(agreeResult.Errors[0].Message);
+                if (agreeResult.IsFailed) return await FailIpexResponseWithProgress(agreeResult.Errors[0].Message);
                 agreeSaid = agreeResult.Value;
                 generatedExchangeSaids.Add(agreeSaid);
                 lastStepSaid = agreeSaid;
@@ -655,9 +720,10 @@ namespace Extension.Services.PrimeDataService {
                 or IpexWorkflow.OfferAgreeGrantAdmit
                 or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) {
 
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Granting credential");
                 if (payload.IsPresentation) {
                     var grantResult = await PresentStep(discloserPrefix, credentialSaid!, discloseePrefix, "IPEX grant");
-                    if (grantResult.IsFailed) return FailIpexResponse(grantResult.Errors[0].Message);
+                    if (grantResult.IsFailed) return await FailIpexResponseWithProgress(grantResult.Errors[0].Message);
                     grantSaid = grantResult.Value;
                 }
                 else {
@@ -668,7 +734,7 @@ namespace Extension.Services.PrimeDataService {
                         Anc: issuedCred.Anc,
                         Iss: issuedCred.Iss
                     ), "IPEX grant");
-                    if (grantResult.IsFailed) return FailIpexResponse(grantResult.Errors[0].Message);
+                    if (grantResult.IsFailed) return await FailIpexResponseWithProgress(grantResult.Errors[0].Message);
                     grantSaid = grantResult.Value;
                 }
                 generatedExchangeSaids.Add(grantSaid!);
@@ -686,12 +752,13 @@ namespace Extension.Services.PrimeDataService {
             if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
                 or IpexWorkflow.OfferAgreeGrantAdmit or IpexWorkflow.ApplyGrantAdmit) {
 
+                await ReportProgress(++ipexStep, ipexTotalSteps, "Admitting credential");
                 var admitResult = await AdmitStep(new IpexAdmitSubmitArgs(
                     SenderNameOrPrefix: discloseePrefix,
                     RecipientPrefix: discloserPrefix,
                     GrantSaid: grantSaid!
                 ), "IPEX admit");
-                if (admitResult.IsFailed) return FailIpexResponse(admitResult.Errors[0].Message);
+                if (admitResult.IsFailed) return await FailIpexResponseWithProgress(admitResult.Errors[0].Message);
                 generatedExchangeSaids.Add(admitResult.Value);
                 lastStepSaid = admitResult.Value;
             }
@@ -706,7 +773,32 @@ namespace Extension.Services.PrimeDataService {
             }
 
             _logger.LogInformation("PrimeData IPEX completed successfully: workflow={Workflow}", workflow);
+            await ReportComplete();
             return Result.Ok(new PrimeDataIpexResponse(true));
+        }
+
+        private static int ComputeIpexStepCount(IpexWorkflow workflow) {
+            var count = 1; // schema OOBI resolution
+            var hasOfferOrGrant = workflow is not IpexWorkflow.Apply;
+            if (hasOfferOrGrant) count++; // credential prep (find or issue)
+
+            if (workflow is IpexWorkflow.Apply or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) count++;
+            if (workflow is IpexWorkflow.Offer or IpexWorkflow.ApplyOffer or IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) count++;
+            if (workflow is IpexWorkflow.ApplyOfferAgree
+                or IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit) count++;
+            if (workflow is IpexWorkflow.ApplyOfferAgreeGrant or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                or IpexWorkflow.Grant or IpexWorkflow.GrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit
+                or IpexWorkflow.ApplyGrant or IpexWorkflow.ApplyGrantAdmit) count++;
+            if (workflow is IpexWorkflow.ApplyOfferAgreeGrantAdmit or IpexWorkflow.GrantAdmit
+                or IpexWorkflow.OfferAgreeGrantAdmit or IpexWorkflow.ApplyGrantAdmit) count++;
+
+            return count;
         }
 
         private async Task<string?> GetAidName(string prefix) {
@@ -724,8 +816,18 @@ namespace Extension.Services.PrimeDataService {
         private static Result<PrimeDataGoResponse> FailResponse(string error) =>
             Result.Ok(new PrimeDataGoResponse(false, Error: error));
 
+        private async Task<Result<PrimeDataGoResponse>> FailResponseWithProgress(string error) {
+            await ReportError(error);
+            return FailResponse(error);
+        }
+
         private static Result<PrimeDataIpexResponse> FailIpexResponse(string error) =>
             Result.Ok(new PrimeDataIpexResponse(false, Error: error));
+
+        private async Task<Result<PrimeDataIpexResponse>> FailIpexResponseWithProgress(string error) {
+            await ReportError(error);
+            return FailIpexResponse(error);
+        }
 
         private async Task<Result> ResolveSchemaOobiWithFallbackAsync(string schemaSaid) {
             var schemaEntry = _schemaService.GetSchema(schemaSaid);
