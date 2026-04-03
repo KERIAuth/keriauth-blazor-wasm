@@ -67,9 +67,9 @@ namespace Extension {
         public static readonly List<KeriaPreset> PresetAgents = [
             new KeriaPreset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
             new KeriaPreset($"{ProductName} Test Cloud", "https://keria.cloud.dign.id", "https://keria-boot.cloud.dign.id"),
+            new KeriaPreset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
             // new KeriaPreset("Veridian Dev Testnet", "https://keria.dev.idw-sandboxes.cf-deployments.org", "https://keria-boot.dev.idw-sandboxes.cf-deployments.org"),
             new KeriaPreset("Provenant Origin Demo (basic auth for boot)", "https://origin.demo.provenant.net/v1/keria/admin", "https://origin.demo.provenant.net/v1/keria/boot"),
-            new KeriaPreset("Basic Auth test server (boot auth required)", "https://example.com", "https://httpbin.org/basic-auth/my-username/secret-password"),
             new KeriaPreset("localhost", LocalhostKeriaAdminUrl, LocalhostKeriaBootUrl),
             new KeriaPreset("Custom", "", "")
         ];
@@ -123,8 +123,7 @@ namespace Extension {
         public const string WebsiteUrl = "https://dign.id";
         public const string UninstallUrl = "https://dign.id/uninstall.html";
 
-        public static readonly Typography Typography = new()
-        {
+        public static readonly Typography Typography = new() {
             H3 = new H3Typography { FontSize = "1.35rem", LineHeight = "1.25" },
             H4 = new H4Typography { FontSize = "1.15rem", LineHeight = "1.25" },
             H5 = new H5Typography { FontSize = "1.00rem", LineHeight = "1.20" },

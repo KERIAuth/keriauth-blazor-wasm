@@ -400,7 +400,9 @@
 
         if (configureResult is null || !configureResult.Success)
         {
-            SetFlowFailed(0, configureResult?.Error ?? "Configure failed");
+            // Error is already shown via ConfigureProgress subscription; just update page state
+            IsProcessing = false;
+            _focusTarget = FocusTarget.Reset;
             return;
         }
 
@@ -657,7 +659,7 @@
                             <MudText>Starting...</MudText>
                         </MudStack>
                     }
-                    @if (_errorMessage is not null)
+                    @if (_errorMessage is not null && !(_currentProgress is not null && _currentProgress.IsError))
                     {
                         <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
                     }

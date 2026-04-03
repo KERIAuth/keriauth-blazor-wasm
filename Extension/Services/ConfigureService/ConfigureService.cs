@@ -58,6 +58,9 @@ public class ConfigureService : IConfigureService {
             // Step 2: Connect to KERIA
             await ReportProgress(2, TotalSteps, "Connecting to KERIA");
 
+            // Boot+connect on remote KERIA can take time (boot, agent init, waitForAgentReady retries)
+            var connectTimeout = payload.IsNewAccount ? TimeSpan.FromMinutes(2) : TimeSpan.FromSeconds(30);
+
             Result<SignifyService.Models.State> connectResult;
             using (_signifyClient.BeginLongOperation()) {
                 connectResult = await _signifyClient.Connect(
@@ -66,7 +69,8 @@ public class ConfigureService : IConfigureService {
                     payload.BootUrl,
                     payload.IsNewAccount,
                     payload.BootAuthUsername,
-                    payload.BootAuthPassword);
+                    payload.BootAuthPassword,
+                    connectTimeout);
             }
 
             if (connectResult.IsFailed || connectResult.Value is null) {
@@ -325,16 +329,14 @@ public class ConfigureService : IConfigureService {
 
         var lowerCleaned = cleaned.ToLowerInvariant();
 
-        // Detect fetch/network failures that suggest auth-protected boot endpoint
+        // For 401/unauthorized when no auth credentials were provided, add a hint
         if (payload.IsNewAccount
             && !string.IsNullOrEmpty(payload.BootUrl)
             && string.IsNullOrEmpty(payload.BootAuthUsername) && string.IsNullOrEmpty(payload.BootAuthPassword)
-            && (lowerCleaned.Contains("failed to fetch")
-                || lowerCleaned.Contains("401")
+            && (lowerCleaned.Contains("401")
                 || lowerCleaned.Contains("unauthorized")
-                || lowerCleaned.Contains("networkerror")
                 || lowerCleaned.Contains("requires authentication"))) {
-            return $"Connect failed: {cleaned}. The Boot URL may require Basic Auth credentials.";
+            return $"Connect failed: {cleaned}. Try providing Basic Auth credentials for the Boot URL.";
         }
 
         return $"Connect failed: {cleaned}";

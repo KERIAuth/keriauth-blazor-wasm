@@ -381,7 +381,7 @@ export const bootAndConnect = async (
         _client = new SignifyClient(agentUrl, passcode, Tier.med, bootUrl);
 
         // If boot auth credentials are provided, temporarily wrap fetch to inject Authorization header
-        if (bootAuthUsername != null && bootAuthPassword != null) {
+        if (bootAuthUsername != null || bootAuthPassword != null) {
             globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
                 const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
                 if (url.startsWith(bootUrl)) {
@@ -396,7 +396,7 @@ export const bootAndConnect = async (
         const bootResponse = await _client.boot().catch((e: Error) => {
             console.error('signifyClient: boot error', e);
             if (e.message === 'Failed to fetch') {
-                throw new Error('Failed to boot signify client due to network connectivity or basic auth', { cause: e });
+                throw new Error('Failed to reach Boot URL — check that the URL is correct, the KERIA server is running, its CORS is configured, and/or whether Basic Auth credentials are needed', { cause: e });
             }
             throw new Error('Failed to boot signify client', { cause: e });
         });
