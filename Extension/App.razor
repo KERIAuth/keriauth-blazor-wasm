@@ -54,7 +54,8 @@
         // If we're on a page that requires being authenticated (unlocked), but we're no longer authenticated, navigate to the context-appropriate index page for redirection, e.g. to UnlockPage.
         // Note: "/index.html" is a Blazor route alias for RouterPage (which does not require auth),
         // but it's not in Routes.Pages so PathRequiresAuth would incorrectly return true for it.
-        var currentPath = "/" + navManager.ToBaseRelativePath(navManager.Uri);
+        var currentRelative = navManager.ToBaseRelativePath(navManager.Uri);
+        var currentPath = "/" + currentRelative.Split('?')[0];
         if (!appCache.IsAuthenticated && currentPath != "/index.html" && Routes.PathRequiresAuth(currentPath))
         {
             // This situation may occur if user exited Chrome while on an unlocked page, then after session expiration time, re-launched Chrome that re-opens page requiring authorization, such as Dashboard.html.
@@ -102,6 +103,7 @@
                         case ContextType.POPUP:
                             logger.LogInformation("Context verified from TAB to {ctx}", verifiedContext);
                             AppContext = verifiedContext.Value;
+                            await jsRuntime.InvokeVoidAsync("__updateExtContext", verified);
                             break;
                         case ContextType.TAB:
                             break;

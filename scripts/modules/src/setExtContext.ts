@@ -76,3 +76,12 @@ console.debug(`setExtContext.ts: [${contextType}] globalThis.__EXT_CONTEXT__.typ
     }
     return contextType;
 };
+
+/**
+ * Updates __EXT_CONTEXT__.type after async verification.
+ * Called by App.razor after __verifyExtContext resolves to a different context.
+ */
+(globalThis as any).__updateExtContext = (verified: string): void => {
+    (globalThis as unknown as { __EXT_CONTEXT__: { type: string } }).__EXT_CONTEXT__.type = verified;
+    console.debug(`setExtContext.ts: [${verified}] context updated after verification`);
+};

@@ -144,11 +144,11 @@
         // If we're on a page that requires auth (unlocked), and we're no longer authenticated, navigate to IndexPage for redirection, e.g. to UnlockPage
         if (!appCache.IsAuthenticated)
         {
-            if (Routes.PathRequiresAuth("/" + navManager.ToBaseRelativePath(navManager.Uri)))
+            var currentPath = "/" + navManager.ToBaseRelativePath(navManager.Uri).Split('?')[0];
+            if (Routes.PathRequiresAuth(currentPath))
             {
                 appCache.LogAuthDiagnostic(logger);
-                logger.LogWarning("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated, currentPath={Path}",
-                    "/" + navManager.ToBaseRelativePath(navManager.Uri));
+                logger.LogWarning("HandleAppCacheChanged: Navigating to IndexPage since no longer authenticated, currentPath={Path}", currentPath);
                 navManager.NavigateTo(Routes.Paths.Router);
                 return;
             }
