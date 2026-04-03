@@ -42,7 +42,10 @@
             CountStyle: CountStyle.Total,
             SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])])
     ];
-    string selectedViewDefId = ViewDefIds.PasskeyCurrent;
+    string selectedViewDefId =>
+        appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(Passkeys), out var savedId) && PasskeyViewDefs.Any(v => v.Id == savedId)
+            ? savedId
+            : ViewDefIds.PasskeyCurrent;
     ViewDef<StoredPasskey>? SelectedViewDef => PasskeyViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<StoredPasskey> DisplayedPasskeys => ViewDefHelper.Apply(MyStoredPasskeys.Passkeys, SelectedViewDef);
 
@@ -50,21 +53,13 @@
     {
         logger.LogInformation($"OnInitializedAsync");
 
-        // Restore persisted ViewDef selection
-        var pageKey = GetType().Name;
-        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
-            && PasskeyViewDefs.Any(v => v.Id == savedId))
-        {
-            selectedViewDefId = savedId;
-        }
     }
 
     async Task OnViewDefChanged(string newId)
     {
-        selectedViewDefId = newId;
         var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
         {
-            [GetType().Name] = newId
+            [nameof(Passkeys)] = newId
         };
         await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }

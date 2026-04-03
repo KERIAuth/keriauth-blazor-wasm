@@ -18,7 +18,10 @@
 
 @code {
     bool IsProcessing { get; set; }
-    string selectedViewDefId = ViewDefIds.NotifAll;
+    string selectedViewDefId =>
+        appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(NotificationsPage), out var savedId) && NotificationViewDefs.Any(v => v.Id == savedId)
+            ? savedId
+            : ViewDefIds.NotifAll;
 
     List<Notification> AllNotifications => appCache?.MyNotifications?.Items ?? [];
 
@@ -244,24 +247,15 @@
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
 
-        // Restore persisted ViewDef selection
-        var pageKey = GetType().Name;
-        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
-            && NotificationViewDefs.Any(v => v.Id == savedId))
-        {
-            selectedViewDefId = savedId;
-        }
-
         // Request BW to start notification burst polling (if not already active)
         _ = appBwPortService.SendRpcRequestAsync(
             AppBwMessageType.Values.RequestPollNotifications, new { });
     }
 
     async Task OnViewDefChanged(string newId) {
-        selectedViewDefId = newId;
         var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
         {
-            [GetType().Name] = newId
+            [nameof(NotificationsPage)] = newId
         };
         await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }

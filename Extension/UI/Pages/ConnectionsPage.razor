@@ -23,7 +23,10 @@
 
 @code {
     bool IsProcessing { get; set; }
-    string selectedViewDefId = ViewDefIds.ConnActive;
+    string selectedViewDefId =>
+        appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(ConnectionsPage), out var savedId) && ConnectionViewDefs.Any(v => v.Id == savedId)
+            ? savedId
+            : ViewDefIds.ConnAll;
 
     List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
 
@@ -55,20 +58,12 @@
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
 
-        // Restore persisted ViewDef selection
-        var pageKey = GetType().Name;
-        if (appCache.MyPreferences.SelectedViewDefIds.TryGetValue(pageKey, out var savedId)
-            && ConnectionViewDefs.Any(v => v.Id == savedId))
-        {
-            selectedViewDefId = savedId;
-        }
     }
 
     async Task OnViewDefChanged(string newId) {
-        selectedViewDefId = newId;
         var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
         {
-            [GetType().Name] = newId
+            [nameof(ConnectionsPage)] = newId
         };
         await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }

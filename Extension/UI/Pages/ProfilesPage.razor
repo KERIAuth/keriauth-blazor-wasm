@@ -37,7 +37,10 @@
         new(ViewDefIds.ProfilesAll, "All profiles",
             SortSets: [new("Name", [new SortExpression<Aid>(a => a.Name)])])
     ];
-    string selectedViewDefId = ViewDefIds.ProfilesAll;
+    string selectedViewDefId =>
+        appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(ProfilesPage), out var savedId) && ViewDefs.Any(v => v.Id == savedId)
+            ? savedId
+            : ViewDefIds.ProfilesAll;
     ViewDef<Aid>? SelectedViewDef => ViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
     List<Aid> DisplayedIdentifiers => ViewDefHelper.Apply(AllIdentifiers, SelectedViewDef);
     public static string CardClass(string activeAid2, string rowIdentifier) => (string)activeAid2 == rowIdentifier ? "4px solid var(--mud-palette-primary);" : "4px solid transparent;";
@@ -51,6 +54,15 @@
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
+    }
+
+    async Task OnViewDefChanged(string newId)
+    {
+        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
+        {
+            [nameof(ProfilesPage)] = newId
+        };
+        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     protected override void OnParametersSet()
@@ -162,6 +174,7 @@
             <ViewSelector T="Aid"
                           ViewDefs="@ViewDefs"
                           SelectedViewDefId="@selectedViewDefId"
+                          SelectedViewDefIdChanged="@OnViewDefChanged"
                           FilteredCount="@DisplayedIdentifiers.Count"
                           TotalCount="@AllIdentifiers.Count" />
 
