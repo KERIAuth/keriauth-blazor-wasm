@@ -5131,6 +5131,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         StorageArea.Session);
                     logger.LogInformation(nameof(RefreshIdentifiersCache) + ": Updated identifiers in session storage");
                 }
+
+                // Auto-select the first AID if none is selected yet
+                await AutoSelectFirstPrefixIfNeeded(identifiersResult.Value);
             }
             else {
                 logger.LogWarning(nameof(RefreshIdentifiersCache) + ": GetIdentifiers failed or returned null");
@@ -5139,6 +5142,32 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, nameof(RefreshIdentifiersCache) + ": Exception during refresh");
         }
+    }
+
+    private async Task AutoSelectFirstPrefixIfNeeded(Identifiers identifiers) {
+        if (identifiers.Aids.Count == 0) return;
+
+        var prefsResult = await _storageService.GetItem<Preferences>();
+        if (!prefsResult.IsSuccess || prefsResult.Value is null) return;
+
+        var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest)) return;
+
+        var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+        if (!configsResult.IsSuccess || configsResult.Value is null) return;
+        if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var currentConfig)) return;
+
+        // Only set if no SelectedPrefix yet
+        if (!string.IsNullOrEmpty(currentConfig.SelectedPrefix)) return;
+
+        var firstPrefix = identifiers.Aids[0].Prefix;
+        logger.LogInformation(nameof(AutoSelectFirstPrefixIfNeeded) + ": No SelectedPrefix set, auto-selecting first AID: {Prefix}", firstPrefix);
+
+        var updatedConfig = currentConfig with { SelectedPrefix = firstPrefix };
+        var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configsResult.Value.Configs) {
+            [selectedDigest] = updatedConfig
+        };
+        await _storageService.SetItem(configsResult.Value with { Configs = updatedConfigs });
     }
 
     /// <summary>

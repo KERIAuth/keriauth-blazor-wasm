@@ -39,7 +39,7 @@
     string WebsitesLabel => NumWebsites == 1 ? "Website" : "Websites";
     string CredentialsLabel => NumCredentialsThisIdentifier == 1 ? "Credential" : "Credentials";
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
-    string? SelectedAlias => SelectedAid?.Name ?? "";
+    string? SelectedAlias => SelectedAid?.Name ?? (string.IsNullOrEmpty(SelectedPrefix) ? "none" : "");
 
     Aid? SelectedAid => appCache?.MyKeriaConnectionInfo?.IdentifiersList?
         .SelectMany(id => id.Aids)
