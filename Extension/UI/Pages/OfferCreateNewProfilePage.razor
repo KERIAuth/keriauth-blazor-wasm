@@ -86,7 +86,7 @@
             }
 
             snackbar.Add($"Profile '{alias}' created successfully", Severity.Success);
-            await PersistWasProfileSuggested();
+            await PersistWasProfileSuggested(addResult.Value.Prefix);
             navManager.NavigateTo(Routes.Paths.Router);
         }
         finally
@@ -103,7 +103,7 @@
         navManager.NavigateTo(Routes.Paths.Router);
     }
 
-    async Task PersistWasProfileSuggested()
+    async Task PersistWasProfileSuggested(string? selectedPrefix = null)
     {
         var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest))
@@ -119,7 +119,10 @@
             return;
         }
 
-        var updatedConfig = currentConfig with { WasProfileSuggested = true };
+        var updatedConfig = currentConfig with {
+            WasProfileSuggested = true,
+            SelectedPrefix = selectedPrefix ?? currentConfig.SelectedPrefix
+        };
         var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
             [selectedDigest] = updatedConfig
         };
@@ -133,7 +136,14 @@
             return;
         }
 
-        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfigs.Configs.TryGetValue(selectedDigest, out var c) && c.WasProfileSuggested]);
+        var waitConditions = new List<Func<bool>> {
+            () => appCache.MyKeriaConnectConfigs.Configs.TryGetValue(selectedDigest, out var c) && c.WasProfileSuggested
+        };
+        if (selectedPrefix is not null)
+        {
+            waitConditions.Add(() => appCache.SelectedPrefix == selectedPrefix);
+        }
+        await appCache.WaitForAppCache(waitConditions);
     }
 }
 
