@@ -6,7 +6,7 @@ using FluentResults;
 namespace Extension.Models {
     public record KeriaConnectConfig : IStorageModel {
         [JsonConstructor]
-        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false, bool wasPasskeySuggested = false) {
+        public KeriaConnectConfig(string? providerName = null, string? adminUrl = null, string? bootUrl = null, int passcodeHash = 0, string? clientAidPrefix = null, string? agentAidPrefix = null, string? selectedPrefix = null, bool isStored = false, bool wasPasskeySuggested = false, DateTime? provenAt = null) {
             ProviderName = providerName;  // Agency Alias
             Alias = providerName; // + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC"; // Connection Alias
             AdminUrl = adminUrl;
@@ -17,6 +17,7 @@ namespace Extension.Models {
             SelectedPrefix = selectedPrefix;
             IsStored = isStored;
             WasPasskeySuggested = wasPasskeySuggested;
+            ProvenAt = provenAt;
         }
 
         // important to have a parameterless constructor for deserialization or default constructor when storage is deleted
@@ -55,6 +56,13 @@ namespace Extension.Models {
 
         [JsonPropertyName("WasPasskeySuggested")]
         public bool WasPasskeySuggested { get; init; }
+
+        /// <summary>
+        /// When this config was first proven to work end-to-end.
+        /// Null means unproven — safe to remove on failure without losing working configs.
+        /// </summary>
+        [JsonPropertyName("ProvenAt")]
+        public DateTime? ProvenAt { get; init; }
 
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();

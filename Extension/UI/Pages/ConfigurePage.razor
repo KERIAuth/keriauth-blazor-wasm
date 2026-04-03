@@ -3,16 +3,12 @@
 @using Extension.Models.Storage
 @using Extension.Services.Storage
 @using Extension.Utilities
-@using Extension.UI.Components
 
 @using Extension.Services.Port
 @using Extension.Models.Messages.AppBw
-@using Extension.Models.Messages.AppBw.Requests
-@using Extension.Models.Messages.AppBw.Responses
 
 @inject IStorageService storageService
 @inject ILogger<ConfigurePage> logger
-@inject HttpClient httpClient
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ISnackbar snackbar
@@ -22,11 +18,33 @@
 @inject IScrollManager scrollManager
 @using FluentResults
 @using Extension.Helper
-@using System.Globalization
 
 @implements IAsyncDisposable
 
 @code {
+    // Progress subscription for ConfigureService updates via session storage
+    ConfigureProgress? _currentProgress;
+    readonly List<ConfigureProgress> _progressLog = new();
+    IDisposable? _configureProgressSubscription;
+
+    class ConfigureProgressObserver(ConfigurePage page) : IObserver<ConfigureProgress> {
+        public void OnNext(ConfigureProgress value) {
+            page._currentProgress = value;
+            // Accumulate a growing log of progress entries
+            if (!value.IsComplete && !value.IsError && value.Step > 0) {
+                // Replace entry for same step, or add new
+                var existingIdx = page._progressLog.FindIndex(p => p.Step == value.Step);
+                if (existingIdx >= 0)
+                    page._progressLog[existingIdx] = value;
+                else
+                    page._progressLog.Add(value);
+            }
+            page.InvokeAsync(page.StateHasChanged);
+        }
+        public void OnError(Exception error) { }
+        public void OnCompleted() { }
+    }
+
     class UrlModel
     {
         // TODO P3 add setters that validate these values are a URL.  If not equal to the selected preset, set the preset to "Custom"
@@ -50,15 +68,6 @@
     }
 
     // fields
-    KeriaConnectConfig defaultKeriaConnectConfig => new KeriaConnectConfig(defaultPreset.ProviderName, defaultPreset.AgentUrl, defaultPreset.BootUrl, 0);
-
-    // Operation displays - instance properties for proper state isolation per page instance
-    OperationDisplay Ops1ValidateUrls { get; } = new OperationDisplay("Validating URLs", "URLs valid");
-    OperationDisplay Ops2Unused { get; } = new OperationDisplay("", ""); // placeholder to keep step numbering stable
-    OperationDisplay Ops3Connect { get; } = new OperationDisplay("Connecting", "... connected");
-    OperationDisplay Ops4ListAids { get; } = new OperationDisplay("Retrieving your profiles", "Retrieved profiles");
-    OperationDisplay Ops5CreatePersonalAid { get; } = new OperationDisplay("Creating personal profile", "Created new profile");
-    OperationDisplay Ops6AllDone { get; } = new OperationDisplay("Press Next to continue", "Press Next to continue →");
     static List<AppConfig.KeriaPreset> presetAgents = AppConfig.PresetAgents;
     private MudTextField<string>? _newPasscodeTextField;
     WebExtensionsApi? webExtensionsApi;
@@ -75,7 +84,6 @@
     private MudButton? resetButton;
 
     // properties
-    KeriaConnectConfig? KeriaConnectConfig { get; set; }
     string RandomPasscode { get; set; } = "";
     bool IsRandomPasscodeRevealed { get; set; } = false;
     bool IsPasscodeCopyConfirmed { get; set; }
@@ -90,10 +98,6 @@
     // Gate 2: Set when passcode is used in Connect call, disables passcode fields
     bool IsPasscodeUsed { get; set; }
 
-    // Flow step tracking - drives reactive operation state rendering
-    enum FlowStep { NotStarted, Ops1, Ops2, Ops3, Ops4, Ops5, Done, Failed }
-    FlowStep _currentStep = FlowStep.NotStarted;
-    int? _failedAtStep = null; // Track which step failed for error display
     string? _errorMessage = null; // Error message for failed step
     AppConfig.KeriaPreset PresetChoice
     {
@@ -126,48 +130,7 @@
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
-    bool IsKeriaConfigured => (KeriaConnectConfig is not null) && KeriaConnectConfig.ValidateConfiguration().IsSuccess;
-    string BootUrlLabel => IsUsingExistingPasscode ? "Boot URL (optional if you have established KERIA connection passcode)" : "Boot URL";
-
-    // Computed operation states based on current flow step
-    // Each operation shows: InvisibleInactive (not applicable), Pending (waiting), Running (current), CompletedSuccess, or uses stored error state
-    OperationState Ops1State => ComputeOpState(1, true);
-    OperationState Ops2State => OperationState.InvisibleInactive; // unused, kept for step numbering
-    OperationState Ops3State => ComputeOpState(3, true);
-    OperationState Ops4State => ComputeOpState(4, true);
-    OperationState Ops5State => ComputeOpState(5, !IsUsingExistingPasscode && !_ops5Skipped);
-    OperationState Ops6State => _currentStep == FlowStep.Done ? OperationState.CompletedSuccess : (_currentStep != FlowStep.NotStarted ? OperationState.Pending : OperationState.InvisibleInactive);
-
-    bool _ops5Skipped = false; // Set when existing account has identifiers
-
-    OperationState ComputeOpState(int opNumber, bool isApplicable)
-    {
-        if (!isApplicable || _currentStep == FlowStep.NotStarted)
-            return OperationState.InvisibleInactive;
-
-        int currentStepNumber = _currentStep switch
-        {
-            FlowStep.Ops1 => 1,
-            FlowStep.Ops2 => 2,
-            FlowStep.Ops3 => 3,
-            FlowStep.Ops4 => 4,
-            FlowStep.Ops5 => 5,
-            FlowStep.Done => 6,
-            FlowStep.Failed => _failedAtStep ?? 0,
-            _ => 0
-        };
-
-        if (_currentStep == FlowStep.Failed && _failedAtStep == opNumber)
-            return OperationState.CompletedFailed;
-
-        if (opNumber < currentStepNumber || _currentStep == FlowStep.Done)
-            return OperationState.CompletedSuccess;
-
-        if (opNumber == currentStepNumber && _currentStep != FlowStep.Failed)
-            return OperationState.Running;
-
-        return OperationState.Pending;
-    }
+    bool IsKeriaConfigured => appCache.IsKeriaConfigValidated;
 
     // Focus state - determines which element should have focus
     enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next, Reset }
@@ -182,11 +145,16 @@
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
+
+        // Subscribe to ConfigureProgress updates from session storage
+        _configureProgressSubscription = storageService.Subscribe<ConfigureProgress>(
+            new ConfigureProgressObserver(this), StorageArea.Session);
     }
 
     public async ValueTask DisposeAsync()
     {
         this.UnsubscribeFromAppCache();
+        _configureProgressSubscription?.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -289,20 +257,13 @@
     void ResetOps()
     {
         IsProcessing = false;
-        _currentStep = FlowStep.NotStarted;
-        _failedAtStep = null;
         _errorMessage = null;
-        _ops5Skipped = false;
         IsReadyForNext = false;
     }
 
     void SetFlowFailed(int stepNumber, string errorMessage)
     {
-        // Log full error for debugging, but sanitize for UI display
         logger.LogError("Flow failed at step {Step}: {Error}", stepNumber, errorMessage);
-
-        _currentStep = FlowStep.Failed;
-        _failedAtStep = stepNumber;
         _errorMessage = SanitizeErrorForDisplay(errorMessage);
         IsProcessing = false;
         _focusTarget = FocusTarget.Reset;
@@ -363,11 +324,15 @@
             await RequestHostPermissionsForBootUrl();
 
         ResetOps();
+        _currentProgress = null;
+        _progressLog.Clear();
         logger.LogInformation("UnifiedOnboardingFlow starting...");
         IsProcessing = true;
 
         // Ratchet Gate 1: Lock Provider/URL fields once flow starts
         IsFlowStarted = true;
+        // Ratchet Gate 2: Lock passcode fields
+        IsPasscodeUsed = true;
         StateHasChanged();
         await Task.Yield(); // Let Blazor render the Connection section into the DOM
         await scrollManager.ScrollToBottomAsync("#connect-progress", ScrollBehavior.Smooth);
@@ -380,7 +345,7 @@
             return;
         }
 
-        // Step 0: Validate BootUrl for "Create new" flow
+        // Validate BootUrl for "Create new" flow
         if (!IsUsingExistingPasscode && !IsValidBootURL)
         {
             snackbar.Add("Boot URL is required for creating a new account", Severity.Error);
@@ -388,294 +353,62 @@
             return;
         }
 
-        // Step 1: Validate URLs
-        _currentStep = FlowStep.Ops1;
+        // Validate URLs locally before sending to BW
+        if (!Uri.TryCreate(urlModel.AdminUrl, UriKind.Absolute, out var adminUri)
+            || (adminUri.Scheme != "https" && adminUri.Scheme != "http"))
         {
-            if (!Uri.TryCreate(urlModel.AdminUrl, UriKind.Absolute, out var adminUri)
-                || (adminUri.Scheme != "https" && adminUri.Scheme != "http"))
+            SetFlowFailed(1, $"Invalid Agent URL: {urlModel.AdminUrl}");
+            return;
+        }
+
+        if (IsValidBootURL)
+        {
+            if (!Uri.TryCreate(urlModel.BootUrl, UriKind.Absolute, out var bootUri)
+                || (bootUri.Scheme != "https" && bootUri.Scheme != "http"))
             {
-                SetFlowFailed(1, $"Invalid Agent URL: {urlModel.AdminUrl}");
+                SetFlowFailed(1, $"Invalid Boot URL: {urlModel.BootUrl}");
                 return;
             }
-
-            if (IsValidBootURL)
-            {
-                if (!Uri.TryCreate(urlModel.BootUrl, UriKind.Absolute, out var bootUri)
-                    || (bootUri.Scheme != "https" && bootUri.Scheme != "http"))
-                {
-                    SetFlowFailed(1, $"Invalid Boot URL: {urlModel.BootUrl}");
-                    return;
-                }
-            }
         }
 
-        // Store partial KeriaConnectConfig with passcodeHash
-        // Explicitly set IsStored = true to ensure it's persisted correctly
-        int passcodeHash = DeterministicHash.ComputeHash(configuredPasscodeModel.Passcode);
-        var partialConfig = new KeriaConnectConfig(
-            providerName: _presetChoice.ProviderName,
-            adminUrl: urlModel.AdminUrl,
-            bootUrl: urlModel.BootUrl,
-            passcodeHash: passcodeHash,
-            clientAidPrefix: null, // will be set after Connect
-            agentAidPrefix: null,  // will be set after Connect
-            isStored: true
-        )
-        { Alias = "Configured at " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC" };
-
-        var storePartialConfigResult = await StoreKeriaConnectConfigAsync(partialConfig, setAsSelected: false);
-        if (storePartialConfigResult.IsFailed)
-        {
-            logger.LogError("Failed to store partial connection config: {Errors}", string.Join(", ", storePartialConfigResult.Errors));
-            SetFlowFailed(3, "Failed to store connection configuration");
-            return;
-        }
-
-        // Wait for AppCache to reflect the partial config in KeriaConnectConfigs
-        await appCache.WaitForAppCache([() => appCache.MyKeriaConnectConfigs.Configs.Values.Any(c => c.PasscodeHash != 0)]);
-        // KeriaConnectConfigs PasscodeHash check passed
-
-        // Step 3: Connect to KERIA
-        _currentStep = FlowStep.Ops3;
-
-        // Ratchet Gate 2: Lock passcode fields once passcode is used for connection
-        IsPasscodeUsed = true;
-
-        logger.LogInformation("Connecting to KERIA at {url}...", urlModel.AdminUrl);
-
-        // Send connect request to BackgroundWorker via RPC
-        var connectResponse = await appBwPortService.SendRpcRequestAsync(
-            AppBwMessageType.Values.RequestConnect,
-            new { payload = new ConnectRequestPayload(
+        // Send single RPC to ConfigureService in BackgroundWorker
+        var response = await appBwPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestConfigure,
+            new { payload = new ConfigureRequestPayload(
                 urlModel.AdminUrl,
-                configuredPasscodeModel.Passcode,
                 urlModel.BootUrl,
-                !IsUsingExistingPasscode,
-                passcodeHash,
                 urlModel.BootAuthUsername,
-                urlModel.BootAuthPassword) });
+                urlModel.BootAuthPassword,
+                configuredPasscodeModel.Passcode,
+                !IsUsingExistingPasscode,
+                _presetChoice.ProviderName) },
+            TimeSpan.FromMinutes(2));
 
-        if (!connectResponse.Ok)
+        // Passcode has been sent to BackgroundWorker — clear from page memory immediately
+        configuredPasscodeModel.Passcode = "";
+        RandomPasscode = "";
+
+        if (!response.Ok)
         {
-            SetFlowFailed(3, connectResponse.Error ?? "Connect failed");
+            SetFlowFailed(0, response.Error ?? "Configure failed");
             return;
         }
 
-        var connectResult = connectResponse.Result is System.Text.Json.JsonElement connectJsonEl
-            ? System.Text.Json.JsonSerializer.Deserialize<ConnectResponsePayload>(connectJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
+        var configureResult = response.Result is System.Text.Json.JsonElement jsonEl
+            ? System.Text.Json.JsonSerializer.Deserialize<ConfigureResponsePayload>(jsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
             : null;
 
-        if (connectResult is null || !connectResult.Success)
+        if (configureResult is null || !configureResult.Success)
         {
-            SetFlowFailed(3, connectResult?.Error ?? "Connect failed");
+            SetFlowFailed(0, configureResult?.Error ?? "Configure failed");
             return;
         }
 
-        // Extract agent and client prefixes from Connect result
-        string clientAidPrefix = connectResult.ClientAidPrefix!;
-        string agentAidPrefix = connectResult.AgentAidPrefix!;
-
-        // Update KeriaConnectConfig with complete information
-        var completeConfig = partialConfig with
-        {
-            ClientAidPrefix = clientAidPrefix,
-            AgentAidPrefix = agentAidPrefix
-        };
-
-        // Compute the expected digest so we can wait for it specifically
-        var expectedDigestResult = KeriaConnectionDigestHelper.Compute(completeConfig);
-        if (expectedDigestResult.IsFailed)
-        {
-            logger.LogError("Failed to compute digest for complete config: {Errors}", string.Join(", ", expectedDigestResult.Errors));
-            SetFlowFailed(3, "Failed to compute configuration digest");
-            return;
-        }
-        var expectedDigest = expectedDigestResult.Value;
-        logger.LogInformation("Computed expected digest for new config: {Digest}", expectedDigest);
-
-        var storeCompleteConfigResult = await StoreKeriaConnectConfigAsync(completeConfig, setAsSelected: true);
-        if (storeCompleteConfigResult.IsFailed)
-        {
-            logger.LogError("Failed to update connection config: {Errors}", string.Join(", ", storeCompleteConfigResult.Errors));
-            SetFlowFailed(3, "Failed to update connection configuration");
-            return;
-        }
-
-        // Wait for complete config to be reflected in AppCache (both KeriaConnectConfigs and Preferences)
-        // CRITICAL: Wait for the SPECIFIC new digest, not just any non-empty digest.
-        // This prevents race conditions when adding a new config while another already exists.
-        var digestUpdated = await appCache.WaitForAppCache([
-            () => appCache.IsConfigured,
-            () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == expectedDigest
-        ]);
-        if (!digestUpdated)
-        {
-            logger.LogWarning("Timed out waiting for new digest {Digest} to appear in Preferences", expectedDigest);
-        }
-        // IsConfigured check passed
-        KeriaConnectConfig = completeConfig;
-
-        // Unlock session via BackgroundWorker RPC (stores passcode in BW memory, writes SessionStateModel)
-        var unlockResponse = await appBwPortService.SendRpcRequestAsync(
-            AppBwMessageType.Values.RequestUnlockSession,
-            new { payload = new { passcode = configuredPasscodeModel.Passcode } });
-        if (!unlockResponse.Ok)
-        {
-            var unlockError = unlockResponse.Error ?? "Failed to unlock session";
-            logger.LogError("Failed to unlock session: {Error}", unlockError);
-            SetFlowFailed(3, unlockError);
-            return;
-        }
-
-        // Wait for SessionStateModel to be reflected in AppCache
-        await appCache.WaitForAppCache([() => appCache.IsSessionExpirationSet]);
-        await appCache.WaitForAppCache([() => appCache.IsSessionNotExpired]);
-
-        // Step 4: Get Identifiers (from storage - BW stored them after Connect)
-        _currentStep = FlowStep.Ops4;
-
-        // Wait for identifiers to be available in appCache (stored by BW's Connect handler)
-        var waitSuccess = await appCache.WaitForAppCache([
-            () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
-                  appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
-        ], 30000, 100);
-
-        if (!waitSuccess)
-        {
-            SetFlowFailed(4, "Timed out waiting for identifiers from BackgroundWorker");
-            return;
-        }
-
-        var identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
-
-        // Step 5: Create identifier if none exist
-        if (identifiers.Aids.Count == 0)
-        {
-            _currentStep = FlowStep.Ops5;
-
-            // Send create AID request to BackgroundWorker via RPC
-            var createAidResponse = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestAddIdentifier,
-                new { payload = new RequestAddIdentifierPayload("Alias1") });
-
-            if (!createAidResponse.Ok)
-            {
-                SetFlowFailed(5, createAidResponse.Error ?? "Failed to create identifier");
-                return;
-            }
-
-            // Parse the response payload
-            var createAidResult = createAidResponse.Result is System.Text.Json.JsonElement createAidJsonEl
-                ? System.Text.Json.JsonSerializer.Deserialize<AddIdentifierResponse>(createAidJsonEl.GetRawText(), Extension.Helper.JsonOptions.CamelCase)
-                : null;
-
-            if (createAidResult is null || !createAidResult.Success)
-            {
-                SetFlowFailed(5, createAidResult?.Error ?? "Failed to create identifier");
-                return;
-            }
-
-            // Wait for identifiers to be updated in appCache (BW updates storage after CreateAid)
-            var waitRefreshSuccess = await appCache.WaitForAppCache([
-                () => appCache.Aids.Count > 0
-            ], 30000, 100);
-
-            if (!waitRefreshSuccess)
-            {
-                SetFlowFailed(5, "Timed out waiting for refreshed identifiers after creation");
-                return;
-            }
-
-            identifiers = appCache.MyKeriaConnectionInfo.IdentifiersList[0];
-        }
-        else
-        {
-            // Existing account with identifiers - skip Ops5
-            _ops5Skipped = true;
-        }
-
-        // Store SelectedPrefix in the KeriaConnectConfig
-        if (identifiers.Aids.Count == 0)
-        {
-            SetFlowFailed(5, "No identifiers available after creation");
-            return;
-        }
-
-        var selectedPrefix = identifiers.Aids.First().Prefix;
-
-        // Get the digest from preferences (set earlier in this flow via StoreKeriaConnectConfigAsync)
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
-        if (string.IsNullOrEmpty(selectedDigest))
-        {
-            logger.LogError("SelectedKeriaConnectionDigest is not set in preferences");
-            SetFlowFailed(5, "Configuration digest not found");
-            return;
-        }
-
-        // Update the KeriaConnectConfig with SelectedPrefix
-        var configs = appCache.MyKeriaConnectConfigs;
-        if (configs.Configs.TryGetValue(selectedDigest, out var currentConfig))
-        {
-            var updatedConfig = currentConfig with { SelectedPrefix = selectedPrefix };
-            var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
-                [selectedDigest] = updatedConfig
-            };
-            var storeConfigsResult = await storageService.SetItem(new KeriaConnectConfigs {
-                Configs = updatedConfigs,
-                IsStored = true
-            });
-            if (storeConfigsResult.IsFailed)
-            {
-                logger.LogError("Failed to store config with SelectedPrefix: {Errors}", string.Join(", ", storeConfigsResult.Errors));
-                SetFlowFailed(5, "Failed to store selected identifier");
-                return;
-            }
-        }
-        else
-        {
-            logger.LogError("Config not found for digest {Digest}", selectedDigest);
-            SetFlowFailed(5, "Configuration not found");
-            return;
-        }
-
-        // Wait for SelectedPrefix to be reflected in AppCache (via the config)
-        await appCache.WaitForAppCache([() => !string.IsNullOrWhiteSpace(appCache.SelectedPrefix)]);
-        // SelectedPrefix check passed
-
-        // Store KeriaConnectionInfo to Session storage
-        if (string.IsNullOrEmpty(selectedDigest))
-        {
-            logger.LogError("SelectedKeriaConnectionDigest is not set in preferences");
-            SetFlowFailed(5, "Configuration digest not found");
-            return;
-        }
-
-        var connectionInfo = new KeriaConnectionInfo
-        {
-            KeriaConnectionDigest = selectedDigest,
-            IdentifiersList = [identifiers]
-        };
-
-        var storeConnectionInfoResult = await storageService.SetItem<KeriaConnectionInfo>(connectionInfo, StorageArea.Session);
-        if (storeConnectionInfoResult.IsFailed)
-        {
-            logger.LogError("Failed to cache connection info: {Errors}", string.Join(", ", storeConnectionInfoResult.Errors));
-            SetFlowFailed(5, "Failed to cache connection info");
-            return;
-        }
-
-        // Wait for KeriaConnectionInfo to be reflected in AppCache
-        await appCache.WaitForAppCache([() => !string.IsNullOrEmpty(appCache.MyKeriaConnectionInfo.KeriaConnectionDigest)]);
-        // KeriaConnectionDigest check passed
-
-        // Final confirmation and navigation
-        // Waiting for IsConnectedToKeria (current: {Value})", appCache.IsConnectedToKeria);
+        // Wait for AppCache to reflect the connected state
         await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria]);
-        // IsConnectedToKeria check passed
 
-        _currentStep = FlowStep.Done;
         IsConnected = true;
-
+        IsProcessing = false;
         _focusTarget = FocusTarget.Next;
         StateHasChanged();
 
@@ -688,81 +421,51 @@
     }
 
     /// <summary>
-    /// Resets the configuration by clearing KeriaConnectConfig from Local storage,
+    /// Resets the configuration by clearing unproven configs from Local storage,
     /// clearing Session storage (SessionStateModel, KeriaConnectionInfo), and resetting
     /// all local page state to defaults. This allows the user to start fresh.
     /// </summary>
     async Task RetryResetConfiguration()
     {
-        logger.LogInformation("ResetConfiguration: Clearing storage and resetting page state");
+        logger.LogInformation("RetryResetConfiguration: Sending reset RPC to BackgroundWorker");
 
-        // Note, not clearing all of session, since readiness of BW is tied to session existence.
-        // Clear Session storage (SessionStateModel and KeriaConnectionInfo)
-        var removePasscodeResult = await storageService.RemoveItem<SessionStateModel>(StorageArea.Session);
-        if (removePasscodeResult.IsFailed)
+        // Send reset to ConfigureService (cleans up unproven configs, session state)
+        var resetResponse = await appBwPortService.SendRpcRequestAsync(
+            AppBwMessageType.Values.RequestResetConfigure,
+            new { });
+
+        if (!resetResponse.Ok)
         {
-            logger.LogWarning("Failed to remove SessionStateModel: {Errors}", string.Join(", ", removePasscodeResult.Errors));
-        }
-
-        var removeConnectionInfoResult = await storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
-        if (removeConnectionInfoResult.IsFailed)
-        {
-            logger.LogWarning("Failed to remove KeriaConnectionInfo: {Errors}", string.Join(", ", removeConnectionInfoResult.Errors));
-        }
-
-        // Wait for appCache to reflect the cleared state
-        /*
-        await appCache.WaitForAppCache([
-        () => !appCache.IsConfigured,
-                () => !appCache.IsSessionPasscodeSet
-        ]);
-        */
-
-        // Reset KeriaConnectConfigs in Local storage
-        var removeConfigResult = await ClearKeriaConnectConfigsAsync();
-        if (removeConfigResult.IsFailed)
-        {
-            logger.LogError("Failed to remove KeriaConnectConfigs: {Errors}", string.Join(", ", removeConfigResult.Errors));
-            snackbar.Add("Failed to clear configuration", Severity.Error);
+            logger.LogError("RetryResetConfiguration: Reset RPC failed: {Error}", resetResponse.Error);
+            snackbar.Add("Failed to reset configuration", Severity.Error);
             return;
         }
 
         // Wait for appCache to reflect the cleared updates
-        logger.LogInformation("ResetConfiguration: waiting for appCache.IsProductOnboarded");
-        await appCache.WaitForAppCache([() => appCache.IsProductOnboarded]);
-        logger.LogInformation("ResetConfiguration: waiting to assure !appCache.IsKeriaConfigValidated");
-        await appCache.WaitForAppCache([() => !appCache.IsKeriaConfigValidated]);
-        // () => !appCache.IsSessionPasscodeSet
-        // () => string.IsNullOrWhiteSpace(appCache.SessionKeriaAdminUrl)
-        
+        await appCache.WaitForAppCache([() => !appCache.IsKeriaConfigValidated || appCache.IsProductOnboarded]);
 
-        // Reset local page state to defaults
+        // Reset local page state (preserves preset and URL selections)
         ResetLocalState();
-        StateHasChanged(); // this is needed here
-        logger.LogInformation("ResetConfiguration: Complete");
-        // snackbar.Add("KERIA Connection Reset", Severity.Info);
+        StateHasChanged();
+        logger.LogInformation("RetryResetConfiguration: Complete");
     }
 
     /// <summary>
-    /// Resets all local page state to default values.
-    /// Called by ResetConfiguration and can be called when appCache detects external storage changes.
+    /// Resets local page state for retry. Preserves preset and URL selections.
     /// </summary>
     void ResetLocalState()
     {
-        // Reset to default preset
-        _presetChoice = defaultPreset;
-        urlModel = new UrlModel()
-        {
-            AdminUrl = defaultPreset.AgentUrl,
-            BootUrl = defaultPreset.BootUrl
-        };
+        // Preserve: _presetChoice, urlModel (AdminUrl, BootUrl, auth credentials)
 
-        // Reset passcode state
+        // Reset passcode state (user must re-enter for security)
         configuredPasscodeModel = new PasscodeFormModel();
-        RandomPasscode = "";
-        IsRandomPasscodeRevealed = false;
+        if (!IsUsingExistingPasscode) {
+            RandomPasscode = RandomStringGenerator.GenerateRandomString(21);
+            IsRandomPasscodeRevealed = false;
+        } else {
+            RandomPasscode = "";
+        }
         IsPasscodeCopyConfirmed = false;
-        IsUsingExistingPasscode = true;
 
         // Reset ratchet gates
         IsFlowStarted = false;
@@ -772,126 +475,15 @@
         IsProcessing = false;
         IsConnected = false;
         IsReadyForNext = false;
-        KeriaConnectConfig = null;
+        _currentProgress = null;
+        _progressLog.Clear();
 
-        // Reset operation displays
-        // ops1CheckLiveness.Reset();
-        // ops2CheckHealth.Reset();
-        // ops3Connect.Reset();
-        // ops4ListAids.Reset();
-        // ops5CreatePersonalAid.Reset();
         ResetOps();
 
         // Reset focus
         _focusTarget = FocusTarget.Passcode;
     }
 
-    /// <summary>
-    /// Stores a KeriaConnectConfig to the KeriaConnectConfigs dictionary and updates the selected digest in Preferences.
-    /// </summary>
-    /// <param name="config">The config to store</param>
-    /// <param name="setAsSelected">If true, updates Preferences.KeriaPreference.SelectedKeriaConnectionDigest</param>
-    /// <returns>Result indicating success or failure</returns>
-    private async Task<Result> StoreKeriaConnectConfigAsync(KeriaConnectConfig config, bool setAsSelected = true)
-    {
-        // Compute the digest for this config (requires ClientAidPrefix and AgentAidPrefix to be set)
-        string? digest = null;
-        if (!string.IsNullOrEmpty(config.ClientAidPrefix) && !string.IsNullOrEmpty(config.AgentAidPrefix))
-        {
-            var digestResult = KeriaConnectionDigestHelper.Compute(config);
-            if (digestResult.IsFailed)
-            {
-                logger.LogWarning("Could not compute digest for config: {Errors}", string.Join(", ", digestResult.Errors));
-                // Use a temporary key for partial configs (before Connect completes)
-                digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
-            }
-            else
-            {
-                digest = digestResult.Value;
-            }
-        }
-        else
-        {
-            // Partial config - use a temporary key
-            digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
-        }
-
-        // Get the current KeriaConnectConfigs or create new
-        var existingConfigsResult = await storageService.GetItem<KeriaConnectConfigs>();
-        var configs = existingConfigsResult.IsSuccess && existingConfigsResult.Value is not null && existingConfigsResult.Value.IsStored
-            ? existingConfigsResult.Value
-            : new KeriaConnectConfigs { IsStored = true };
-
-        // Create new dictionary with the updated/added config
-        var newConfigsDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
-
-        // Remove any partial config keys if we now have a complete digest
-        if (!digest.StartsWith("partial_"))
-        {
-            var partialKeys = newConfigsDict.Keys.Where(k => k.StartsWith("partial_")).ToList();
-            foreach (var key in partialKeys)
-            {
-                newConfigsDict.Remove(key);
-            }
-        }
-
-        newConfigsDict[digest] = config;
-
-        var updatedConfigs = configs with { Configs = newConfigsDict };
-        var storeResult = await storageService.SetItem<KeriaConnectConfigs>(updatedConfigs);
-        if (storeResult.IsFailed)
-        {
-            return Result.Fail($"Failed to store KeriaConnectConfigs: {string.Join(", ", storeResult.Errors)}");
-        }
-
-        // Update Preferences with the selected digest if requested and we have a complete digest
-        if (setAsSelected && !digest.StartsWith("partial_"))
-        {
-            var currentPrefs = appCache.MyPreferences;
-            var updatedKeriaPreference = currentPrefs.KeriaPreference with
-            {
-                SelectedKeriaConnectionDigest = digest
-            };
-            var updatedPrefs = currentPrefs with { KeriaPreference = updatedKeriaPreference };
-            var prefsResult = await storageService.SetItem<Preferences>(updatedPrefs);
-            if (prefsResult.IsFailed)
-            {
-                logger.LogWarning("Failed to update SelectedKeriaConnectionDigest in Preferences: {Errors}", string.Join(", ", prefsResult.Errors));
-                // Don't fail the whole operation for this
-            }
-        }
-
-        return Result.Ok();
-    }
-
-    /// <summary>
-    /// Clears all KeriaConnectConfigs and resets the selected digest in Preferences.
-    /// </summary>
-    private async Task<Result> ClearKeriaConnectConfigsAsync()
-    {
-        // Clear the KeriaConnectConfigs
-        var emptyConfigs = new KeriaConnectConfigs { IsStored = false, Configs = new Dictionary<string, KeriaConnectConfig>() };
-        var storeResult = await storageService.SetItem<KeriaConnectConfigs>(emptyConfigs);
-        if (storeResult.IsFailed)
-        {
-            return Result.Fail($"Failed to clear KeriaConnectConfigs: {string.Join(", ", storeResult.Errors)}");
-        }
-
-        // Clear the selected digest in Preferences
-        var currentPrefs = appCache.MyPreferences;
-        var updatedKeriaPreference = currentPrefs.KeriaPreference with
-        {
-            SelectedKeriaConnectionDigest = null
-        };
-        var updatedPrefs = currentPrefs with { KeriaPreference = updatedKeriaPreference };
-        var prefsResult = await storageService.SetItem<Preferences>(updatedPrefs);
-        if (prefsResult.IsFailed)
-        {
-            logger.LogWarning("Failed to clear SelectedKeriaConnectionDigest in Preferences: {Errors}", string.Join(", ", prefsResult.Errors));
-        }
-
-        return Result.Ok();
-    }
 }
 
 <div @ref="_pageContainer" tabindex="-1" id="@this.GetType().Name" class="bt-body-page">
@@ -1026,15 +618,49 @@
 
             @if (IsFlowStarted)
             {
-                <!-- Connection progress and operations. div helps ScrollToBottom because of height --> 
+                <!-- Connection progress -->
                 <div style="min-height: 20rem;">
                 <MudText Class="bt-section-title mt-4">Connection</MudText>
                 <MudStack Class="ml-4">
-                    <OperationDisplayComponent ops="@Ops1ValidateUrls" StateOverride="@Ops1State" ErrorMessage="@(_failedAtStep == 1 ? _errorMessage : null)" />
-                    <OperationDisplayComponent ops="@Ops3Connect" StateOverride="@Ops3State" ErrorMessage="@(_failedAtStep == 3 ? _errorMessage : null)" />
-                    <OperationDisplayComponent ops="@Ops4ListAids" StateOverride="@Ops4State" ErrorMessage="@(_failedAtStep == 4 ? _errorMessage : null)" />
-                    <OperationDisplayComponent ops="@Ops5CreatePersonalAid" StateOverride="@Ops5State" ErrorMessage="@(_failedAtStep == 5 ? _errorMessage : null)" />
-                    <OperationDisplayComponent ops="@Ops6AllDone" StateOverride="@Ops6State" />
+                    @foreach (var entry in _progressLog)
+                    {
+                        var isCurrent = _currentProgress is not null && !_currentProgress.IsComplete && !_currentProgress.IsError && entry.Step == _currentProgress.Step;
+                        var isCompleted = _currentProgress is not null && (entry.Step < (_currentProgress.Step) || _currentProgress.IsComplete);
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @if (isCompleted)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size: 1.25rem;" />
+                            }
+                            else if (isCurrent)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Pending" Style="font-size: 1.25rem; color: var(--mud-palette-text-disabled);" />
+                            }
+                            <MudText>@entry.Description</MudText>
+                        </MudStack>
+                    }
+                    @if (_currentProgress is not null && _currentProgress.IsComplete)
+                    {
+                        <MudAlert Severity="Severity.Success" Class="mt-2">Connected successfully. Press Next to continue.</MudAlert>
+                    }
+                    else if (_currentProgress is not null && _currentProgress.IsError)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-2">@SanitizeErrorForDisplay(_currentProgress.Description)</MudAlert>
+                    }
+                    else if (_progressLog.Count == 0 && IsProcessing)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            <MudText>Starting...</MudText>
+                        </MudStack>
+                    }
+                    @if (_errorMessage is not null)
+                    {
+                        <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+                    }
                 </MudStack>
                 </div>
             }

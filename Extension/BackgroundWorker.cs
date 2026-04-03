@@ -15,6 +15,7 @@ using Extension.Services;
 using Extension.Services.JsBindings;
 using Extension.Services.NotificationPollingService;
 using Extension.Services.Port;
+using Extension.Services.ConfigureService;
 using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
@@ -117,6 +118,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ChromeSidePanel _chromeSidePanel;
     private readonly IBwPortService _portService;
     private readonly IPrimeDataService _primeDataService;
+    private readonly IConfigureService _configureService;
     private readonly INotificationPollingService _notificationPollingService;
     private CancellationTokenSource? _notificationPollingCts;
 
@@ -137,6 +139,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         SessionManager sessionManager,
         IBwPortService portService,
         IPrimeDataService primeDataService,
+        IConfigureService configureService,
         INotificationPollingService notificationPollingService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
@@ -152,6 +155,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _chromeSidePanel = new ChromeSidePanel(_jsRuntimeAdapter);
         _portService = portService;
         _primeDataService = primeDataService;
+        _configureService = configureService;
         _notificationPollingService = notificationPollingService;
         _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
         _notificationPollingService.OnSchemasNeeded = async () => {
@@ -1414,6 +1418,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.RequestRenameAid:
                     await HandleAppRequestRenameAidRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestConfigure:
+                    await HandleAppRequestConfigureRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestResetConfigure:
+                    await HandleAppRequestResetConfigureRpcAsync(portId, request);
                     return;
 
                 case AppBwMessageType.Values.RequestPrimeDataGo:
@@ -2738,6 +2750,61 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestRenameAidRpcAsync) + ": Error during rename AID");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new RenameAidResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestConfigureRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestConfigureRpcAsync) + ": called");
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ConfigureResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var configurePayload = JsonSerializer.Deserialize<ConfigureRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (configurePayload is null || string.IsNullOrEmpty(configurePayload.AdminUrl)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new ConfigureResponsePayload(false, Error: "Invalid configure parameters"));
+                return;
+            }
+
+            // Cancel any active notification polling before connecting
+            _notificationPollingCts?.Cancel();
+
+            var result = await _configureService.ConfigureAsync(configurePayload);
+
+            if (result.IsSuccess && result.Value.Success) {
+                RestartNotificationBurst();
+                await RefreshCachedCredentialsAsync();
+                await RefreshIdentifiersCache();
+            }
+
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: result.IsSuccess ? result.Value : new ConfigureResponsePayload(false, Error: "Configure failed"));
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestConfigureRpcAsync) + ": Error during configure");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new ConfigureResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    private async Task HandleAppRequestResetConfigureRpcAsync(string portId, RpcRequest request) {
+        logger.LogInformation(nameof(HandleAppRequestResetConfigureRpcAsync) + ": called");
+
+        try {
+            var result = await _configureService.ResetAsync();
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new { success = result.IsSuccess });
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestResetConfigureRpcAsync) + ": Error during reset");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: ex.Message);
         }
     }
 

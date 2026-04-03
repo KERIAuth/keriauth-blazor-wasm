@@ -176,6 +176,8 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
             public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
+            public const string RequestConfigure = "AppBw.RequestConfigure";
+            public const string RequestResetConfigure = "AppBw.RequestResetConfigure";
         }
 
         public string Value { get; }
@@ -222,6 +224,8 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
         public static AppBwMessageType RequestUnlockSession { get; } = new(Values.RequestUnlockSession);
         public static AppBwMessageType RequestGetSessionPasscode { get; } = new(Values.RequestGetSessionPasscode);
+        public static AppBwMessageType RequestConfigure { get; } = new(Values.RequestConfigure);
+        public static AppBwMessageType RequestResetConfigure { get; } = new(Values.RequestResetConfigure);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -360,6 +364,12 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestGetSessionPasscode:
                     result = RequestGetSessionPasscode;
+                    return true;
+                case Values.RequestConfigure:
+                    result = RequestConfigure;
+                    return true;
+                case Values.RequestResetConfigure:
+                    result = RequestResetConfigure;
                     return true;
                 default:
                     return false;
