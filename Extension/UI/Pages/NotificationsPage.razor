@@ -923,7 +923,7 @@
                         </div>
                         <div class="bt-notif-details">
                             <MudText Typo="@(n.IsRead ? Typo.body1 : Typo.h6)">@RouteLabel(n.Route, n)</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@n.DateTime</MudText>
+                            <MudText Typo="Typo.caption">@n.DateTime</MudText>
                             <MudTooltip Text="@n.Id" Delay="300">
                                 <MudText Typo="Typo.caption">@Elide(n.Id, 6, 4)</MudText>
                             </MudTooltip>

@@ -275,8 +275,8 @@
                                         }
                                         <MudTextField Value="@pk.Name" HelperText="" Label="" ValueChanged="@(async (string newName) => await rename(newName, pk.CredentialBase64))" Class="flex-grow-1" />
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Class="bt-text-light-small"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
-                                    <MudText Color="Color.Secondary" Class="bt-text-light-small"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
+                                    <MudText Class="bt-text-light-small"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
+                                    <MudText Class="bt-text-light-small"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
                                     @{
                                         var isConsistent = IsConsistentWithCurrentKeriaConnection(pk);
                                     }
@@ -288,7 +288,7 @@
                                             Consistent with configured KERIA Service
                                         </MudText>
                                     </MudStack>
-                                    <MudText Color="Color.Secondary" Class="mt-2 bt-text-light-small">Transports:</MudText>
+                                    <MudText Class="mt-2 bt-text-light-small">Transports:</MudText>
                                     <MudStack Row="true" Class="ml-2 bt-transport-wrap">
                                         @foreach (var transport in AllTransports)
                                         {
@@ -302,7 +302,7 @@
                                     </MudStack>
                                     @if (pk.Transports.Contains("internal"))
                                     {
-                                        <MudText Color="Color.Secondary" Class="mt-2 ml-2 bt-text-light-small">
+                                        <MudText Class="mt-2 ml-2 bt-text-light-small">
                                             <b>Note:</b> Passkeys with "internal" transport (e.g., Windows Hello, Touch ID)
                                             are prioritized by the browser. To prefer a USB security key, uncheck "internal".
                                         </MudText>

@@ -86,7 +86,7 @@
     @if (ExchangeSaid is not null)
     {
         <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 70px;">Exchange</MudText>
+            <MudText Typo="Typo.caption" Style="min-width: 70px;">Exchange</MudText>
             <MudTooltip Text="@ExchangeSaid" Delay="300">
                 <MudText Typo="Typo.caption">@Elide(ExchangeSaid, 6, 4)</MudText>
             </MudTooltip>

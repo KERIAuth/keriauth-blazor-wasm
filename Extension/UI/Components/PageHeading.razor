@@ -4,7 +4,7 @@
         <MudText Class="bt-page-title">@Title</MudText>
         @if (CountContent is not null)
         {
-            <MudText Class="bt-page-title" Color="Color.Secondary">@CountContent</MudText>
+            <MudText Class="bt-page-title" Style="color: var(--mud-palette-text-secondary);">@CountContent</MudText>
         }
         @if (!string.IsNullOrEmpty(InfoTooltip))
         {
@@ -22,7 +22,7 @@ else
 }
 @if (!string.IsNullOrEmpty(HelpText))
 {
-    <MudText Typo="Typo.body2" Color="Color.Secondary">@HelpText</MudText>
+    <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">@HelpText</MudText>
 }
 
 @code {

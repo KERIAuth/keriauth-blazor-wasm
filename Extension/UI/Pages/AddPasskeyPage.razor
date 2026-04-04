@@ -296,15 +296,15 @@
                 <MudRadioGroup T="TargetPasskeyType" Value="_selectedTarget" ValueChanged="OnTargetChanged" Class="ml-4" InputClass="flex-column align-start">
                     <MudRadio Value="TargetPasskeyType.HardwareSecurityKey" Color="Color.Primary">
                         Hardware Security Key
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">(strongest security via Yubikey, Feitian, Thales, others)</MudText>
+                        <MudText Typo="Typo.caption">(strongest security via Yubikey, Feitian, Thales, others)</MudText>
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.GooglePasswordManager" Color="Color.Primary">
                         Platform
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">(convenient security via Google Password Manager, Windows Hello, iCloud Keychain)</MudText>
+                        <MudText Typo="Typo.caption">(convenient security via Google Password Manager, Windows Hello, iCloud Keychain)</MudText>
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.Custom" Color="Color.Primary">
                         Custom
-                        <MudText Typo="Typo.caption" Color="Color.Secondary"></MudText>
+                        <MudText Typo="Typo.caption"></MudText>
                     </MudRadio>
                 </MudRadioGroup>
 
@@ -340,7 +340,7 @@
                                 <MudText Typo="Typo.body2">Selected (most to least preferred)</MudText>
                                 @if (_selectedHints.Count == 0)
                                 {
-                                    <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                                    <MudText Typo="Typo.body2" Class="ml-3">(none)</MudText>
                                 }
                                 else
                                 {
@@ -361,7 +361,7 @@
                                 <MudText Typo="Typo.body2" Class="mt-2">Available</MudText>
                                 @if (!AvailableHints.Any())
                                 {
-                                    <MudText Typo="Typo.body2" Class="ml-3" Color="Color.Secondary">(none)</MudText>
+                                    <MudText Typo="Typo.body2" Class="ml-3">(none)</MudText>
                                 }
                                 else
                                 {
@@ -472,7 +472,7 @@
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick="@(async () => await CancelOrGoBack())" Class="justify-start" />
         <MudSpacer />
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="@(async () => await CancelOrGoBack())">Cancel</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(async () => await CancelOrGoBack())">Cancel</MudButton>
         <MudButton @ref="_createButton" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(async () => await CreatePasskey())">Create</MudButton>
     </MudStack>
 </div>

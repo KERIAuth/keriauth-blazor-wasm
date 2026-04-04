@@ -182,6 +182,12 @@
 
 .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
     border-left: 4px solid var(--bt-accent-border);
+    color: inherit;
+    background-color: transparent;
+}
+
+.mud-navmenu.mud-navmenu-default .mud-nav-link-expand-icon.mud-transform {
+    fill: var(--mud-palette-drawer-icon);
 }
 
 .mud-nav-link-disabled {
@@ -336,6 +342,8 @@
 
 .bt-logo-button {
     align-self: center;
+    background-color: var(--mud-palette-dark) !important;
+    border-radius: 0.5rem;
 }
 
 .bt-favicon {
@@ -401,15 +409,11 @@
     border-radius: 16px;
     overflow: hidden;
     margin-bottom: 12px;
-    border: 1px solid rgba(0,0,0,0.08);
+    border: 1px solid var(--mud-palette-lines-default);
 }
 
 .credential-panel.selected-credential {
     border-left: 4px solid var(--bt-accent-border);
-}
-
-.mud-theme-dark .credential-panel {
-    border: 1px solid rgba(255,255,255,0.12);
 }
 
 .credential-panel .mud-expand-panel {
@@ -426,12 +430,8 @@
 }
 
 .credential-compact {
-    border: 1px solid rgba(0,0,0,0.08);
+    border: 1px solid var(--mud-palette-lines-default);
     width:stretch;
-}
-
-.mud-theme-dark .credential-compact {
-    border: 1px solid rgba(255,255,255,0.12);
 }
 
 /* Dialog page shared styles */

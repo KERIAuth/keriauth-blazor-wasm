@@ -675,7 +675,7 @@
         </MudStack>
 
         <MudStack Row="true" class="bt-button-tray">
-            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="ExitRecoveryMode">
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ExitRecoveryMode">
                 Cancel
             </MudButton>
             <MudSpacer />
@@ -742,13 +742,13 @@
         </div>
 
         <MudStack Row="true" class="bt-button-tray">
-            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="EnterRecoveryMode">
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="EnterRecoveryMode">
                 Recover
             </MudButton>
             <MudSpacer />
             @if (ShouldUsePasskey)
             {
-                <MudButton Variant="Variant.Filled" Class="bt-button-wrap" Color="Color.Secondary"
+                <MudButton Variant="Variant.Outlined" Class="bt-button-wrap" Color="Color.Primary"
                            OnClick="async () => await SetIsPasskeyUsePreferred(false)">
                     Use passcode
                 </MudButton>
@@ -769,7 +769,7 @@
             {
                 @if (CanUsePasskey)
                 {
-                    <MudButton Class="bt-button-wrap" Variant="Variant.Filled" Color="Color.Secondary"
+                    <MudButton Class="bt-button-wrap" Variant="Variant.Outlined" Color="Color.Primary"
                                OnClick="async () => await SetIsPasskeyUsePreferred(true)">
                         Use passkey
                     </MudButton>

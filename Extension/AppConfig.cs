@@ -139,8 +139,8 @@ namespace Extension {
             Typography = Typography,
             PaletteLight = new PaletteLight() {
                 // Semantic colors                              // MudBlazor default hex
-                Primary = new MudColor(248, 0.72, 0.59, 1.0),  // #594AE2
-                PrimaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Primary = new MudColor(183, 1.0, 0.30, 1.0),   // DIGN teal
+                PrimaryContrastText = new MudColor(0, 0.0, 1.0, 1.0), // black — high contrast on teal
                 Secondary = new MudColor(340, 0.82, 0.59, 1.0), // #EC407A
                 SecondaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
                 Tertiary = new MudColor(165, 0.73, 0.45, 1.0), // #1EC8A5
@@ -157,7 +157,7 @@ namespace Extension {
                 DarkContrastText = new MudColor(0, 0.0, 1.0, 1.0),
 
                 // Text
-                TextPrimary = new MudColor(0, 0.0, 0.26, 1.0),   // #424242
+                TextPrimary = new MudColor(0, 0.0, 0.0, 1.0),   // black
                 TextSecondary = new MudColor(0, 0.0, 0.0, 0.54),  // rgba(0,0,0,0.54)
                 TextDisabled = new MudColor(0, 0.0, 0.0, 0.38),   // rgba(0,0,0,0.38)
 
@@ -171,14 +171,12 @@ namespace Extension {
                 BackgroundGray = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5
                 Surface = new MudColor(0, 0.0, 1.0, 1.0),      // #FFFFFF
 
-                // Drawer
-                DrawerBackground = new MudColor(0, 0.0, 1.0, 1.0),
-                DrawerText = new MudColor(0, 0.0, 0.26, 1.0),  // #424242
+                // Drawer & Appbar — matched neutral gray
+                DrawerBackground = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5 — light gray
+                DrawerText = new MudColor(0, 0.0, 0.00, 1.0),  // black
                 DrawerIcon = new MudColor(0, 0.0, 0.38, 1.0),  // #616161
-
-                // Appbar
-                AppbarBackground = new MudColor(248, 0.72, 0.59, 1.0), // same as Primary
-                AppbarText = new MudColor(0, 0.0, 1.0, 1.0),
+                AppbarBackground = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5 — matches drawer
+                AppbarText = new MudColor(0, 0.0, 0.26, 1.0),  // #424242 — dark for contrast
 
                 // Lines & borders
                 LinesDefault = new MudColor(0, 0.0, 0.0, 0.12),
@@ -212,7 +210,8 @@ namespace Extension {
             },
             PaletteDark = new PaletteDark() {
                 // Semantic colors                              // MudBlazor dark defaults
-                Primary = new MudColor(246, 0.71, 0.66, 1.0),  // #776BE7
+                Primary = new MudColor(183, 1.0, 0.45, 1.0),   // DIGN teal 
+                PrimaryContrastText = new MudColor(0, 0.0, 0.0, 1.0), // black
                 Info = new MudColor(212, 1.0, 0.60, 1.0),      // #3299FF
                 Success = new MudColor(162, 0.90, 0.39, 1.0),  // #0BBA83
                 Warning = new MudColor(40, 1.0, 0.50, 1.0),    // #FFA800
@@ -236,12 +235,12 @@ namespace Extension {
 
                 // Drawer
                 DrawerBackground = new MudColor(240, 0.07, 0.17, 1.0),
-                DrawerText = new MudColor(0, 0.0, 1.0, 0.50),
-                DrawerIcon = new MudColor(0, 0.0, 1.0, 0.50),
+                DrawerText = new MudColor(0, 0.0, 1.0, 0.80),
+                DrawerIcon = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Appbar
                 AppbarBackground = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
-                AppbarText = new MudColor(0, 0.0, 1.0, 0.70),
+                AppbarText = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Lines & borders
                 LinesDefault = new MudColor(0, 0.0, 1.0, 0.12),

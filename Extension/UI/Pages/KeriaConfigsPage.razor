@@ -98,7 +98,7 @@
                     <MudText Typo="Typo.body1">
                         No KERIA connections configured.
                     </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    <MudText Typo="Typo.body2">
                         Add a connection to get started, or reset all data to start fresh.
                     </MudText>
                 </MudStack>
@@ -125,7 +125,7 @@
                                         <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Active</MudChip>
                                     }
                                 </MudStack>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@config.AdminUrl</MudText>
+                                <MudText Typo="Typo.caption">@config.AdminUrl</MudText>
                                 @if (!string.IsNullOrEmpty(passkeyLabel))
                                 {
                                     <MudText Typo="Typo.caption" Color="Color.Tertiary">@passkeyLabel</MudText>

@@ -295,7 +295,7 @@
         </MudStack>
         <MudStack Row="true" class="bt-button-tray">
             <MudSpacer />
-            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Reject</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(async (_) => await Cancel())">Reject</MudButton>
             <MudButton @ref="signRequestButton"
                        Disabled="IsSignDisabled"
                        Variant="Variant.Filled"

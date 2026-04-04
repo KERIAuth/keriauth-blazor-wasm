@@ -248,7 +248,7 @@
                                           ShowCopyButton="false" />
                         </MudStack>
                         <div class="bt-conn-details">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
+                            <MudText Typo="Typo.caption">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             <MudMenuItem OnClick="@(() => DeleteConnection(conn))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">Delete</MudMenuItem>

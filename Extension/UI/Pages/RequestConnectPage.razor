@@ -272,7 +272,7 @@
         </MudStack>
 
         <MudStack Row="true" class="bt-button-tray">
-            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" OnClick="@(async (_) => await Cancel())">Cancel</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(async (_) => await Cancel())">Cancel</MudButton>
             <MudButton @ref="connectButton"
                        Disabled="IsApproveDisabled"
                        Variant="Variant.Filled"
