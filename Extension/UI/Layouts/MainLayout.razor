@@ -176,6 +176,9 @@
     {
         await base.DisposeAsync();
     }
+
+    // helper property for applying dark/light class to layout for CSS theming, e.g. with bt-logo-button
+    private string layoutDarkLight => appCache.MyPreferences.IsDarkTheme ? "dark" : "light";
 }
 
 
@@ -184,7 +187,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider Style="z-index:9999; position:absolute;" />
 
-<MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw; background-color: var(--mud-palette-background);">
+<MudLayout id="@this.GetType().Name" Class="@layoutDarkLight" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw; background-color: var(--mud-palette-background);">
     <!-- APP BAR -->
     <MudAppBar Class="bt-appbar">
         <MudStack Style="height:inherit; width: 100%; padding:0 0.5rem 0 0.25rem; gap:0;" Class="d-flex" Row="true">
@@ -232,7 +235,7 @@
     <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:5; color:var(--mud-palette-primary);">
         <div @onclick:stopPropagation style="position:fixed; top:var(--bt-appbar-height); right:0; bottom:0; width:21.429rem; display:flex; flex-direction:column; background:var(--mud-palette-background); border-style:solid; border-top-style:none; border-width:1px; border-color:#CACACA;">
             <div style="flex:1; overflow-y:auto; min-height:0;">
-                <MudList SelectedValue="ActiveAidObject" Class="bt-sad-4 pa-0">
+                <MudList SelectedValue="ActiveAidObject" Class="pa-0">
                     @foreach (var aid in appCache.Aids)
                     {
                         <MudListItem Value="aid.Prefix" OnClick="async () => await SetActiveAid(aid.Prefix)" Class="@("bt-sad-5 " + ProfilesPage.CardClass(ActivePrefix, aid.Prefix))">

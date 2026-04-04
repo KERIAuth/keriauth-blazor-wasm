@@ -167,15 +167,15 @@ namespace Extension {
                 ActionDisabledBackground = new MudColor(0, 0.0, 0.0, 0.12),
 
                 // Surfaces                                     // Sync: #FFFFFF / #F5F5F5 in index*.html splash
-                Background = new MudColor(0, 0.0, 1.0, 1.0),   // #FFFFFF
+                Background = new MudColor(0, 0.0, 1.0, 1.0),    // #FFFFFF
                 BackgroundGray = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5
                 Surface = new MudColor(0, 0.0, 1.0, 1.0),      // #FFFFFF
 
                 // Drawer & Appbar — matched neutral gray
-                DrawerBackground = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5 — light gray
+                DrawerBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light DIGN teal
                 DrawerText = new MudColor(0, 0.0, 0.00, 1.0),  // black
                 DrawerIcon = new MudColor(0, 0.0, 0.38, 1.0),  // #616161
-                AppbarBackground = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5 — matches drawer
+                AppbarBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light DIGN teal
                 AppbarText = new MudColor(0, 0.0, 0.26, 1.0),  // #424242 — dark for contrast
 
                 // Lines & borders
@@ -229,17 +229,17 @@ namespace Extension {
                 ActionDisabledBackground = new MudColor(0, 0.0, 1.0, 0.12),
 
                 // Surfaces                                     // Sync: #32333D / #27272F in index*.html splash
-                Background = new MudColor(235, 0.09, 0.22, 1.0), // #32333D
+                Background = new MudColor(60, 0.18, 0.04, 1.0), // hint of DIGN yellow // #32333D
                 BackgroundGray = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
-                Surface = new MudColor(237, 0.08, 0.23, 1.0),  // #373740
+                Surface = new MudColor(300, 0.14, 0.11, 1.0),  // hint of DIGN magenta
 
                 // Drawer
-                DrawerBackground = new MudColor(240, 0.07, 0.17, 1.0),
+                DrawerBackground = new MudColor(300, 0.16, 0.07, 1.0), // hint of DIGN magenta — #32333D
                 DrawerText = new MudColor(0, 0.0, 1.0, 0.80),
                 DrawerIcon = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Appbar
-                AppbarBackground = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
+                AppbarBackground = new MudColor(300, 0.18, 0.10, 1.0), // hint of DIGN magenta — #27272F
                 AppbarText = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Lines & borders
@@ -253,7 +253,7 @@ namespace Extension {
                 TableStriped = new MudColor(0, 0.0, 1.0, 0.20),
 
                 // Special
-                Black = new MudColor(240, 0.07, 0.17, 1.0),    // #27272F
+                // Black = new MudColor(240, 0.07, 0.17, 1.0),    // #27272F
             },
         };
     }

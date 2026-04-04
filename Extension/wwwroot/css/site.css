@@ -235,40 +235,11 @@
     -ms-user-select: none;
 }
 
-.bt-sad-1 {
-    align-items: center;
-}
-
-.bt-sad-2 {
-    margin-left: 0.86rem;
-    min-width: 100%;
-    display: flex;
-    align-items: center;
-}
-
-.bt-sad-3 {
-    display: inline-block;
-    width: inherit;
-}
-
-.bt-sad-4 {
-}
-
 .bt-sad-5 {
     padding-left: 0.57rem;
     padding-right: 0.57rem;
     padding-top: 0;
     padding-top: 0;
-}
-
-.bt-sad-6 {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    width: 13.93rem;
-}
-
-.bt-sad-8 {
-    float: right;
 }
 
 .bt-body-page {
@@ -340,11 +311,17 @@
     overflow: hidden;
 }
 
-.bt-logo-button {
+/* logo button for light theme with background-color hint of magenta */
+ .bt-logo-button {
     align-self: center;
-    background-color: var(--mud-palette-dark) !important;
+    background-color: hsla(329, 100%, 18%, 1) !important;
     border-radius: 0.5rem;
-}
+ }
+
+ /* logo button for dark theme with background-color hint of cyan */
+.dark .bt-logo-button {
+    background-color: hsla(180, 7%, 17%, 1) !important;
+    }
 
 .bt-favicon {
     width: 1.14rem;

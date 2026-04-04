@@ -19,7 +19,7 @@
 <MudSnackbarProvider Style="z-index:9999; position:absolute;" />
 
 <CascadingValue Value="this">
-    <MudLayout id="@this.GetType().Name" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw; background-color: var(--mud-palette-background);">
+    <MudLayout id="@this.GetType().Name" Class="@layoutDarkLight" Style="overflow-y:hidden; overflow-x:hidden; box-sizing: border-box; position:absolute; top:0; width:100vw; background-color: var(--mud-palette-background);">
         <MudAppBar Class="bt-appbar">
             <MudStack Style="height:inherit; width: 100%; padding:0 0.5rem 0 0.25rem;" Class="d-flex" Row="true">
                 <LogoButton />
@@ -164,4 +164,7 @@
                 break;
         }
     }
+
+    // helper property for applying dark/light class to layout for CSS theming, e.g. with bt-logo-button
+    private string layoutDarkLight => appCache.MyPreferences.IsDarkTheme ? "dark" : "light";
 }
