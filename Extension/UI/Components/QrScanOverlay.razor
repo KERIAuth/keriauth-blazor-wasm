@@ -136,18 +136,24 @@
         if (_reader is null || _devices.Count < 2 || _switchingCamera) return;
 
         _switchingCamera = true;
-        _currentDeviceIdx = (_currentDeviceIdx + 1) % _devices.Count;
-
         try {
-            var device = _devices[_currentDeviceIdx];
-            await _reader.SelectVideoInput(device);
-            await ApplyAutoFocusAsync();
-            if (!string.IsNullOrEmpty(device.DeviceId)) {
-                await OnCameraDeviceChanged.InvokeAsync(device.DeviceId);
+            // Try each next device, skipping any that fail (e.g. virtual cameras)
+            for (var attempt = 0; attempt < _devices.Count; attempt++) {
+                _currentDeviceIdx = (_currentDeviceIdx + 1) % _devices.Count;
+                var device = _devices[_currentDeviceIdx];
+                try {
+                    await _reader.SelectVideoInput(device);
+                    await ApplyAutoFocusAsync();
+                    if (!string.IsNullOrEmpty(device.DeviceId)) {
+                        await OnCameraDeviceChanged.InvokeAsync(device.DeviceId);
+                    }
+                    StateHasChanged();
+                    return;
+                }
+                catch (Exception ex) {
+                    logger.LogWarning("OnNextCamera skipping device {DeviceId}: {Error}", device.DeviceId, ex.Message);
+                }
             }
-        }
-        catch (Exception ex) {
-            logger.LogWarning("OnNextCamera failed: {Error}", ex.Message);
         }
         finally {
             _switchingCamera = false;
