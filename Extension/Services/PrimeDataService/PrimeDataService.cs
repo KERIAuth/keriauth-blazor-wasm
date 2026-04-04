@@ -456,7 +456,7 @@ namespace Extension.Services.PrimeDataService {
 
             // Step 31a: QVI issues ECR credential to Person (private)
             await ReportProgress(36, goTotalSteps, "Issuing ECR credential");
-            var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData("Project Manager");
+            var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData("SEDI Issuance Approver");
             var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthIssued.Value.Said);
 
             var ecrIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
