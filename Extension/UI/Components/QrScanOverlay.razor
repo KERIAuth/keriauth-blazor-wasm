@@ -21,6 +21,8 @@
     private string? _cameraPermissionStatus;
     private bool _prevIsVisible;
     private bool _scriptsLoaded;
+    private HashSet<string> _physicalDeviceIds = [];
+    private bool _switchingCamera;
 
     // Works on Chrome, Edge, and Brave
     private string SiteDetailsUrl => $"chrome://settings/content/siteDetails?site=chrome-extension://{_extensionId}";
@@ -50,6 +52,12 @@
                 _extensionId = await _cameraModule.InvokeAsync<string>("getExtensionId");
             }
             _cameraPermissionStatus = await _cameraModule.InvokeAsync<string>("requestCameraPermission");
+            if (_cameraPermissionStatus == "granted") {
+                var physicalDevices = await _cameraModule.InvokeAsync<JsonElement[]>("getPhysicalCameraDevices");
+                _physicalDeviceIds = physicalDevices
+                    .Select(d => d.GetProperty("deviceId").GetString()!)
+                    .ToHashSet();
+            }
             await EnsureBarcodeScannerScriptsAsync();
         }
         else if (!IsVisible) {
@@ -95,7 +103,15 @@
             var idx = _devices.FindIndex(d => d.DeviceId == PreferredCameraDeviceId);
             if (idx >= 0) {
                 _currentDeviceIdx = idx;
-                _ = _reader.SelectVideoInput(_devices[idx]);
+                _ = TrySwitchCameraAsync(_devices[idx]);
+            }
+        }
+        else if (string.IsNullOrEmpty(PreferredCameraDeviceId) && _physicalDeviceIds.Count > 0) {
+            // No user preference — auto-select first physical camera to avoid virtual cameras
+            var idx = _devices.FindIndex(d => _physicalDeviceIds.Contains(d.DeviceId));
+            if (idx >= 0 && _devices[idx].DeviceId != _reader.SelectedVideoInputId) {
+                _currentDeviceIdx = idx;
+                _ = TrySwitchCameraAsync(_devices[idx]);
             }
         }
 
@@ -105,26 +121,36 @@
         StateHasChanged();
     }
 
-    private async Task OnNextCamera() {
-        if (_reader is null || _devices.Count < 2) return;
+    private async Task TrySwitchCameraAsync(VideoInputDevice device) {
+        try {
+            if (_reader is not null) {
+                await _reader.SelectVideoInput(device);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogWarning("TrySwitchCameraAsync failed for {DeviceId}: {Error}", device.DeviceId, ex.Message);
+        }
+    }
 
+    private async Task OnNextCamera() {
+        if (_reader is null || _devices.Count < 2 || _switchingCamera) return;
+
+        _switchingCamera = true;
         _currentDeviceIdx = (_currentDeviceIdx + 1) % _devices.Count;
 
         try {
             var device = _devices[_currentDeviceIdx];
-            // logger.LogWarning("OnNextCamera: switching to device index={Idx}, DeviceId={DeviceId}", _currentDeviceIdx, device.DeviceId ?? "(null)");
             await _reader.SelectVideoInput(device);
             await ApplyAutoFocusAsync();
             if (!string.IsNullOrEmpty(device.DeviceId)) {
-                // logger.LogWarning("OnNextCamera: invoking OnCameraDeviceChanged with DeviceId={DeviceId}", device.DeviceId);
                 await OnCameraDeviceChanged.InvokeAsync(device.DeviceId);
             }
-            else {
-                // logger.LogWarning("OnNextCamera: device.DeviceId is null/empty, skipping OnCameraDeviceChanged");
-            }
         }
-        catch {
-            // Camera may have been unplugged since enumeration
+        catch (Exception ex) {
+            logger.LogWarning("OnNextCamera failed: {Error}", ex.Message);
+        }
+        finally {
+            _switchingCamera = false;
         }
     }
 
@@ -180,7 +206,7 @@
             <MudStack>
                 <MudText Typo="Typo.h6">Scan QR code</MudText>
 
-                <div style="display: flex; justify-content: center;">
+                <div style="display: flex; justify-content: center; align-items: center; min-height: 260px;">
                     @if (_cameraPermissionStatus == "granted" && _scriptsLoaded)
                     {
                         @* Known console warnings from BlazorBarcodeScanner.ZXing.JS and its bundled zxingjs:

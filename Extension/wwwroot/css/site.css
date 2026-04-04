@@ -1,4 +1,10 @@
-﻿:root {
+﻿/* Hide BarcodeReader's internal error alert — camera errors are non-fatal
+   and the user can't act on them (camera recovers automatically). */
+.zxing-container .alert-danger {
+    display: none;
+}
+
+:root {
     /* Override MudBlazor variables here */
     --bt-appbar-height: 4.5rem;
     --bt-buttontray-height: 4.3rem;
