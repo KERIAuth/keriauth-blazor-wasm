@@ -3,11 +3,7 @@
     --bt-appbar-height: 4.5rem;
     --bt-buttontray-height: 4.3rem;
     /* Accent border — used for selection indicators (left-border on cards, lists, nav) */
-    --bt-accent-border: hsl(183, 100%, 40%);
-}
-
-.mud-theme-dark {
-    --bt-accent-border: hsl(183, 100%, 50%);
+    --bt-accent-border: var(--mud-palette-primary);
 }
 
 /* Selection accent: 4px left border */
@@ -166,7 +162,7 @@
 
 .bt-appbar {
     height: var(--bt-appbar-height);
-    border-bottom: 1px solid hsl(183deg 100% 50%);
+    border-bottom: 1px solid var(--mud-palette-primary);
     box-shadow: none;
     padding-left: 0;
     padding-right: 0;
@@ -185,13 +181,7 @@
 }
 
 .mud-navmenu.mud-navmenu-default .mud-nav-link.active:not(.mud-nav-link-disabled) {
-    color: #eaff00;
-    background-color: #373737;
     border-left: 4px solid var(--bt-accent-border);
-}
-
-.mud-nav-link.active:not(.mud-nav-link-disabled) {
-    color: green;
 }
 
 .mud-nav-link-disabled {

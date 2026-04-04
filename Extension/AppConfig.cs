@@ -132,137 +132,129 @@ namespace Extension {
             Body2 = new Body2Typography { FontSize = "0.85rem" },
         };
 
+        // MudBlazor 9 defaults, explicit in HSLA. See https://mudblazor.com/customization/default-theme
+        // Lighten/Darken variants are auto-calculated by MudBlazor — not set here.
+        // ContrastText defaults to white — only override where needed.
         public static readonly MudTheme MyCustomTheme = new() {
-            // See also https://mudblazor.com/customization/default-theme
             Typography = Typography,
             PaletteLight = new PaletteLight() {
-                Primary = new MudColor(201, 1.0, 0.38, 1.0), // Colors.Indigo.Default,
-                PrimaryLighten = Colors.Indigo.Lighten1,
-                PrimaryDarken = Colors.Indigo.Darken1,
-                PrimaryContrastText = Colors.Gray.Lighten5,
-                // TextPrimary **
+                // Semantic colors                              // MudBlazor default hex
+                Primary = new MudColor(248, 0.72, 0.59, 1.0),  // #594AE2
+                PrimaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Secondary = new MudColor(340, 0.82, 0.59, 1.0), // #EC407A
+                SecondaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Tertiary = new MudColor(165, 0.73, 0.45, 1.0), // #1EC8A5
+                TertiaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Info = new MudColor(207, 0.90, 0.54, 1.0),     // #2196F3
+                InfoContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Success = new MudColor(145, 1.0, 0.39, 1.0),   // #00C853
+                SuccessContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Warning = new MudColor(36, 1.0, 0.50, 1.0),    // #FF9800
+                WarningContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Error = new MudColor(4, 0.90, 0.58, 1.0),      // #F44336
+                ErrorContrastText = new MudColor(0, 0.0, 1.0, 1.0),
+                Dark = new MudColor(0, 0.0, 0.26, 1.0),        // #424242
+                DarkContrastText = new MudColor(0, 0.0, 1.0, 1.0),
 
-                Secondary = Colors.Brown.Default,
-                SecondaryLighten = Colors.Brown.Lighten1,
-                SecondaryDarken = Colors.Brown.Darken1,
-                SecondaryContrastText = Colors.Gray.Lighten5,
-                // TextSecondary  **
+                // Text
+                TextPrimary = new MudColor(0, 0.0, 0.26, 1.0),   // #424242
+                TextSecondary = new MudColor(0, 0.0, 0.0, 0.54),  // rgba(0,0,0,0.54)
+                TextDisabled = new MudColor(0, 0.0, 0.0, 0.38),   // rgba(0,0,0,0.38)
 
-                Tertiary = Colors.DeepOrange.Default,
-                TertiaryLighten = Colors.DeepOrange.Lighten1,
-                TertiaryDarken = Colors.DeepOrange.Darken1,
-                TertiaryContrastText = Colors.Gray.Lighten5,
+                // Actions
+                ActionDefault = new MudColor(0, 0.0, 0.0, 0.54),
+                ActionDisabled = new MudColor(0, 0.0, 0.0, 0.26),
+                ActionDisabledBackground = new MudColor(0, 0.0, 0.0, 0.12),
 
-                // Info
-                // InfoLighten
-                // InfoDarken
-                // InfoContrastText
+                // Surfaces                                     // Sync: #FFFFFF / #F5F5F5 in index*.html splash
+                Background = new MudColor(0, 0.0, 1.0, 1.0),   // #FFFFFF
+                BackgroundGray = new MudColor(0, 0.0, 0.96, 1.0), // #F5F5F5
+                Surface = new MudColor(0, 0.0, 1.0, 1.0),      // #FFFFFF
 
-                // Success
-                // SuccessLighten
-                // SuccessDarken
-                // SuccessContrastText
-                // TextSuccess
+                // Drawer
+                DrawerBackground = new MudColor(0, 0.0, 1.0, 1.0),
+                DrawerText = new MudColor(0, 0.0, 0.26, 1.0),  // #424242
+                DrawerIcon = new MudColor(0, 0.0, 0.38, 1.0),  // #616161
 
-                // Warning,
-                // WarningLighten,
-                // WarningDarken,
-                // WarningContrastText,
+                // Appbar
+                AppbarBackground = new MudColor(248, 0.72, 0.59, 1.0), // same as Primary
+                AppbarText = new MudColor(0, 0.0, 1.0, 1.0),
 
-                // Error,
-                // ErrorDarken,
-                // ErrorLighten,
-                // ErrorContrastText,
+                // Lines & borders
+                LinesDefault = new MudColor(0, 0.0, 0.0, 0.12),
+                LinesInputs = new MudColor(0, 0.0, 0.74, 1.0), // #BDBDBD
+                Divider = new MudColor(0, 0.0, 0.93, 1.0),     // #EEEEEE
+                DividerLight = new MudColor(0, 0.0, 0.0, 0.80),
 
-                // Dark
-                // DarkLighten
-                // DarkDarken
-                // DarkContrastText
+                // Tables
+                TableLines = new MudColor(0, 0.0, 0.93, 1.0),  // #EEEEEE
+                TableStriped = new MudColor(0, 0.0, 0.0, 0.02),
+                TableHover = new MudColor(0, 0.0, 0.0, 0.04),
 
-                // Sync: hex equivalent #f5f5f5 is used in index*.html splash theme script
-                Background = new MudColor(0, 0.0, 0.96, 1.0),
-                BackgroundGray = new MudColor(0, 0.0, 0.76, 1.0),
+                // Grays (string type)                          // hsl(0, 0%, L)
+                GrayDefault = "#9E9E9E",                        // L=62%
+                GrayLight = "#BDBDBD",                          // L=74%
+                GrayLighter = "#EEEEEE",                        // L=93%
+                GrayDark = "#757575",                           // L=46%
+                GrayDarker = "#616161",                         // L=38%
 
-                AppbarBackground = new MudColor(200, 0.17, 0.26, 1.0),
-                // AppbarText
+                // Overlays (string type)
+                OverlayLight = "rgba(255,255,255,0.50)",        // white 50%
+                OverlayDark = "rgba(33,33,33,0.50)",            // ~L=13% 50%
 
-                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
+                // Special (string type)
+                Black = "#272c34",                              // hsl(215, 12%, 18%)
 
-                DrawerBackground = new MudColor(0.0, 1.0, 0.10, 1.0),
-                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
-                DrawerText = new MudColor(0, 1.0, 1.0, 1.0),
-
-                ActionDisabled = Colors.Gray.Default,
-
-                Surface = new MudColor(0, 0.0, 0.90, 1.0),
-                /*
-                White
-                Black
-
-                TableStriped
-                TableLines
-                TableHover
-
-                Surface
-
-                OverlayLight
-                OverlayDark
-
-                LinesInputs
-                LinesDefault
-
-                HoverOpacity
-
-                GrayLighter
-                GrayLight
-                GrayDefault
-                GrayDarker
-                GrayDark
-
-                Divider
-                DividerLight
-                DividerDark
-
-                ActionDisabledBackground
-                ActionDisabled
-                ActionDefault
-                */
+                // Opacity
+                HoverOpacity = 0.06,
+                RippleOpacity = 0.1,
+                RippleOpacitySecondary = 0.2,
             },
             PaletteDark = new PaletteDark() {
-                Primary = Colors.LightBlue.Lighten4,
-                PrimaryLighten = Colors.LightBlue.Lighten3,
-                PrimaryDarken = Colors.Cyan.Lighten5,
-                PrimaryContrastText = Colors.Gray.Darken4,
+                // Semantic colors                              // MudBlazor dark defaults
+                Primary = new MudColor(246, 0.71, 0.66, 1.0),  // #776BE7
+                Info = new MudColor(212, 1.0, 0.60, 1.0),      // #3299FF
+                Success = new MudColor(162, 0.90, 0.39, 1.0),  // #0BBA83
+                Warning = new MudColor(40, 1.0, 0.50, 1.0),    // #FFA800
+                Error = new MudColor(353, 0.90, 0.64, 1.0),    // #F64E62
+                Dark = new MudColor(240, 0.07, 0.17, 1.0),     // #27272F
 
-                Secondary = Colors.Amber.Lighten4,
-                SecondaryLighten = Colors.Amber.Lighten3,
-                SecondaryDarken = Colors.Amber.Lighten5,
-                SecondaryContrastText = Colors.Gray.Darken4,
+                // Text
+                TextPrimary = new MudColor(0, 0.0, 1.0, 0.70),
+                TextSecondary = new MudColor(0, 0.0, 1.0, 0.50),
+                TextDisabled = new MudColor(0, 0.0, 1.0, 0.20),
 
-                Tertiary = Colors.DeepOrange.Lighten4,
-                TertiaryLighten = Colors.DeepOrange.Lighten3,
-                TertiaryDarken = Colors.DeepOrange.Lighten5,
-                TertiaryContrastText = Colors.Gray.Darken4,
+                // Actions
+                ActionDefault = new MudColor(240, 0.02, 0.68, 1.0), // #ADADB1
+                ActionDisabled = new MudColor(0, 0.0, 1.0, 0.26),
+                ActionDisabledBackground = new MudColor(0, 0.0, 1.0, 0.12),
 
-                ActionDisabled = Colors.Gray.Darken1,
-                ActionDisabledBackground = Colors.Gray.Default,
+                // Surfaces                                     // Sync: #32333D / #27272F in index*.html splash
+                Background = new MudColor(235, 0.09, 0.22, 1.0), // #32333D
+                BackgroundGray = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
+                Surface = new MudColor(237, 0.08, 0.23, 1.0),  // #373740
 
-                // Sync: hex equivalent #182126 is used in index*.html splash theme script
-                Background = new MudColor(201, 0.23, 0.12, 1.0),
-                BackgroundGray = new MudColor(0, 0.0, 0.13, 1.0),
-                Success = new MudColor(123, 0.41, 0.45, 1.0),
-                // Error = new MudColor(244, 0.67, 0.54, 1.0),
-                AppbarBackground = new MudColor(200, 0.19, 0.18, 1.0),
-                TextPrimary = new MudColor(0, 0.0, 0.92, 1.0),
+                // Drawer
+                DrawerBackground = new MudColor(240, 0.07, 0.17, 1.0),
+                DrawerText = new MudColor(0, 0.0, 1.0, 0.50),
+                DrawerIcon = new MudColor(0, 0.0, 1.0, 0.50),
 
-                TextSecondary = new MudColor(0, 0.0, 0.45, 1.0),
-                Surface = new MudColor(0, 0.0, 0.21, 1.0),
+                // Appbar
+                AppbarBackground = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
+                AppbarText = new MudColor(0, 0.0, 1.0, 0.70),
+
+                // Lines & borders
                 LinesDefault = new MudColor(0, 0.0, 1.0, 0.12),
+                LinesInputs = new MudColor(0, 0.0, 1.0, 0.30),
+                Divider = new MudColor(0, 0.0, 1.0, 0.12),
+                DividerLight = new MudColor(0, 0.0, 1.0, 0.06),
 
-                DrawerText = new MudColor(0, 0.0, 1.0, 1.0),
-                TextDisabled = new MudColor(0, 0.0, 0.53, 1.0),
-                DrawerBackground = new MudColor(200, 0.19, 0.18, 1.0),
-                DrawerIcon = new MudColor(0, 1.0, 1.0, 1.0),
+                // Tables
+                TableLines = new MudColor(0, 0.0, 1.0, 0.12),
+                TableStriped = new MudColor(0, 0.0, 1.0, 0.20),
+
+                // Special
+                Black = new MudColor(240, 0.07, 0.17, 1.0),    // #27272F
             },
         };
     }
