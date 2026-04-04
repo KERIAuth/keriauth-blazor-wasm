@@ -44,8 +44,8 @@
     List<Aid> AllAids => appCache.Aids;
     List<Connection> AllConnections => appCache.MyConnections?.Items ?? [];
 
-    string DiscloserLabel => (isPresentation ? "Discloser, Holder" : "Discloser, Issuer") + ("    Sends: offer, grant    Receives: apply, agree, admit");
-    string DiscloseeLabel => (isPresentation ? "Disclosee, Verifier" : "Disclosee, Holder") + ("    Sends: apply, agree, admit    Receives: offer, grant");
+    string DiscloserLabel => (isPresentation ? "Discloser, Holder": "Discloser, Issuer") + (" —— Sends: offer, grant —— Receives: apply, agree, admit");
+    string DiscloseeLabel => (isPresentation ? "Disclosee, Verifier" : "Disclosee, Holder") + (" —— Sends: apply, agree, admit —— Receives: offer, grant");
 
     // All selectable AIDs: local identifiers + external connection targets
     List<(string Prefix, string Name, bool IsLocal)> AllSelectableAids {
