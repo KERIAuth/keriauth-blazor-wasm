@@ -1520,14 +1520,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppReplyConnectionInviteRpcAsync(portId, request, tabId, requestId, payload);
                     return;
 
-                case AppBwMessageType.Values.RequestMarkNotification:
-                    await HandleAppRequestMarkNotificationRpcAsync(portId, request, payload);
-                    return;
-
-                case AppBwMessageType.Values.RequestDeleteNotification:
-                    await HandleAppRequestDeleteNotificationRpcAsync(portId, request, payload);
-                    return;
-
                 case AppBwMessageType.Values.RequestGetExchange:
                     await HandleAppRequestGetExchangeRpcAsync(portId, request, payload);
                     return;
@@ -1550,15 +1542,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.RequestIpexGrantPresentation:
                     await HandleAppRequestIpexOfferOrGrantPresentationRpcAsync(portId, request, payload);
-                    return;
-
-                case AppBwMessageType.Values.RequestPollNotifications:
-                    // Start burst only if not already active
-                    if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
-                        RestartNotificationBurst();
-                    }
-                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        result: new { success = true });
                     return;
 
                 case AppBwMessageType.Values.RequestUnlockSession:
@@ -3087,92 +3070,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
-    private async Task HandleAppRequestMarkNotificationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
-        logger.LogInformation(nameof(HandleAppRequestMarkNotificationRpcAsync) + ": called");
-
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
-            return;
-        }
-
-        try {
-            if (!payload.HasValue) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: "Missing payload");
-                return;
-            }
-
-            var markRequest = JsonSerializer.Deserialize<MarkNotificationRequestPayload>(
-                payload.Value.GetRawText(), JsonOptions.CamelCase);
-
-            if (markRequest is null || string.IsNullOrEmpty(markRequest.Said)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: "Invalid or missing notification SAID");
-                return;
-            }
-
-            var markResult = await _signifyClientService.MarkNotification(markRequest.Said);
-
-            if (markResult.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new MarkNotificationResponsePayload(true));
-            }
-            else {
-                var errorMsg = markResult.Errors.Count > 0 ? markResult.Errors[0].Message : "Mark notification failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: errorMsg);
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestMarkNotificationRpcAsync) + ": Error marking notification");
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: ex.Message);
-        }
-    }
-
-    private async Task HandleAppRequestDeleteNotificationRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
-        logger.LogInformation(nameof(HandleAppRequestDeleteNotificationRpcAsync) + ": called");
-
-        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
-            return;
-        }
-
-        try {
-            if (!payload.HasValue) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: "Missing payload");
-                return;
-            }
-
-            var deleteRequest = JsonSerializer.Deserialize<DeleteNotificationRequestPayload>(
-                payload.Value.GetRawText(), JsonOptions.CamelCase);
-
-            if (deleteRequest is null || string.IsNullOrEmpty(deleteRequest.Said)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: "Invalid or missing notification SAID");
-                return;
-            }
-
-            var deleteResult = await _signifyClientService.DeleteNotification(deleteRequest.Said);
-
-            if (deleteResult.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new DeleteNotificationResponsePayload(true));
-            }
-            else {
-                var errorMsg = deleteResult.Errors.Count > 0 ? deleteResult.Errors[0].Message : "Delete notification failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    errorMessage: errorMsg);
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestDeleteNotificationRpcAsync) + ": Error deleting notification");
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                errorMessage: ex.Message);
-        }
-    }
-
     private async Task HandleAppRequestGetExchangeRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
         logger.LogInformation(nameof(HandleAppRequestGetExchangeRpcAsync) + ": called");
 
@@ -4543,6 +4440,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
+    /// Extracts the "said" string from an EventMessage.Data payload.
+    /// Data is typically a JsonElement after wire deserialization.
+    /// Returns null if the payload is missing or malformed.
+    /// </summary>
+    private static string? ExtractSaidFromEventData(object? data) {
+        if (data is null) return null;
+        if (data is JsonElement element && element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty("said", out var saidProp)
+            && saidProp.ValueKind == JsonValueKind.String) {
+            return saidProp.GetString();
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Handles EVENT messages from ContentScript or App (fire-and-forget notifications).
     /// Events don't require a response - they're used for notifications like user activity.
     /// </summary>
@@ -4596,6 +4508,73 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 logger.LogInformation(nameof(HandlePortEventAsync) + ": App closed event received from portId={PortId}", portId);
                 // Port disconnect will handle cleanup
                 break;
+
+            case AppBwMessageType.Values.RequestPollNotifications:
+                // Fire-and-forget burst poll trigger from App (e.g., NotificationsPage mount).
+                // App observes updated notifications via CachedNotifications storage observer.
+                logger.LogDebug(nameof(HandlePortEventAsync) + ": RequestPollNotifications event received");
+                if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
+                    RestartNotificationBurst();
+                }
+                break;
+
+            case AppBwMessageType.Values.RequestMarkNotification: {
+                // Fire-and-forget from App. BW marks the notification in KERIA and refreshes
+                // the CachedNotifications session record; the App observes the update via storage.
+                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestMarkNotification event received");
+                try {
+                    var saidValue = ExtractSaidFromEventData(eventMessage.Data);
+                    if (string.IsNullOrEmpty(saidValue)) {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification missing said");
+                        break;
+                    }
+                    if (!_signifyClientService.IsConnected) {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification ignored — signify not connected");
+                        break;
+                    }
+                    var markResult = await _signifyClientService.MarkNotification(saidValue);
+                    if (markResult.IsSuccess) {
+                        await _notificationPollingService.PollOnDemandAsync();
+                    }
+                    else {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": MarkNotification failed: {Error}",
+                            markResult.Errors.Count > 0 ? markResult.Errors[0].Message : "unknown");
+                    }
+                }
+                catch (Exception ex) {
+                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestMarkNotification");
+                }
+                break;
+            }
+
+            case AppBwMessageType.Values.RequestDeleteNotification: {
+                // Fire-and-forget from App. BW deletes the notification in KERIA and refreshes
+                // the CachedNotifications session record; the App observes the update via storage.
+                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestDeleteNotification event received");
+                try {
+                    var saidValue = ExtractSaidFromEventData(eventMessage.Data);
+                    if (string.IsNullOrEmpty(saidValue)) {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification missing said");
+                        break;
+                    }
+                    if (!_signifyClientService.IsConnected) {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification ignored — signify not connected");
+                        break;
+                    }
+                    var deleteResult = await _signifyClientService.DeleteNotification(saidValue);
+                    if (deleteResult.IsSuccess) {
+                        await _notificationPollingService.PollOnDemandAsync();
+                    }
+                    else {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": DeleteNotification failed: {Error}",
+                            deleteResult.Errors.Count > 0 ? deleteResult.Errors[0].Message : "unknown");
+                    }
+                }
+                catch (Exception ex) {
+                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestDeleteNotification");
+                }
+                break;
+            }
 
             default:
                 logger.LogDebug(nameof(HandlePortEventAsync) + ": Unhandled event: name={Name}", eventMessage.Name);

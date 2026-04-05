@@ -247,9 +247,14 @@
         InitializeAppCache(appCache);
         await this.SubscribeToAppCache(appCache);
 
-        // Request BW to start notification burst polling (if not already active)
-        _ = appBwPortService.SendRpcRequestAsync(
-            AppBwMessageType.Values.RequestPollNotifications, new { });
+        // Request BW to start notification burst polling (if not already active).
+        // Fire-and-forget: App observes updated notifications via CachedNotifications storage observer.
+        try {
+            await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestPollNotifications);
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "Failed to send RequestPollNotifications event");
+        }
     }
 
     async Task OnViewDefChanged(string newId) {
@@ -756,21 +761,18 @@
         if (IsProcessing) return;
         IsProcessing = true;
 
+        var notifId = notification.Id;
         try {
-            var response = await appBwPortService.SendRpcRequestAsync(
+            // Fire-and-forget: BW marks the notification in KERIA and refreshes CachedNotifications.
+            // App observes the update via storage observer.
+            await appBwPortService.SendEventAsync(
                 AppBwMessageType.Values.RequestMarkNotification,
-                new { payload = new { said = notification.Id } });
+                new { said = notifId });
 
-            if (!response.Ok) {
-                snackbar.Add($"Failed to mark notification: {response.Error}", Severity.Error);
-            }
-            else {
-                var notifId = notification.Id;
-                await appCache.WaitForAppCache([
-                    () => appCache.MyNotifications.Items.Any(n => n.Id == notifId && n.IsRead)
-                ]);
-                snackbar.Add("Marked as read", Severity.Info);
-            }
+            await appCache.WaitForAppCache([
+                () => appCache.MyNotifications.Items.Any(n => n.Id == notifId && n.IsRead)
+            ]);
+            snackbar.Add("Marked as read", Severity.Info);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error marking notification as read");
@@ -785,21 +787,18 @@
         if (IsProcessing) return;
         IsProcessing = true;
 
+        var notifId = notification.Id;
         try {
-            var response = await appBwPortService.SendRpcRequestAsync(
+            // Fire-and-forget: BW deletes the notification in KERIA and refreshes CachedNotifications.
+            // App observes the update via storage observer.
+            await appBwPortService.SendEventAsync(
                 AppBwMessageType.Values.RequestDeleteNotification,
-                new { payload = new { said = notification.Id } });
+                new { said = notifId });
 
-            if (!response.Ok) {
-                snackbar.Add($"Failed to delete notification: {response.Error}", Severity.Error);
-            }
-            else {
-                var notifId = notification.Id;
-                await appCache.WaitForAppCache([
-                    () => !appCache.MyNotifications.Items.Any(n => n.Id == notifId)
-                ]);
-                snackbar.Add("Notification deleted", Severity.Info);
-            }
+            await appCache.WaitForAppCache([
+                () => !appCache.MyNotifications.Items.Any(n => n.Id == notifId)
+            ]);
+            snackbar.Add("Notification deleted", Severity.Info);
         }
         catch (Exception ex) {
             logger.LogError(ex, "Error deleting notification");
@@ -820,12 +819,15 @@
 
         try {
             foreach (var n in unread) {
-                var response = await appBwPortService.SendRpcRequestAsync(
-                    AppBwMessageType.Values.RequestMarkNotification,
-                    new { payload = new { said = n.Id } });
-
-                if (!response.Ok) {
-                    logger.LogWarning("MarkAllAsRead: Failed to mark {Id}: {Error}", n.Id, response.Error);
+                // Fire-and-forget per notification. Progress bar advances as each event is sent;
+                // actual storage updates arrive asynchronously via CachedNotifications observer.
+                try {
+                    await appBwPortService.SendEventAsync(
+                        AppBwMessageType.Values.RequestMarkNotification,
+                        new { said = n.Id });
+                }
+                catch (Exception sendEx) {
+                    logger.LogWarning(sendEx, "MarkAllAsRead: Failed to send event for {Id}", n.Id);
                 }
                 MarkAllProgress++;
                 await InvokeAsync(StateHasChanged);
