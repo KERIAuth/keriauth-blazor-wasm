@@ -57,6 +57,31 @@
         GC.SuppressFinalize(this);
     }
 
+    // Available Local storage types that can be simulated as migrated (versioned records only)
+    private static readonly string[] _migrationSimulationTypes = [
+        nameof(KeriaConnectConfigs),
+        nameof(Preferences),
+        nameof(OnboardState),
+        nameof(WebsiteConfigList)
+    ];
+
+    // Which types the developer selected to include in the simulated MigrationNotice
+    private readonly HashSet<string> _selectedMigrationTypes = new() { nameof(KeriaConnectConfigs), nameof(Preferences) };
+
+    void ToggleMigrationType(string typeName, bool isChecked)
+    {
+        if (isChecked) _selectedMigrationTypes.Add(typeName);
+        else _selectedMigrationTypes.Remove(typeName);
+    }
+
+    void ShowMigrationNoticeBanner()
+    {
+        // Injects a fake MigrationNotice into AppCache in-memory state so the banner renders.
+        // Does not touch storage — dismissal via the banner's close button will clear in-memory
+        // state and fire a (harmless) acknowledge event to BW.
+        appCache.SetMigrationNoticeForTesting([.. _selectedMigrationTypes]);
+    }
+
     async Task<int> GetCurrentTabIdAsync()
     {
         var currentTab = await webExtensionsApi.Tabs.GetCurrent();
@@ -388,6 +413,24 @@
                 <MudLink Href="@Routes.Paths.OfferCreateNewProfile" Target="_self">Offer create new profile</MudLink>
                 <MudLink Href="@Routes.Paths.ReleaseHistory" Target="_blank">Release history</MudLink>
             </div>
+            <MudText Class="bt-section-title">UX simulations</MudText>
+            <MudStack Class="ml-8" Spacing="1">
+                <MudText Typo="Typo.body2"><b>Migration notice banner</b> — select which Local storage keys to simulate as migrated:</MudText>
+                <MudStack Row="true" Class="ml-4" Spacing="3">
+                    @foreach (var typeName in _migrationSimulationTypes)
+                    {
+                        var capturedName = typeName;
+                        <MudCheckBox T="bool"
+                                     Value="@(_selectedMigrationTypes.Contains(capturedName))"
+                                     ValueChanged="@((bool v) => ToggleMigrationType(capturedName, v))"
+                                     Label="@capturedName"
+                                     Dense="true" />
+                    }
+                </MudStack>
+                <MudStack Row="true" Class="ml-4" Spacing="2">
+                    <MudLink OnClick="@ShowMigrationNoticeBanner" Disabled="@(_selectedMigrationTypes.Count == 0)">Show migration notice banner</MudLink>
+                </MudStack>
+            </MudStack>
             <MudText Class="bt-section-title">Page request dialog pages</MudText>
             <MudText Class="ml-8">These simulated pages will only appear in the <em>SidePanel</em> when its open.</MudText>
             <MudSimpleTable Class="ml-8" Dense="true" Elevation="0" Style="border:none;">

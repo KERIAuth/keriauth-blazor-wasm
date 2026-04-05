@@ -1,0 +1,81 @@
+@using Extension.Models.Messages.AppBw
+@using Extension.Services.Port
+@inject AppCache appCache
+@inject IAppBwPortService appBwPortService
+@inject ILogger<MigrationNoticeBanner> logger
+@implements IDisposable
+
+@if (appCache.MyMigrationNotice is not null)
+{
+    <MudAlert Severity="Severity.Warning"
+              ShowCloseIcon="true"
+              CloseIconClicked="@OnAcknowledge"
+              Class="ma-2">
+        <MudText Typo="Typo.body2"><b>Configuration reset after upgrade.</b></MudText>
+        <MudText Typo="Typo.body2">@BodyText</MudText>
+    </MudAlert>
+}
+
+@code {
+    // Friendly message fragments per discarded type. Order in output follows this dictionary.
+    private static readonly Dictionary<string, string> TypeFragments = new() {
+        ["KeriaConnectConfigs"] = "KERIA service connections (including nested Connections and Passkeys)",
+        ["Preferences"] = "application preferences",
+        ["OnboardState"] = "onboarding progress",
+        ["WebsiteConfigList"] = "per-website settings",
+    };
+
+    private string BodyText {
+        get {
+            var discarded = appCache.MyMigrationNotice?.DiscardedTypeNames ?? [];
+            if (discarded.Count == 0) {
+                return "Your prior configuration data was incompatible with this version and has been cleared.";
+            }
+
+            var fragments = discarded
+                .Select(t => TypeFragments.TryGetValue(t, out var frag) ? frag : t)
+                .ToList();
+
+            string joined = fragments.Count switch {
+                1 => fragments[0],
+                2 => $"{fragments[0]} and {fragments[1]}",
+                _ => string.Join(", ", fragments.Take(fragments.Count - 1)) + ", and " + fragments[^1]
+            };
+
+            var needsReconfigure = discarded.Contains("KeriaConnectConfigs");
+            var tail = needsReconfigure
+                ? " You'll need to reconfigure your KERIA connection to continue."
+                : " Affected settings have been reset to defaults.";
+
+            return $"The following data was incompatible with this version and has been cleared: {joined}.{tail}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe directly so this component re-renders when MyMigrationNotice changes,
+        // independent of whatever layout hosts it. Blazor's render optimization skips
+        // parameterless child components on parent re-render.
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    public void Dispose()
+    {
+        this.UnsubscribeFromAppCache();
+    }
+
+    async Task OnAcknowledge()
+    {
+        // Fire-and-forget: BW owns the MigrationNotice storage write.
+        // App clears its in-memory flag synchronously so the banner hides immediately.
+        try
+        {
+            await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestAcknowledgeMigrationNotice);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "OnAcknowledge: Failed to send RequestAcknowledgeMigrationNotice event to BW");
+        }
+        appCache.ClearMigrationNoticeLocal();
+    }
+}

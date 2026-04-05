@@ -59,6 +59,15 @@
     {
         logger.LogInformation("RedirectIfNeeded");
 
+        // Block redirect while a migration notice is active, so the user has time to
+        // read the banner (rendered by the layout) explaining why their prior data was cleared.
+        // When the user dismisses the banner, AppCache fires Changed and this method re-runs.
+        if (appCache.MyMigrationNotice is not null)
+        {
+            logger.LogInformation("RedirectIfNeeded: MigrationNotice active, blocking redirect until acknowledged");
+            return;
+        }
+
         // Get pending request early for use throughout the routing logic
         var pendingRequest = appCache.NextPendingBwAppRequest;
 

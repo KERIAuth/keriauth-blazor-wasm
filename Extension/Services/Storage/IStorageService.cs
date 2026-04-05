@@ -1,6 +1,16 @@
 namespace Extension.Services.Storage;
 
+using Extension.Models.Storage;
 using FluentResults;
+
+/// <summary>
+/// Status of a versioned storage record read. See IStorageService.GetItemStatus.
+/// </summary>
+public enum StorageItemStatus {
+    Found,
+    NotFound,
+    VersionMismatch
+}
 
 /// <summary>
 /// Unified storage service interface supporting all chrome.storage areas.
@@ -34,6 +44,14 @@ public interface IStorageService {
     /// <param name="area">Storage area (default: Local)</param>
     /// <returns>Result containing the item if found, or null if not found</returns>
     Task<Result<T?>> GetItem<T>(StorageArea area = StorageArea.Local);
+
+    /// <summary>
+    /// Probe a versioned Local storage record's status without applying the version-mismatch discard.
+    /// Used by the BackgroundWorker during startup migration detection to distinguish between
+    /// "fresh install" (NotFound), "upgrade with incompatible prior data" (VersionMismatch), and "normal" (Found).
+    /// Apps should not need to call this — migration detection is a BackgroundWorker responsibility.
+    /// </summary>
+    Task<Result<StorageItemStatus>> GetItemStatus<T>(StorageArea area = StorageArea.Local) where T : IVersionedStorageModel;
 
     /// <summary>
     /// Set item using type name as key in specified storage area.

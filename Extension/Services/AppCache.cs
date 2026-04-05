@@ -112,6 +112,13 @@
         public static KeriaConnectConfig DefaultKeriaConnectConfig => new KeriaConnectConfig();
 
         /// <summary>
+        /// Pending migration notice (schema version mismatches during upgrade).
+        /// Non-null when one or more prior records were discarded due to version changes.
+        /// Cleared after user acknowledges via AcknowledgeMigrationNoticeAsync.
+        /// </summary>
+        public MigrationNotice? MyMigrationNotice { get; private set; }
+
+        /// <summary>
         /// Collection of all KERIA configurations keyed by their KeriaConnectionDigest.
         /// </summary>
         public KeriaConnectConfigs MyKeriaConnectConfigs { get; private set; } = new KeriaConnectConfigs();
@@ -225,6 +232,29 @@
         /// reflects the change immediately (rather than waiting for async storage observer).
         /// This ensures IsIdentifierFetched returns false for proper routing through ConnectingPage.
         /// </summary>
+        /// <summary>
+        /// Developer/test helper: injects a fake MigrationNotice into in-memory state so the
+        /// banner component renders. Does NOT touch storage — dismissal via the banner will
+        /// attempt to send the acknowledge event to BW (harmless if BW has no notice to clear).
+        /// Not for production use.
+        /// </summary>
+        public void SetMigrationNoticeForTesting(List<string> discardedTypeNames) {
+            MyMigrationNotice = new MigrationNotice { DiscardedTypeNames = discardedTypeNames };
+            _logger.LogInformation(nameof(AppCache) + ": Test MigrationNotice injected with {Count} types", discardedTypeNames.Count);
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Clears the MigrationNotice from in-memory state immediately, so the banner hides.
+        /// The actual storage removal is performed by the BackgroundWorker when it receives
+        /// the RequestAcknowledgeMigrationNotice event from the caller. AppCache does not
+        /// write to Local storage — BW is authoritative for migration state.
+        /// </summary>
+        public void ClearMigrationNoticeLocal() {
+            MyMigrationNotice = null;
+            Changed?.Invoke();
+        }
+
         /// <summary>
         /// Synchronously clears session-related in-memory state so IsAuthenticated
         /// becomes false immediately, rather than waiting for async storage.onChanged.
@@ -680,13 +710,14 @@
             var prefsTask = storageService.GetItem<Preferences>();
             var onboardTask = storageService.GetItem<OnboardState>();
             var configsTask = storageService.GetItem<KeriaConnectConfigs>();
+            var migrationNoticeTask = storageService.GetItem<MigrationNotice>();
             var sessionStateTask = storageService.GetItem<SessionStateModel>(StorageArea.Session);
             var connectionInfoTask = storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             var cachedIdentifiersTask = storageService.GetItem<CachedIdentifiers>(StorageArea.Session);
             var pendingTask = storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
             var notificationsTask = storageService.GetItem<CachedNotifications>(StorageArea.Session);
 
-            await Task.WhenAll(prefsTask, onboardTask, configsTask,
+            await Task.WhenAll(prefsTask, onboardTask, configsTask, migrationNoticeTask,
                 sessionStateTask, connectionInfoTask, cachedIdentifiersTask, pendingTask, notificationsTask);
 
             // Apply results — Local storage records
@@ -717,6 +748,14 @@
             }
             else {
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs not found (expected on first run)");
+            }
+
+            var migrationNoticeResult = migrationNoticeTask.Result;
+            if (migrationNoticeResult.IsSuccess && migrationNoticeResult.Value is not null
+                && migrationNoticeResult.Value.DiscardedTypeNames.Count > 0) {
+                MyMigrationNotice = migrationNoticeResult.Value;
+                _logger.LogWarning(nameof(AppCache) + ": MigrationNotice present - prior data was discarded: {Types}",
+                    string.Join(", ", migrationNoticeResult.Value.DiscardedTypeNames));
             }
 
             // Apply results — Session storage records (may not exist if session is locked or browser was restarted)

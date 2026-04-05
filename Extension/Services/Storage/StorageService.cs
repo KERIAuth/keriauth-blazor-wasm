@@ -300,6 +300,38 @@ public class StorageService : IStorageService, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Probes a versioned Local storage record and reports its status (Found, NotFound, VersionMismatch).
+    /// Used by BackgroundWorker during startup migration detection so it can distinguish
+    /// "fresh install" from "upgrade with incompatible prior data".
+    /// Only applicable to IVersionedStorageModel types.
+    /// </summary>
+    public async Task<Result<StorageItemStatus>> GetItemStatus<T>(StorageArea area = StorageArea.Local) where T : IVersionedStorageModel {
+        var key = typeof(T).Name;
+        try {
+            var jsonElement = await GetFromStorageArea(area, key);
+            if (!jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(key), out var element)) {
+                return Result.Ok(StorageItemStatus.NotFound);
+            }
+
+            var value = JsonSerializer.Deserialize<T>(element, JsonOptions.Storage);
+            if (value is null) {
+                return Result.Ok(StorageItemStatus.NotFound);
+            }
+
+            var expected = StorageModelRegistry.GetExpectedVersion(key);
+            if (expected is not null && value.SchemaVersion != expected.Value) {
+                return Result.Ok(StorageItemStatus.VersionMismatch);
+            }
+
+            return Result.Ok(StorageItemStatus.Found);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, nameof(GetItemStatus) + ": Failed to probe {Key} in {Area} storage", key, area);
+            return Result.Fail<StorageItemStatus>(new StorageError($"GetItemStatus {key} failed", ex));
+        }
+    }
+
     public async Task<Result> SetItem<T>(T value, StorageArea area = StorageArea.Local) {
         var validation = StorageServiceValidation.ValidateOperation(nameof(SetItem), area);
         if (validation.IsFailed) return validation;

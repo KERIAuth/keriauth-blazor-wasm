@@ -596,6 +596,39 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation(nameof(InitializeStorageDefaultsAsync) + ": Checking and creating skeleton storage records");
 
+            // Step 1: Detect schema version mismatches across all versioned Local records.
+            // This must happen BEFORE any GetItem<T>() call would discard stale data,
+            // so we can record what was discarded for the user-facing migration notice.
+            var discardedTypes = new List<string>();
+            await ProbeAndRecordMismatchAsync<Preferences>(discardedTypes);
+            await ProbeAndRecordMismatchAsync<OnboardState>(discardedTypes);
+            await ProbeAndRecordMismatchAsync<KeriaConnectConfigs>(discardedTypes);
+            await ProbeAndRecordMismatchAsync<WebsiteConfigList>(discardedTypes);
+
+            if (discardedTypes.Count > 0) {
+                logger.LogWarning(nameof(InitializeStorageDefaultsAsync) +
+                    ": Schema version mismatches detected — clearing {Count} stale records: {Types}",
+                    discardedTypes.Count, string.Join(", ", discardedTypes));
+
+                // Write the MigrationNotice so the App can warn the user on next page render.
+                // The App is a passive displayer — BW is authoritative for detection.
+                var notice = new MigrationNotice { DiscardedTypeNames = discardedTypes };
+                var noticeResult = await _storageService.SetItem(notice);
+                if (noticeResult.IsFailed) {
+                    logger.LogError(nameof(InitializeStorageDefaultsAsync) +
+                        ": Failed to write MigrationNotice: {Error}",
+                        string.Join("; ", noticeResult.Errors.Select(e => e.Message)));
+                }
+
+                // Remove each stale record so subsequent GetItem<T>() calls see NotFound
+                // and the skeleton-creation paths below take over cleanly.
+                foreach (var typeName in discardedTypes) {
+                    await RemoveStaleRecordAsync(typeName);
+                }
+            }
+
+            // Step 2: Create skeleton records where missing (or after being cleared above).
+
             // Check and create Preferences if not exists
             var prefsResult = await _storageService.GetItem<Preferences>();
             if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored) {
@@ -654,6 +687,41 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         catch (Exception ex) {
             logger.LogError(ex, nameof(InitializeStorageDefaultsAsync) + ": Error creating skeleton storage records");
             // Don't throw? - allow extension to continue even if defaults fail
+        }
+    }
+
+    /// <summary>
+    /// Probes a versioned Local storage record. If a version mismatch is detected,
+    /// appends the type name to the discardedTypes list.
+    /// </summary>
+    private async Task ProbeAndRecordMismatchAsync<T>(List<string> discardedTypes) where T : IVersionedStorageModel {
+        var statusResult = await _storageService.GetItemStatus<T>();
+        if (statusResult.IsSuccess && statusResult.Value == StorageItemStatus.VersionMismatch) {
+            discardedTypes.Add(typeof(T).Name);
+        }
+    }
+
+    /// <summary>
+    /// Removes a stale Local storage record by type name. Since RemoveItem is generic,
+    /// dispatches to the correct type based on the string name.
+    /// </summary>
+    private async Task RemoveStaleRecordAsync(string typeName) {
+        switch (typeName) {
+            case nameof(Preferences):
+                await _storageService.RemoveItem<Preferences>();
+                break;
+            case nameof(OnboardState):
+                await _storageService.RemoveItem<OnboardState>();
+                break;
+            case nameof(KeriaConnectConfigs):
+                await _storageService.RemoveItem<KeriaConnectConfigs>();
+                break;
+            case nameof(WebsiteConfigList):
+                await _storageService.RemoveItem<WebsiteConfigList>();
+                break;
+            default:
+                logger.LogWarning(nameof(RemoveStaleRecordAsync) + ": Unknown stale record type {Type} — skipping", typeName);
+                break;
         }
     }
 
@@ -4489,6 +4557,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Only start burst if not already active — avoid polling when signify client isn't connected (e.g., after SW restart)
                 if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
                     RestartNotificationBurst();
+                }
+                break;
+
+            case AppBwMessageType.Values.RequestAcknowledgeMigrationNotice:
+                // Fire-and-forget from App after user dismisses the migration warning banner.
+                // BW owns all writes to MigrationNotice; App is a passive displayer.
+                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestAcknowledgeMigrationNotice event received");
+                try {
+                    var removeResult = await _storageService.RemoveItem<MigrationNotice>();
+                    if (removeResult.IsFailed) {
+                        logger.LogWarning(nameof(HandlePortEventAsync) + ": Failed to remove MigrationNotice: {Error}",
+                            string.Join("; ", removeResult.Errors.Select(e => e.Message)));
+                    }
+                }
+                catch (Exception ex) {
+                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestAcknowledgeMigrationNotice");
                 }
                 break;
 

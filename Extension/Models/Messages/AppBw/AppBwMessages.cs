@@ -176,6 +176,7 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
             public const string RequestLockSession = "AppBw.RequestLockSession";
+            public const string RequestAcknowledgeMigrationNotice = "AppBw.RequestAcknowledgeMigrationNotice";
             public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
             public const string RequestConfigure = "AppBw.RequestConfigure";
             public const string RequestResetConfigure = "AppBw.RequestResetConfigure";
@@ -225,6 +226,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
         public static AppBwMessageType RequestUnlockSession { get; } = new(Values.RequestUnlockSession);
         public static AppBwMessageType RequestLockSession { get; } = new(Values.RequestLockSession);
+        public static AppBwMessageType RequestAcknowledgeMigrationNotice { get; } = new(Values.RequestAcknowledgeMigrationNotice);
         public static AppBwMessageType RequestGetSessionPasscode { get; } = new(Values.RequestGetSessionPasscode);
         public static AppBwMessageType RequestConfigure { get; } = new(Values.RequestConfigure);
         public static AppBwMessageType RequestResetConfigure { get; } = new(Values.RequestResetConfigure);
@@ -366,6 +368,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestLockSession:
                     result = RequestLockSession;
+                    return true;
+                case Values.RequestAcknowledgeMigrationNotice:
+                    result = RequestAcknowledgeMigrationNotice;
                     return true;
                 case Values.RequestGetSessionPasscode:
                     result = RequestGetSessionPasscode;

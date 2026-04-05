@@ -25,6 +25,36 @@ These are firm constraints. Do not change or work around them without explicit a
 12. **No eval, no dynamic scripts, strict CSP.** Never use `eval()`, `Function()`, `chrome.tabs.executeScript()`, or any runtime code generation. All JavaScript must be in static files.
 13. **NEVER serialize/deserialize credentials using System.Text.Json or Newtonsoft.Json** — this breaks CESR/SAID field ordering and invalidates cryptographic signatures. Use RecursiveDictionary.
 
+### Semi-Invariants
+
+#### Storage Schema Versioning
+
+Local storage records that implement `IVersionedStorageModel` have a `SchemaVersion` integer that protects user data from silent corruption across upgrades. Versioned records are registered in `StorageModelRegistry.cs`, and `StorageService.GetItem<T>()` discards records whose stored version doesn't match the expected version. `BackgroundWorker.InitializeStorageDefaultsAsync` detects mismatches on startup via `GetItemStatus<T>()` and writes `MigrationNotice` so the App can warn the user their prior data was cleared.
+
+**When to suggest bumping a record's SchemaVersion:**
+
+1. **Field removed** — a property exists in stored data but no longer exists in the record type. Old data would deserialize successfully but drop the field silently.
+2. **Field renamed** — including changing a `[JsonPropertyName]`. Stored data uses the old name; new code reads the new name and gets default.
+3. **Field type changed** — e.g. `string → int`, `List<T> → Dictionary<K,V>`, or changing a nested record's shape. Deserialization may fail or produce wrong values.
+4. **Structural move** — field migrated from one record to another, or from top-level to nested.
+5. **Invariant change** — semantics of a field changed such that old data would be misinterpreted even if it deserializes (e.g. timestamps changing from local to UTC).
+
+**When NOT to bump:**
+
+1. **New optional field added** — C# deserialization fills missing fields with the record's default value. No bump needed.
+2. **New computed/derived property** — not serialized at all.
+3. **Bug fix in unrelated code** — bump reflects on-disk schema changes only.
+4. **Changes to Session storage records** — Session records are ephemeral (cleared on browser close) and are not versioned. Don't add `IVersionedStorageModel` to Session records.
+
+**How to bump:**
+
+1. Increment the `SchemaVersion` default on the record (e.g. `public int SchemaVersion { get; init; } = 2;`).
+2. Increment the matching entry in `StorageModelRegistry.cs`.
+3. Verify `BackgroundWorker.InitializeStorageDefaultsAsync` probes the record via `ProbeAndRecordMismatchAsync<T>` and has a `RemoveStaleRecordAsync` case for it.
+4. If the record is newly versioned: add it to the registry, add a probe call, add a remove case, and add it to the friendly-text map in `MigrationNoticeBanner.razor`.
+
+**Default behavior when you see a breaking change:** If you're about to modify a versioned record in a way that matches any of the "When to suggest bumping" cases above, stop and flag it to the user — do not bump on your own. The user decides whether the breaking change is worth discarding prior data, or whether to find a backwards-compatible workaround.
+
 ### Adjustable (not invariants)
 
 - Session timeout duration is user-configurable via preferences
