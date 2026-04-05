@@ -13,7 +13,6 @@ public class PollingStateTests {
     [Fact]
     public void PollingState_DefaultsToNullTimestamps() {
         var state = new PollingState();
-        Assert.Null(state.ConnectionsLastFetchedUtc);
         Assert.Null(state.IdentifiersLastFetchedUtc);
         Assert.Null(state.CredentialsLastFetchedUtc);
         Assert.Null(state.NotificationsLastFetchedUtc);
@@ -23,7 +22,6 @@ public class PollingStateTests {
     public void PollingState_SerializationRoundTrip() {
         var now = DateTime.UtcNow;
         var state = new PollingState {
-            ConnectionsLastFetchedUtc = now,
             IdentifiersLastFetchedUtc = now.AddMinutes(-1),
             CredentialsLastFetchedUtc = now.AddMinutes(-2),
             NotificationsLastFetchedUtc = now.AddMinutes(-3)
@@ -33,7 +31,6 @@ public class PollingStateTests {
         var deserialized = JsonSerializer.Deserialize<PollingState>(json, JsonOptions);
 
         Assert.NotNull(deserialized);
-        Assert.NotNull(deserialized.ConnectionsLastFetchedUtc);
         Assert.NotNull(deserialized.IdentifiersLastFetchedUtc);
         Assert.NotNull(deserialized.CredentialsLastFetchedUtc);
         Assert.NotNull(deserialized.NotificationsLastFetchedUtc);
@@ -51,7 +48,7 @@ public class PollingStateTests {
         // Original field preserved, new field set
         Assert.NotNull(updated.IdentifiersLastFetchedUtc);
         Assert.Equal(now, updated.CredentialsLastFetchedUtc);
-        Assert.Null(updated.ConnectionsLastFetchedUtc);
+        Assert.Null(updated.NotificationsLastFetchedUtc);
     }
 
     [Fact]

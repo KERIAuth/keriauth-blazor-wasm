@@ -1,6 +1,28 @@
-@* Logo and Title button for AppBar - navigates to home page *@
+@* Logo and Title button for AppBar - navigates to home page AND requests a burst refresh of Identifiers, Credentials, and Notifications *@
+@using Extension.Models.Messages.AppBw
+@using Extension.Services.Port
+@inject IAppBwPortService appBwPortService
+@inject NavigationManager navManager
+@inject ILogger<LogoButton> logger
 
-<MudButton Href="@Routes.Paths.Router" Class="bt-logo-button">
+<MudButton OnClick="@OnClickAsync" Class="bt-logo-button">
     <img src="images/logo512.png" alt="Icon" style="width: 1.714rem; height: 1.714rem;" />
     <MudText Style="margin-left:0.5rem; font-size:larger; color:hsl(183deg 100% 50%); font-variant: small-caps;">@AppConfig.ProductName</MudText>
 </MudButton>
+
+@code {
+    async Task OnClickAsync()
+    {
+        // Fire-and-forget burst refresh request to BW. BW applies its own throttling via
+        // PollingState timestamps, so repeated clicks within the skip thresholds are coalesced.
+        try
+        {
+            await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestBurstPoll);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "LogoButton.OnClickAsync: Failed to send RequestBurstPoll event");
+        }
+        navManager.NavigateTo(Routes.Paths.Router);
+    }
+}

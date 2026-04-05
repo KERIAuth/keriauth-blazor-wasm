@@ -157,7 +157,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _primeDataService = primeDataService;
         _configureService = configureService;
         _notificationPollingService = notificationPollingService;
-        _notificationPollingService.OnCredentialNotificationsChanged = RefreshCachedCredentialsAsync;
+        _notificationPollingService.OnCredentialNotificationsChanged = () => RefreshCachedCredentialsAsync();
         _notificationPollingService.OnSchemasNeeded = async () => {
             await EnsureAllManifestSchemasResolvedAsync("NotificationPolling");
         };
@@ -395,7 +395,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
                 case AppConfig.NotificationPollAlarmName:
                     try {
-                        await _notificationPollingService.PollOnDemandAsync();
+                        await PollNotificationsThrottledAsync();
                     }
                     catch (Exception ex) {
                         logger.LogWarning(ex, nameof(OnAlarmAsync) + ": Notification poll alarm failed");
@@ -2097,7 +2097,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     saidKey: "admitSaid",
                     senderPrefix: approvalPayload.SenderPrefix,
                     onSuccess: async () => {
-                        await _notificationPollingService.PollOnDemandAsync();
+                        await PollNotificationsThrottledAsync();
                         await RefreshCachedCredentialsAsync();
                     }
                 );
@@ -2558,6 +2558,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         await _storageService.SetItem(
                             new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
                             StorageArea.Session);
+                        await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
                         logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
                     }
                     else {
@@ -2583,6 +2584,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             await _storageService.SetItem(
                                 new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
                                 StorageArea.Session);
+                            await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
                             logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
                         }
                     }
@@ -2641,9 +2643,26 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// <summary>
     /// Fetches credentials from KERIA and writes raw JSON to session storage for App components to read directly.
     /// </summary>
-    private async Task RefreshCachedCredentialsAsync() {
+    /// <summary>
+    /// Refreshes the CachedCredentials session cache from KERIA.
+    /// Skipped if:
+    /// - Signify client is not connected
+    /// - A long signify operation is in progress
+    /// - Credentials were fetched within AppConfig.CredentialsPollSkipThreshold (unless force=true)
+    /// </summary>
+    // TODO P2: Add periodic polling for revocation status
+    private async Task RefreshCachedCredentialsAsync(bool force = false) {
+        if (!_signifyClientService.IsConnected) {
+            logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — signify not connected");
+            return;
+        }
         if (_signifyClientService.IsLongOperationActive) {
             logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — long operation active");
+            return;
+        }
+        if (!force && await IsWithinPollSkipThresholdAsync(
+                ps => ps.CredentialsLastFetchedUtc, AppConfig.CredentialsPollSkipThreshold)) {
+            logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — within poll threshold");
             return;
         }
         try {
@@ -2661,6 +2680,38 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(RefreshCachedCredentialsAsync) + ": Error refreshing cached credentials");
+        }
+    }
+
+    /// <summary>
+    /// Wrapper around NotificationPollingService.PollOnDemandAsync that applies the
+    /// NotificationsPollSkipThreshold to event-driven entry points. The burst loop inside
+    /// NotificationPollingService continues to call PollOnDemandAsync directly (burst is self-timing).
+    /// After a successful poll, NotificationPollingService updates NotificationsLastFetchedUtc.
+    /// </summary>
+    private async Task PollNotificationsThrottledAsync(bool force = false) {
+        if (!force && await IsWithinPollSkipThresholdAsync(
+                ps => ps.NotificationsLastFetchedUtc, AppConfig.NotificationsPollSkipThreshold)) {
+            logger.LogDebug(nameof(PollNotificationsThrottledAsync) + ": Skipped — within poll threshold");
+            return;
+        }
+        await _notificationPollingService.PollOnDemandAsync();
+    }
+
+    /// <summary>
+    /// Helper: returns true if the selected PollingState timestamp is set and falls within the given threshold of now.
+    /// Used by refresh methods to skip redundant fetches.
+    /// </summary>
+    private async Task<bool> IsWithinPollSkipThresholdAsync(Func<PollingState, DateTime?> selector, TimeSpan threshold) {
+        try {
+            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
+            if (!result.IsSuccess || result.Value is null) return false;
+            var timestamp = selector(result.Value);
+            if (timestamp is null) return false;
+            return DateTime.UtcNow - timestamp.Value < threshold;
+        }
+        catch {
+            return false;
         }
     }
 
@@ -3149,7 +3200,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             ), nameof(HandleAppRequestIpexAdmitRpcAsync));
 
             if (result.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
+                await PollNotificationsThrottledAsync();
                 await RefreshCachedCredentialsAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAdmitResponsePayload(true));
@@ -3205,7 +3256,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             ), nameof(HandleAppRequestIpexAgreeRpcAsync));
 
             if (result.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
+                await PollNotificationsThrottledAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexAgreeResponsePayload(true));
             }
@@ -3343,7 +3394,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 if (offerResult.IsSuccess) {
                     var offerSaid = offerResult.Value["offerSaid"]?.StringValue;
                     logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Offer submitted: offerSaid={OfferSaid}", offerSaid);
-                    await _notificationPollingService.PollOnDemandAsync();
+                    await PollNotificationsThrottledAsync();
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                         result: new IpexOfferResponsePayload(true));
                 }
@@ -3510,7 +3561,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (grantResult.IsSuccess) {
                 logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Grant submitted: grantSaid={GrantSaid}", grantResult.Value);
-                await _notificationPollingService.PollOnDemandAsync();
+                await PollNotificationsThrottledAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(true));
             }
@@ -3582,7 +3633,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             senderName, credentialSaid, recipientPrefix, nameof(HandleGrantFromAgreeAsync));
 
         if (grantResult.IsSuccess) {
-            await _notificationPollingService.PollOnDemandAsync();
+            await PollNotificationsThrottledAsync();
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(true));
         }
@@ -3715,7 +3766,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             if (result.IsSuccess) {
-                await _notificationPollingService.PollOnDemandAsync();
+                await PollNotificationsThrottledAsync();
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(true));
             }
@@ -4518,6 +4569,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
                 break;
 
+            case AppBwMessageType.Values.RequestBurstPoll:
+                // User-initiated refresh (e.g., clicking DIGN logo in AppBar).
+                // Refreshes all three resources. Each method has its own throttle skip,
+                // so rapid repeated clicks coalesce naturally via PollingState timestamps.
+                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestBurstPoll event received");
+                try {
+                    RestartNotificationBurst();
+                    await RefreshIdentifiersCache();
+                    await RefreshCachedCredentialsAsync();
+                }
+                catch (Exception ex) {
+                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestBurstPoll");
+                }
+                break;
+
             case AppBwMessageType.Values.RequestMarkNotification: {
                 // Fire-and-forget from App. BW marks the notification in KERIA and refreshes
                 // the CachedNotifications session record; the App observes the update via storage.
@@ -4534,7 +4600,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     }
                     var markResult = await _signifyClientService.MarkNotification(saidValue);
                     if (markResult.IsSuccess) {
-                        await _notificationPollingService.PollOnDemandAsync();
+                        await PollNotificationsThrottledAsync();
                     }
                     else {
                         logger.LogWarning(nameof(HandlePortEventAsync) + ": MarkNotification failed: {Error}",
@@ -4563,7 +4629,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     }
                     var deleteResult = await _signifyClientService.DeleteNotification(saidValue);
                     if (deleteResult.IsSuccess) {
-                        await _notificationPollingService.PollOnDemandAsync();
+                        await PollNotificationsThrottledAsync();
                     }
                     else {
                         logger.LogWarning(nameof(HandlePortEventAsync) + ": DeleteNotification failed: {Error}",
@@ -4929,6 +4995,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var setResult = await _storageService.SetItem(
                 new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
                 StorageArea.Session);
+            await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
             if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to update storage: {Errors}", errorMsg);
@@ -5199,9 +5266,27 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     /// <summary>
     /// Refresh the identifiers cache in session storage.
+    /// Skipped if:
+    /// - Signify client is not connected
+    /// - A long signify operation is in progress
+    /// - Identifiers were fetched within AppConfig.IdentifiersPollSkipThreshold (unless force=true)
     /// Called after operations that modify identifiers (e.g., rename, create).
     /// </summary>
-    private async Task RefreshIdentifiersCache() {
+    // TODO P2: Add periodic polling that is relevant for when a group AID (multisig) may have its state changed by others in the group.
+    private async Task RefreshIdentifiersCache(bool force = false) {
+        if (!_signifyClientService.IsConnected) {
+            logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — signify not connected");
+            return;
+        }
+        if (_signifyClientService.IsLongOperationActive) {
+            logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — long operation active");
+            return;
+        }
+        if (!force && await IsWithinPollSkipThresholdAsync(
+                ps => ps.IdentifiersLastFetchedUtc, AppConfig.IdentifiersPollSkipThreshold)) {
+            logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — within poll threshold");
+            return;
+        }
         try {
             var identifiersResult = await _signifyClientService.GetIdentifiers();
             if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
@@ -5387,13 +5472,29 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
+    /// Tracks the wall-clock time of the most recent burst start, used to coalesce rapid-succession
+    /// restarts. See AppConfig.NotificationBurstRestartCooldown.
+    /// </summary>
+    private DateTime _lastBurstRestartUtc = DateTime.MinValue;
+
+    /// <summary>
     /// Cancels any active notification burst and starts a new one.
     /// Creates/replaces the recurring notification poll alarm.
+    /// Coalesces rapid-succession restarts: if a burst was started within
+    /// AppConfig.NotificationBurstRestartCooldown AND is still active, the existing burst is reused.
     /// </summary>
     private void RestartNotificationBurst() {
+        var now = DateTime.UtcNow;
+        var burstActive = _notificationPollingCts is not null && !_notificationPollingCts.IsCancellationRequested;
+        if (burstActive && (now - _lastBurstRestartUtc) < AppConfig.NotificationBurstRestartCooldown) {
+            logger.LogDebug(nameof(RestartNotificationBurst) + ": Coalesced — burst active and within cooldown");
+            return;
+        }
+
         _notificationPollingCts?.Cancel();
         var cts = new CancellationTokenSource();
         _notificationPollingCts = cts;
+        _lastBurstRestartUtc = now;
         _ = RunBurstAsync(cts);
         _ = EnsureNotificationPollAlarmAsync();
     }

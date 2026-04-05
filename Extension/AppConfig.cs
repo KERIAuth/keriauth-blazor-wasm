@@ -45,9 +45,18 @@ namespace Extension {
 
         // Notification polling configuration
         public const string NotificationPollAlarmName = "NotificationPollAlarm";
-        public const double NotificationPollAlarmPeriodMinutes = 5.0;
+        public const double NotificationPollAlarmPeriodMinutes = 2.0;
         public static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(5);
         public static readonly TimeSpan NotificationBurstDuration = TimeSpan.FromSeconds(120);
+
+        // Minimum interval between repeated fetches of the same resource.
+        // Used by BackgroundWorker's refresh methods to skip redundant fetches via PollingState timestamps.
+        // Values chosen to eliminate thundering-herd calls while keeping UX responsive.
+        public static readonly TimeSpan IdentifiersPollSkipThreshold = TimeSpan.FromSeconds(10);
+        public static readonly TimeSpan CredentialsPollSkipThreshold = TimeSpan.FromSeconds(3);
+        public static readonly TimeSpan NotificationsPollSkipThreshold = TimeSpan.FromSeconds(2);
+        // Minimum interval between burst restarts — prevents thrashing when many events arrive in rapid succession.
+        public static readonly TimeSpan NotificationBurstRestartCooldown = TimeSpan.FromSeconds(10);
 
         // Request/Response messaging configuration
         public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(30);
