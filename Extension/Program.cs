@@ -121,6 +121,7 @@ builder.UseBrowserExtension(browserExtension => {
 // Services common to both BackgroundWorker and App contexts
 builder.Services.AddBrowserExtensionServices();
 builder.Services.AddSingleton<IStorageService, StorageService>();
+builder.Services.AddSingleton<IStorageGateway, StorageGateway>();
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();
 builder.Services.AddSingleton<ICredentialViewSpecService, CredentialViewSpecService>();

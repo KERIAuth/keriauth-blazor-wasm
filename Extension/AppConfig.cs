@@ -75,7 +75,7 @@ namespace Extension {
         // TODO P3 load presets from external source for enterprise deployment
         public static readonly List<KeriaPreset> PresetAgents = [
             new KeriaPreset("Veridian Testnet", "https://keria.veridian.dandelion.link", "https://keria-boot.veridian.dandelion.link"),
-            new KeriaPreset($"{ProductName} Test Cloud", "https://keria.cloud.dign.id", "https://keria-boot.cloud.dign.id"),
+            new KeriaPreset($"{ProductName} Test Cloud (basic auth for boot)", "https://keria.cloud.dign.id", "https://keria-boot.cloud.dign.id"),
             new KeriaPreset("GLEIF Testnet", "https://keria.testnet.gleif.org:3901", "https://keria.testnet.gleif.org:3903"),
             // new KeriaPreset("Veridian Dev Testnet", "https://keria.dev.idw-sandboxes.cf-deployments.org", "https://keria-boot.dev.idw-sandboxes.cf-deployments.org"),
             new KeriaPreset("Provenant Origin Demo (basic auth for boot)", "https://origin.demo.provenant.net/v1/keria/admin", "https://origin.demo.provenant.net/v1/keria/boot"),

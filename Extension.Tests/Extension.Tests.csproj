@@ -51,6 +51,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- vLEI sample credentials used as test fixtures.
+         Source: https://github.com/WebOfTrust/vLEI/tree/main/samples/acdc -->
+    <Content Include="TestData\vlei\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
