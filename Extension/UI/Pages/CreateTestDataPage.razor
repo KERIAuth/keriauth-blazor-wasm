@@ -12,7 +12,7 @@
 @using static Extension.Helper.PreviousPage
 @inject NavigationManager navManager
 @inject IJSRuntime js
-@inject ILogger<PrimeDataPage> logger
+@inject ILogger<CreateTestDataPage> logger
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
 @inject IStorageService storageService
@@ -161,7 +161,7 @@
         SelectDefaults();
     }
 
-    class ProgressObserver(PrimeDataPage page) : IObserver<PrimeDataProgress> {
+    class ProgressObserver(CreateTestDataPage page) : IObserver<PrimeDataProgress> {
         public void OnNext(PrimeDataProgress value) {
             page.currentProgress = value;
             page.InvokeAsync(page.StateHasChanged);
@@ -324,7 +324,7 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <div class="d-flex gap-3 bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Prime data" />
+            <PageHeading Title="Create test data" />
 
             <MudText Class="bt-pref-group-label0">
                 Prime GEDA&#x2192;...&#x2192;Person Profiles and vLEI Creds

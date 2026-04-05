@@ -4,6 +4,7 @@
     using Extension.Models.Storage;
     using Extension.Services.SignifyService.Models;
 
+    using Extension.Helper;
     using Extension.Services.Storage;
     using WebExtensions.Net;
 
@@ -186,6 +187,17 @@
         public List<Connection> MyConnections => MyKeriaConnectConfig.Connections;
 
         public CachedNotifications MyNotifications { get; private set; } = new CachedNotifications();
+
+        /// <summary>
+        /// Eagerly deserialized credentials from session storage.
+        /// Populated on initial fetch and updated on every CachedCredentials batch change.
+        /// Pages can read this directly instead of re-deserializing from raw storage.
+        /// </summary>
+        public IReadOnlyList<RecursiveDictionary> MyCachedCredentials { get; private set; } = [];
+
+        public PollingState MyPollingState { get; private set; } = new PollingState();
+
+        public WebsiteConfigList MyWebsiteConfigList { get; private set; } = new WebsiteConfigList { WebsiteList = [] };
 
         /// <summary>
         /// In-memory menu open/collapse state, not persisted to storage.
@@ -717,14 +729,17 @@
                 typeof(Preferences),
                 typeof(OnboardState),
                 typeof(KeriaConnectConfigs),
-                typeof(MigrationNotice));
+                typeof(MigrationNotice),
+                typeof(WebsiteConfigList));
             var sessionTask = storageGateway.GetItems(
                 StorageArea.Session,
                 typeof(SessionStateModel),
                 typeof(KeriaConnectionInfo),
                 typeof(CachedIdentifiers),
                 typeof(PendingBwAppRequests),
-                typeof(CachedNotifications));
+                typeof(CachedNotifications),
+                typeof(CachedCredentials),
+                typeof(PollingState));
             await Task.WhenAll(localTask, sessionTask);
 
             var localRes = localTask.Result;
@@ -829,7 +844,37 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Notifications not found (none stored)");
             }
 
-            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 4 keys, Session 5 keys)");
+            // Apply results — New sub-cache records (Phase group 2)
+            var websiteConfigs = local?.Get<WebsiteConfigList>();
+            if (websiteConfigs is not null) {
+                MyWebsiteConfigList = websiteConfigs;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - WebsiteConfigList loaded (count={Count})",
+                    websiteConfigs.WebsiteList.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - WebsiteConfigList not found (none configured)");
+            }
+
+            var cachedCreds = session?.Get<CachedCredentials>();
+            if (cachedCreds?.Credentials is { Count: > 0 } credsDict) {
+                MyCachedCredentials = CredentialHelper.DeserializeCredentialsDict(credsDict);
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedCredentials loaded and deserialized (count={Count})",
+                    MyCachedCredentials.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedCredentials not found or empty");
+            }
+
+            var pollingState = session?.Get<PollingState>();
+            if (pollingState is not null) {
+                MyPollingState = pollingState;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PollingState loaded");
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PollingState not found");
+            }
+
+            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 5 keys, Session 7 keys)");
         }
 
         /// <summary>

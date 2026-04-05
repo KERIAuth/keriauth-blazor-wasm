@@ -147,7 +147,7 @@ public static class Routes {
         [typeof(SidePanel)] = new("SidePanel", Paths.SidePanel, RequiresAuth: false),
         [typeof(DeveloperTestPage)] = new("DeveloperTest", Paths.DeveloperTest, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),
-        [typeof(PrimeDataPage)] = new("PrimeData", Paths.PrimeData, RequiresAuth: true,
+        [typeof(CreateTestDataPage)] = new("PrimeData", Paths.PrimeData, RequiresAuth: true,
             Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(CredentialPage)] = new("Credential", Paths.Credential, RequiresAuth: true),
 
