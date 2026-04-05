@@ -82,7 +82,7 @@
     string? HolderPrefix => ApplyExchange.Rp;
     string? SchemaName => SchemaSaid is not null ? viewSpecService.GetViewSpec(SchemaSaid)?.ShortName : null;
 
-    List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
+    List<Connection> AllConnections => appCache?.MyConnections ?? [];
 
     string ResolveName(string? prefix)
     {
@@ -105,9 +105,9 @@
         try
         {
             var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.RawJson is not null)
+            if (cached.IsSuccess && cached.Value?.Credentials is not null)
             {
-                var allCredentials = CredentialHelper.DeserializeCredentialsRawJson(cached.Value.RawJson);
+                var allCredentials = CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
 
                 if (SchemaSaid is not null)
                 {

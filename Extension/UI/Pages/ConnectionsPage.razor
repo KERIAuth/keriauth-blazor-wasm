@@ -28,7 +28,7 @@
             ? savedId
             : ViewDefIds.ConnAll;
 
-    List<Connection> AllConnections => appCache?.MyConnections?.Items ?? [];
+    List<Connection> AllConnections => appCache?.MyConnections ?? [];
 
     // ViewDef
     List<ViewDef<Connection>> ConnectionViewDefs =>
@@ -202,18 +202,27 @@
     }
 
     async Task StoreConnection(Connection connection) {
-        var currentConnections = appCache.MyConnections;
-        var newItems = new List<Connection>(currentConnections.Items) { connection };
-        await storageService.SetItem(new Connections { Items = newItems });
+        var digest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) return;
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(digest, out var config)) return;
+        var updatedConfig = config with { Connections = [.. config.Connections, connection] };
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
+        await storageService.SetItem(configs with { Configs = updatedDict });
     }
 
     async Task DeleteConnection(Connection connection) {
-        var currentConnections = appCache.MyConnections;
-        var newItems = currentConnections.Items.Where(c =>
+        var digest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) return;
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(digest, out var config)) return;
+        var newItems = config.Connections.Where(c =>
             !(c.SenderPrefix == connection.SenderPrefix &&
               c.ReceiverPrefix == connection.ReceiverPrefix &&
               c.ConnectionDate == connection.ConnectionDate)).ToList();
-        await storageService.SetItem(new Connections { Items = newItems });
+        var updatedConfig = config with { Connections = newItems };
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
+        await storageService.SetItem(configs with { Configs = updatedDict });
         snackbar.Add($"Connection '{connection.Name}' deleted", Severity.Info);
     }
 

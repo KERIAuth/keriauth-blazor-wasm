@@ -110,7 +110,7 @@
 };
 
     // properties
-    StoredPasskeys StoredPasskeys { get; set; } = new StoredPasskeys();
+    List<StoredPasskey> StoredPasskeys { get; set; } = [];
 
     // reactive properties
     string NumberPasskeysLabel => _passkeyAvailability.Label;
@@ -165,7 +165,7 @@
             })
             .Where(item => !string.IsNullOrEmpty(item.Digest))
             .ToList();
-        _selectedKeriaConfigDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest ?? "";
+        _selectedKeriaConfigDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest ?? "";
 
         // pick a random tagline
         var rnd = new Random();
@@ -198,19 +198,15 @@
 
                 // Update preference with new digest
                 var prefs = appCache.MyPreferences;
-                var newKeriaPreference = prefs.KeriaPreference with
-                {
-                    SelectedKeriaConnectionDigest = digest
-                };
                 await storageService.SetItem<Preferences>(prefs with
                 {
-                    KeriaPreference = newKeriaPreference
+                    SelectedKeriaConnectionDigest = digest
                 });
 
                 // Wait for appCache to reflect the new preference before proceeding
                 // This ensures MyKeriaConnectConfig returns the correct config for passcode validation
                 var prefUpdated = await appCache.WaitForAppCache([
-                    () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == digest
+                    () => appCache.MyPreferences.SelectedKeriaConnectionDigest == digest
                 ]);
                 if (!prefUpdated)
                 {

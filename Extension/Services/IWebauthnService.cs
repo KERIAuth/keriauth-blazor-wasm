@@ -33,7 +33,7 @@ public interface IWebauthnService {
     /// Gets all stored passkeys from storage.
     /// Filters out any passkeys with incompatible schema versions.
     /// </summary>
-    Task<Result<StoredPasskeys>> GetStoredPasskeysAsync();
+    Task<Result<List<StoredPasskey>>> GetStoredPasskeysAsync();
 
     /// <summary>
     /// Removes a passkey by credential ID.

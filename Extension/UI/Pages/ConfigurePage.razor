@@ -130,7 +130,9 @@
                 && RandomPasscode == configuredPasscodeModel.Passcode
                 && IsPasscodeCopyConfirmed)
         );
-    bool IsKeriaConfigured => appCache.IsConnectedToKeria;
+    bool IsKeriaConfigured => _thisFlowCompleted || (!_isAddingConfig && appCache.IsConnectedToKeria);
+    bool _thisFlowCompleted;
+    bool _isAddingConfig;
 
     // Focus state - determines which element should have focus
     enum FocusTarget { None, Passcode, ConfirmPasscode, Connect, Next, Reset }
@@ -142,6 +144,9 @@
     protected override async Task OnInitializedAsync()
     {
         webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
+
+        // Detect if we're adding a new config while already connected
+        _isAddingConfig = appCache.IsConnectedToKeria;
 
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
@@ -410,7 +415,7 @@
         logger.LogInformation("Waiting for IsConnectedToKeria: IsIdentifierFetched={IIF}, IsAuthenticated={IA}, AgentAid={AAP}, IdList={IL}",
             appCache.IsIdentifierFetched, appCache.IsAuthenticated,
             appCache.MyKeriaConnectConfig.AgentAidPrefix ?? "(null)",
-            appCache.MyKeriaConnectionInfo?.IdentifiersList?.FirstOrDefault()?.Aids?.Count ?? -1);
+            appCache.MyCachedIdentifiers?.IdentifiersList?.FirstOrDefault()?.Aids?.Count ?? -1);
         var connected = await appCache.WaitForAppCache([() => appCache.IsConnectedToKeria], 30000);
         if (!connected)
         {
@@ -419,6 +424,7 @@
         }
 
         IsConnected = true;
+        _thisFlowCompleted = true;
         IsProcessing = false;
         _focusTarget = FocusTarget.Next;
         StateHasChanged();

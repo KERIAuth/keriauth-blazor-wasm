@@ -1,4 +1,4 @@
-﻿using Extension.Models;
+using Extension.Models;
 using Extension.Services;
 using Extension.Services.Crypto;
 using Extension.Services.JsBindings;
@@ -13,7 +13,7 @@ namespace Extension.Tests.Services.Webauthn;
 
 /// <summary>
 /// Tests for WebauthnService storage operations.
-/// Verifies that passkeys are stored in local storage.
+/// Passkeys are now stored within KeriaConnectConfig inside KeriaConnectConfigs.
 /// </summary>
 public class WebauthnServiceTests {
     private readonly Mock<IStorageService> _mockStorageService;
@@ -23,6 +23,8 @@ public class WebauthnServiceTests {
     private readonly Mock<IJSRuntime> _mockJsRuntime;
     private readonly Mock<ILogger<WebauthnService>> _mockLogger;
     private readonly Mock<IAppBwPortService> _mockAppBwPortService;
+
+    private const string TestDigest = "test-digest";
 
     public WebauthnServiceTests() {
         _mockStorageService = new Mock<IStorageService>();
@@ -46,28 +48,43 @@ public class WebauthnServiceTests {
         );
     }
 
+    /// <summary>
+    /// Sets up mocks for Preferences and KeriaConnectConfigs with the given passkeys.
+    /// </summary>
+    private void SetupPasskeyMocks(string? digest, List<StoredPasskey> passkeys) {
+        var prefs = new Preferences { SelectedKeriaConnectionDigest = digest };
+        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
+
+        if (digest is not null) {
+            var config = new KeriaConnectConfig { Passkeys = passkeys };
+            var configs = new KeriaConnectConfigs {
+                Configs = new Dictionary<string, KeriaConnectConfig> { [digest] = config }
+            };
+            _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfigs>(StorageArea.Local))
+                .ReturnsAsync(Result.Ok<KeriaConnectConfigs?>(configs));
+            _mockStorageService.Setup(s => s.SetItem(It.IsAny<KeriaConnectConfigs>(), StorageArea.Local))
+                .ReturnsAsync(Result.Ok());
+        }
+    }
+
+    private static StoredPasskey MakePasskey(string credId, int schemaVersion = 0) =>
+        new() {
+            SchemaVersion = schemaVersion == 0 ? StoredPasskeySchema.CurrentVersion : schemaVersion,
+            CredentialBase64 = credId,
+            Transports = ["internal"],
+            EncryptedPasscodeBase64 = "enc",
+            KeriaConnectionDigest = TestDigest,
+            Aaguid = "00000000-0000-0000-0000-000000000000",
+            CreationTime = DateTime.UtcNow
+        };
+
     #region GetStoredPasskeysAsync Tests
 
     [Fact]
-    public async Task GetStoredPasskeysAsync_UsesLocalStorage() {
+    public async Task GetStoredPasskeysAsync_ReturnsPasskeysFromConfig() {
         // Arrange
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "test-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-
+        SetupPasskeyMocks(TestDigest, [MakePasskey("test-cred")]);
         var service = CreateService();
 
         // Act
@@ -75,41 +92,17 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        _mockStorageService.Verify(
-            s => s.GetItem<StoredPasskeys>(StorageArea.Local),
-            Times.Once
-        );
+        Assert.Single(result.Value);
+        Assert.Equal("test-cred", result.Value[0].CredentialBase64);
     }
 
     [Fact]
     public async Task GetStoredPasskeysAsync_FiltersOldSchemaVersions() {
         // Arrange
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = 1, // Old version - should be filtered
-                    CredentialBase64 = "old-cred",
-                    Transports = [],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                },
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "new-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-
+        SetupPasskeyMocks(TestDigest, [
+            MakePasskey("old-cred", schemaVersion: 1),
+            MakePasskey("new-cred")
+        ]);
         var service = CreateService();
 
         // Act
@@ -117,16 +110,14 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Single(result.Value.Passkeys);
-        Assert.Equal("new-cred", result.Value.Passkeys[0].CredentialBase64);
+        Assert.Single(result.Value);
+        Assert.Equal("new-cred", result.Value[0].CredentialBase64);
     }
 
     [Fact]
     public async Task GetStoredPasskeysAsync_ReturnsEmptyList_WhenNoPasskeys() {
         // Arrange
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(null));
-
+        SetupPasskeyMocks(TestDigest, []);
         var service = CreateService();
 
         // Act
@@ -134,7 +125,7 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Empty(result.Value.Passkeys);
+        Assert.Empty(result.Value);
     }
 
     #endregion
@@ -142,71 +133,12 @@ public class WebauthnServiceTests {
     #region RemovePasskeyAsync Tests
 
     [Fact]
-    public async Task RemovePasskeyAsync_UsesLocalStorage() {
-        // Arrange
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "cred-to-remove",
-                    Transports = ["usb"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.SetItem(It.IsAny<StoredPasskeys>(), StorageArea.Local))
-            .ReturnsAsync(Result.Ok());
-
-        var service = CreateService();
-
-        // Act
-        var result = await service.RemovePasskeyAsync("cred-to-remove");
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        _mockStorageService.Verify(
-            s => s.SetItem(It.IsAny<StoredPasskeys>(), StorageArea.Local),
-            Times.Once
-        );
-    }
-
-    [Fact]
     public async Task RemovePasskeyAsync_RemovesMatchingPasskey() {
         // Arrange
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "cred-to-keep",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                },
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "cred-to-remove",
-                    Transports = ["usb"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.SetItem(It.IsAny<StoredPasskeys>(), StorageArea.Local))
-            .ReturnsAsync(Result.Ok());
-
+        SetupPasskeyMocks(TestDigest, [
+            MakePasskey("cred-to-keep"),
+            MakePasskey("cred-to-remove")
+        ]);
         var service = CreateService();
 
         // Act
@@ -216,9 +148,9 @@ public class WebauthnServiceTests {
         Assert.True(result.IsSuccess);
         _mockStorageService.Verify(
             s => s.SetItem(
-                It.Is<StoredPasskeys>(sp =>
-                    sp.Passkeys.Count == 1 &&
-                    sp.Passkeys[0].CredentialBase64 == "cred-to-keep"),
+                It.Is<KeriaConnectConfigs>(kcc =>
+                    kcc.Configs[TestDigest].Passkeys.Count == 1 &&
+                    kcc.Configs[TestDigest].Passkeys[0].CredentialBase64 == "cred-to-keep"),
                 StorageArea.Local),
             Times.Once
         );
@@ -227,23 +159,7 @@ public class WebauthnServiceTests {
     [Fact]
     public async Task RemovePasskeyAsync_Fails_WhenNotFound() {
         // Arrange
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "existing-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-
+        SetupPasskeyMocks(TestDigest, [MakePasskey("existing-cred")]);
         var service = CreateService();
 
         // Act
@@ -260,23 +176,7 @@ public class WebauthnServiceTests {
 
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPreferencesNotFound() {
-        // Arrange - Preferences storage lookup fails
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "test-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        // Arrange
         _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Fail<Preferences?>("Preferences not found"));
 
@@ -292,31 +192,8 @@ public class WebauthnServiceTests {
 
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenSelectedKeriaConnectionDigestNull() {
-        // Arrange - SelectedKeriaConnectionDigest is null
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "test-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        var prefs = new Preferences {
-            KeriaPreference = new KeriaPreference {
-                SelectedKeriaConnectionDigest = null  // Not selected
-            }
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
+        // Arrange
+        SetupPasskeyMocks(null, []);
 
         var service = CreateService();
 
@@ -330,29 +207,8 @@ public class WebauthnServiceTests {
 
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenSelectedKeriaConnectionDigestEmpty() {
-        // Arrange - SelectedKeriaConnectionDigest is empty string
-        var passkeys = new StoredPasskeys {
-            Passkeys = [
-                new StoredPasskey {
-                    SchemaVersion = StoredPasskeySchema.CurrentVersion,
-                    CredentialBase64 = "test-cred",
-                    Transports = ["internal"],
-                    EncryptedPasscodeBase64 = "enc",
-                    KeriaConnectionDigest = "test-keria-connection-digest",
-                    Aaguid = "00000000-0000-0000-0000-000000000000",
-                    CreationTime = DateTime.UtcNow
-                }
-            ]
-        };
-
-        var prefs = new Preferences {
-            KeriaPreference = new KeriaPreference {
-                SelectedKeriaConnectionDigest = ""  // Empty string
-            }
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
+        // Arrange
+        var prefs = new Preferences { SelectedKeriaConnectionDigest = "" };
         _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
@@ -368,21 +224,8 @@ public class WebauthnServiceTests {
 
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenNoStoredPasskeys() {
-        // Arrange - No passkeys stored, but valid preferences
-        var passkeys = new StoredPasskeys {
-            Passkeys = []
-        };
-
-        var prefs = new Preferences {
-            KeriaPreference = new KeriaPreference {
-                SelectedKeriaConnectionDigest = "test-digest"
-            }
-        };
-
-        _mockStorageService.Setup(s => s.GetItem<StoredPasskeys>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<StoredPasskeys?>(passkeys));
-        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
-            .ReturnsAsync(Result.Ok<Preferences?>(prefs));
+        // Arrange
+        SetupPasskeyMocks(TestDigest, []);
 
         var service = CreateService();
 

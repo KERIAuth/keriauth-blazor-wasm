@@ -68,6 +68,12 @@ namespace Extension.Models {
         [JsonPropertyName("ProvenAt")]
         public DateTime? ProvenAt { get; init; }
 
+        [JsonPropertyName("Connections")]
+        public List<Connection> Connections { get; init; } = [];
+
+        [JsonPropertyName("Passkeys")]
+        public List<StoredPasskey> Passkeys { get; init; } = [];
+
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();
 

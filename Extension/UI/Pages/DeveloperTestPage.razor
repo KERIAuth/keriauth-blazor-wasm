@@ -160,7 +160,7 @@
 
     string? GetFirstConnectionReceiverPrefix()
     {
-        var first = appCache.MyConnections.Items.FirstOrDefault();
+        var first = appCache.MyConnections.FirstOrDefault();
         if (first is null)
         {
             logger.LogWarning("SimulateRequestIpex: No connections available");

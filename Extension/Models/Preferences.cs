@@ -2,7 +2,13 @@
     using System.Text.Json.Serialization;
     using Extension.Models.Storage;
 
-    public record Preferences : IStorageModel {
+    public record Preferences : IVersionedStorageModel {
+
+        [JsonPropertyName("SchemaVersion")]
+        public int SchemaVersion { get; init; } = 2;
+
+        [JsonPropertyName("SelectedKeriaConnectionDigest")]
+        public string? SelectedKeriaConnectionDigest { get; init; }
 
         [JsonPropertyName("IsDarkTheme")]
         public bool IsDarkTheme { get; init; } = AppConfig.DefaultIsDarkTheme;
@@ -20,12 +26,6 @@
         /// </summary>
         [JsonPropertyName("IsMultiKeriaOnUnlock")]
         public bool IsMultiKeriaOnUnlock { get; init; }
-
-        /// <summary>
-        /// KERIA-specific preferences including selected connection and AID prefix.
-        /// </summary>
-        [JsonPropertyName("KeriaPreference")]
-        public KeriaPreference KeriaPreference { get; init; } = new();
 
         [JsonPropertyName("IsStored")]
         public bool IsStored { get; init; }

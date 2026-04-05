@@ -121,10 +121,9 @@ public class ConfigureService : IConfigureService {
                 return await FailAndCleanupAsync(4, "Configuration not found for computed digest");
             }
 
-            // Store KeriaConnectionInfo with empty identifiers — BW handler will populate lazily
+            // Store KeriaConnectionInfo — identifiers are stored separately in CachedIdentifiers
             var connectionInfo = new KeriaConnectionInfo {
-                KeriaConnectionDigest = completeDigest,
-                IdentifiersList = []
+                KeriaConnectionDigest = completeDigest
             };
             var storeConnectionResult = await _storageService.SetItem(connectionInfo, StorageArea.Session);
             if (storeConnectionResult.IsFailed) {
@@ -203,9 +202,7 @@ public class ConfigureService : IConfigureService {
                 ? prefsResult.Value
                 : new Preferences { IsStored = true };
             var updatedPrefs = currentPrefs with {
-                KeriaPreference = currentPrefs.KeriaPreference with {
-                    SelectedKeriaConnectionDigest = digest
-                }
+                SelectedKeriaConnectionDigest = digest
             };
             var prefsStoreResult = await _storageService.SetItem(updatedPrefs);
             if (prefsStoreResult.IsFailed) {
@@ -235,7 +232,7 @@ public class ConfigureService : IConfigureService {
         // If the selected digest was an unproven config, revert to most recent proven config
         var prefsResult = await _storageService.GetItem<Preferences>();
         if (prefsResult.IsSuccess && prefsResult.Value is not null) {
-            var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+            var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
             if (selectedDigest is not null && unprovenKeys.Contains(selectedDigest)) {
                 var mostRecentProven = newDict
                     .Where(kvp => kvp.Value.ProvenAt is not null)
@@ -244,9 +241,7 @@ public class ConfigureService : IConfigureService {
                     .FirstOrDefault();
 
                 var updatedPrefs = prefsResult.Value with {
-                    KeriaPreference = prefsResult.Value.KeriaPreference with {
-                        SelectedKeriaConnectionDigest = mostRecentProven
-                    }
+                    SelectedKeriaConnectionDigest = mostRecentProven
                 };
                 await _storageService.SetItem(updatedPrefs);
             }

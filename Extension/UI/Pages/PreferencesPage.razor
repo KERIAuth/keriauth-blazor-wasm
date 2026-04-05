@@ -76,7 +76,7 @@
             })
             .Where(item => !string.IsNullOrEmpty(item.Digest))
             .ToList();
-        _selectedKeriaConfigDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest ?? "";
+        _selectedKeriaConfigDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest ?? "";
     }
 
     public void Dispose()
@@ -150,14 +150,11 @@
 
             _selectedKeriaConfigDigest = digest;
 
-            var newKeriaPreference = Prefs.KeriaPreference with {
-                SelectedKeriaConnectionDigest = digest
-            };
-            await Persist(Prefs with { KeriaPreference = newKeriaPreference });
+            await Persist(Prefs with { SelectedKeriaConnectionDigest = digest });
 
             // Wait for appCache to reflect the new preference
             await appCache.WaitForAppCache([
-                () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == digest
+                () => appCache.MyPreferences.SelectedKeriaConnectionDigest == digest
             ]);
 
             snackbar.Add("Configuration changed. Session locked.", Severity.Info);
@@ -171,7 +168,7 @@
         // Reset with to defaults with some exceptions
         await Persist(AppConfig.DefaultPreferences with
         {
-            KeriaPreference = Prefs.KeriaPreference, // Preserve KERIA selection
+            SelectedKeriaConnectionDigest = Prefs.SelectedKeriaConnectionDigest, // Preserve KERIA selection
             // Note: Don't casually disable multi-KERIA config. Might lose configuration access. User can manually disable if they want to reset that too.
             IsMultiKeriaConfigEnabled = Prefs.IsMultiKeriaConfigEnabled,
             IsStored = true

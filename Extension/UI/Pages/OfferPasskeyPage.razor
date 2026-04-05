@@ -53,7 +53,7 @@
 
     async Task PersistWasPasskeySuggested()
     {
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        var selectedDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest))
         {
             logger.LogWarning("PersistWasPasskeySuggested: No selected KERIA connection digest");

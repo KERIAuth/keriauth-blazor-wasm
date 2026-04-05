@@ -37,7 +37,7 @@
     private string _editingConnectionName = "";
 
     // Computed properties
-    bool IsSelected => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == Digest;
+    bool IsSelected => appCache.MyPreferences.SelectedKeriaConnectionDigest == Digest;
     bool IsOnlyConfig => appCache.MyKeriaConnectConfigs.Configs.Count == 1;
     bool HasPasskeys => _passkeyCount > 0;
     string PasskeyLabel => _passkeyCount switch {
@@ -53,7 +53,7 @@
         });
 
         RefreshConfig();
-        await LoadPasskeyCount();
+        LoadPasskeyCount();
 
         if (_config is null) {
             logger.LogWarning("Config not found for digest {Digest}, redirecting to list", Digest);
@@ -70,35 +70,34 @@
         }
     }
 
-    private async Task LoadPasskeyCount() {
-        var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
-        if (passkeysResult.IsSuccess) {
-            _passkeyCount = passkeysResult.Value.Passkeys.Count(p => p.KeriaConnectionDigest == Digest);
+    private void LoadPasskeyCount() {
+        if (Digest is not null && appCache.MyKeriaConnectConfigs.Configs.TryGetValue(Digest, out var config)) {
+            _passkeyCount = config.Passkeys.Count;
         }
     }
 
     private async Task SetAsActive() {
         if (IsSelected) return;
 
-        // Update preference BEFORE clearing session, because clearing session triggers
-        // BaseLayout to navigate to Index→UnlockPage. The new config digest must already
-        // be in place so UnlockPage finds the correct passkeys.
+        // Update preference BEFORE clearing session, so UnlockPage finds the correct passkeys.
         var prefs = appCache.MyPreferences;
-        var newKeriaPreference = prefs.KeriaPreference with {
-            SelectedKeriaConnectionDigest = Digest
-        };
-        await storageService.SetItem<Preferences>(prefs with { KeriaPreference = newKeriaPreference });
+        await storageService.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = Digest });
 
         await appCache.WaitForAppCache([
-            () => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest == Digest
+            () => appCache.MyPreferences.SelectedKeriaConnectionDigest == Digest
         ]);
 
-        // Clear session if currently authenticated — this triggers BaseLayout navigation to UnlockPage
+        // Clear session storage and in-memory state
         if (appCache.IsAuthenticated) {
             await sessionManager.ClearSessionForConfigChangeAsync();
         }
 
-        snackbar.Add("Configuration set as active", Severity.Success);
+        // Synchronously clear AppCache so IsAuthenticated becomes false immediately,
+        // rather than waiting for async storage.onChanged notifications
+        appCache.ClearSessionState();
+
+        snackbar.Add("Configuration changed. Please unlock.", Severity.Info);
+        navManager.NavigateTo(Routes.Paths.Router);
     }
 
     // Provider Name editing
@@ -156,14 +155,10 @@
     private async Task SaveConfigAsync(KeriaConnectConfig updatedConfig) {
         if (Digest is null) return;
         var configs = appCache.MyKeriaConnectConfigs;
-        var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
             [Digest] = updatedConfig
         };
-
-        await storageService.SetItem(new KeriaConnectConfigs {
-            Configs = updatedConfigs,
-            IsStored = true
-        });
+        await storageService.SetItem(configs with { Configs = updatedDict });
     }
 
     private async Task DeleteConfig() {
@@ -194,41 +189,23 @@
                     .FirstOrDefault(d => d != Digest);
 
                 var prefs = appCache.MyPreferences;
-                var newKeriaPreference = prefs.KeriaPreference with {
-                    SelectedKeriaConnectionDigest = otherDigest
-                };
-                await storageService.SetItem<Preferences>(prefs with { KeriaPreference = newKeriaPreference });
+                await storageService.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = otherDigest });
 
                 if (appCache.IsAuthenticated) {
                     await sessionManager.ClearSessionForConfigChangeAsync();
                 }
             }
 
-            // Delete passkeys if requested
-            if (deletePasskeys && HasPasskeys) {
-                var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
-                if (passkeysResult.IsSuccess) {
-                    var toDelete = passkeysResult.Value.Passkeys
-                        .Where(p => p.KeriaConnectionDigest == Digest)
-                        .Select(p => p.CredentialBase64)
-                        .ToList();
-
-                    foreach (var credId in toDelete) {
-                        await webauthnService.RemovePasskeyAsync(credId);
-                    }
-                }
-            }
+            // Passkeys are nested within the config and will be deleted along with it.
+            // If user chose not to delete passkeys but the config is being removed,
+            // the passkeys are lost with the config (by design — passkeys are per-config).
 
             // Delete the config
             if (Digest is null) return;
             var configs = appCache.MyKeriaConnectConfigs;
-            var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
-            updatedConfigs.Remove(Digest);
-
-            await storageService.SetItem(new KeriaConnectConfigs {
-                Configs = updatedConfigs,
-                IsStored = true
-            });
+            var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
+            updatedDict.Remove(Digest);
+            await storageService.SetItem(configs with { Configs = updatedDict });
 
             snackbar.Add("Configuration deleted", Severity.Success);
             navManager.NavigateTo(Routes.Paths.KeriaConfigs);
@@ -372,13 +349,13 @@ else
 
                 @if (!IsSelected)
                 {
-                    <!-- Set as Active Section -->
+                    <!-- Set as active Section -->
                     <MudDivider Class="my-4" />
                     <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    OnClick="SetAsActive">
-                            Set as Active
+                            Set as active
                         </MudButton>
                     </MudStack>
                 }

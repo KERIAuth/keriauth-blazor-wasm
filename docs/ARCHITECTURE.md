@@ -61,13 +61,13 @@ Extension/                        # Main Blazor WASM project (App + BackgroundWo
     Crypto/                       # Web Crypto API wrappers
     Storage/                      # chrome.storage abstraction
       StorageService.cs           # Typed get/set with IObservable change notifications
-      StorageConstants.cs         # Storage key constants
+      StorageModelRegistry.cs     # Schema version registry for Local storage records
     NotificationPollingService/   # KERIA notification polling
     PrimeDataService/             # Bootstrap data initialization
   Models/                         # Data models and message types
     Identifier.cs                 # KERI identifier model
     Website.cs                    # Website metadata
-    CachedCredential.cs           # Cached credential wrapper
+    CachedCredentials.cs          # Cached credentials (per-credential dictionary keyed by SAID)
     CredentialViewNode.cs         # View model tree records (CredentialViewNode, CredentialViewTree)
     CredentialViewModels.cs       # View spec records (CredentialFieldSpec, CredentialViewSpec, CredentialViewOptions)
     PortSession.cs                # Port session state

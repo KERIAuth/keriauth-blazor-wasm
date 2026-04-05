@@ -16,13 +16,11 @@
 @implements IDisposable
 
 @code {
-    private StoredPasskeys _storedPasskeys = new();
-
     // Computed properties (reactive via appCache subscription)
     List<KeyValuePair<string, KeriaConnectConfig>> AllConfigs =>
         [.. appCache.MyKeriaConnectConfigs.Configs];
 
-    string? SelectedDigest => appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+    string? SelectedDigest => appCache.MyPreferences.SelectedKeriaConnectionDigest;
 
     // ViewDef
     List<ViewDef<KeyValuePair<string, KeriaConnectConfig>>> ViewDefs =>
@@ -38,7 +36,7 @@
 
     // Get passkey count for a specific config digest
     int GetPasskeyCount(string digest) =>
-        _storedPasskeys.Passkeys.Count(p => p.KeriaConnectionDigest == digest);
+        appCache.MyKeriaConnectConfigs.Configs.TryGetValue(digest, out var config) ? config.Passkeys.Count : 0;
 
     string GetPasskeyCountLabel(string digest) {
         var count = GetPasskeyCount(digest);
@@ -56,13 +54,6 @@
     protected override async Task OnInitializedAsync() {
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
-
-        // Load passkeys to show count per config
-        var passkeysResult = await webauthnService.GetStoredPasskeysAsync();
-        if (passkeysResult.IsSuccess) {
-            _storedPasskeys = passkeysResult.Value;
-        }
-
         logger.LogInformation("KeriaConfigsPage OnInitializedAsync");
     }
 
@@ -144,10 +135,8 @@
         <MudSpacer />
         @if (IsMultiKeriaConfigEnabled)
         {
-            @* TODO P1 Add is disabled until storage structure, re-fetching, and other bugs fixed *@
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       OnClick="NavigateToAddConfig"
-                       Disabled="@(AllConfigs.Count > 0)">
+                       OnClick="NavigateToAddConfig">
                 Add Config
             </MudButton>
         }

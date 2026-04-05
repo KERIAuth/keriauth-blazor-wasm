@@ -9,7 +9,6 @@
 @using static Extension.AppConfig;
 @using static Extension.Helper.Identicon;
 @using static Extension.Helper.PreviousPage
-@using static Extension.Helper.PasskeyHelper
 @using System.Diagnostics
 @using System.Text.Json
 @using System.Linq;
@@ -28,40 +27,16 @@
 
 @code {
     // fields
-    StoredPasskeys MyStoredPasskeys = new();
+    List<StoredPasskey> MyStoredPasskeys = [];
     string? CurrentKeriaConnectionDigest = null;
 
-    // ViewDef
-    List<ViewDef<StoredPasskey>> PasskeyViewDefs =>
-    [
-        new(ViewDefIds.PasskeyCurrent, "Current KERIA connection",
-            FilterSets: [new("CurrentConfig", [p => p.KeriaConnectionDigest == CurrentKeriaConnectionDigest])],
-            CountStyle: CountStyle.ForProfile,
-            SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])]),
-        new(ViewDefIds.PasskeyAll, "All",
-            CountStyle: CountStyle.Total,
-            SortSets: [new("Created", [new SortExpression<StoredPasskey>(p => p.CreationTime, Descending: true)])])
-    ];
-    string selectedViewDefId =>
-        appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(Passkeys), out var savedId) && PasskeyViewDefs.Any(v => v.Id == savedId)
-            ? savedId
-            : ViewDefIds.PasskeyCurrent;
-    ViewDef<StoredPasskey>? SelectedViewDef => PasskeyViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
-    List<StoredPasskey> DisplayedPasskeys => ViewDefHelper.Apply(MyStoredPasskeys.Passkeys, SelectedViewDef);
+    List<StoredPasskey> DisplayedPasskeys => MyStoredPasskeys
+        .OrderByDescending(p => p.CreationTime)
+        .ToList();
 
     protected override async Task OnInitializedAsync()
     {
         logger.LogInformation($"OnInitializedAsync");
-
-    }
-
-    async Task OnViewDefChanged(string newId)
-    {
-        var updatedIds = new Dictionary<string, string>(appCache.MyPreferences.SelectedViewDefIds)
-        {
-            [nameof(Passkeys)] = newId
-        };
-        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     protected override async Task OnParametersSetAsync()
@@ -82,8 +57,6 @@
         }
     }
 
-    bool IsConsistentWithCurrentKeriaConnection(StoredPasskey passkey) =>
-        IsConsistentWithKeriaConnection(passkey, CurrentKeriaConnectionDigest);
 
     async Task AddPasskey()
     {
@@ -92,21 +65,21 @@
 
     async Task rename(string newName, string credentialBase64)
     {
-        if (newName.Length == 0)
-        {
-            return;
-        }
-        var updatedPasskeys = MyStoredPasskeys with
-            {
-                Passkeys = MyStoredPasskeys.Passkeys
-                        .Select(pk => pk.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
-                            ? pk with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
-                            : pk)
-                        .ToList(),
-                IsStored = true
-            };
-        // Use StorageService via type-safe model
-        var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
+        if (newName.Length == 0) return;
+
+        var digest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) return;
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(digest, out var config)) return;
+
+        var updatedPasskeys = config.Passkeys
+            .Select(pk => pk.CredentialBase64.GetHashCode() == credentialBase64.GetHashCode()
+                ? pk with { Name = newName, LastUpdatedUtc = DateTime.UtcNow }
+                : pk)
+            .ToList();
+        var updatedConfig = config with { Passkeys = updatedPasskeys };
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
+        var saveResult = await storageService.SetItem(configs with { Configs = updatedDict });
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save passkey changes", Severity.Error);
@@ -114,7 +87,6 @@
             return;
         }
         snackbar.Add("Successfully renamed passkey", Severity.Success);
-        // update page's collection
         var result = await webauthnService.GetStoredPasskeysAsync();
         if (result.IsSuccess)
         {
@@ -147,7 +119,7 @@
 
     async Task UpdateTransport(string credentialBase64, string transport, bool isEnabled)
     {
-        var passkey = MyStoredPasskeys.Passkeys
+        var passkey = MyStoredPasskeys
             .FirstOrDefault(a => a.CredentialBase64 == credentialBase64);
         if (passkey == null) return;
 
@@ -172,17 +144,19 @@
             return;
         }
 
-        var updatedPasskeys = MyStoredPasskeys with
-        {
-            Passkeys = MyStoredPasskeys.Passkeys
-                .Select(pk => pk.CredentialBase64 == credentialBase64
-                    ? pk with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
-                    : pk)
-                .ToList(),
-            IsStored = true
-        };
+        var digest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) return;
+        var configs = appCache.MyKeriaConnectConfigs;
+        if (!configs.Configs.TryGetValue(digest, out var config)) return;
 
-        var saveResult = await storageService.SetItem<StoredPasskeys>(updatedPasskeys, StorageArea.Local);
+        var updatedPasskeys = config.Passkeys
+            .Select(pk => pk.CredentialBase64 == credentialBase64
+                ? pk with { Transports = currentTransports.ToArray(), LastUpdatedUtc = DateTime.UtcNow }
+                : pk)
+            .ToList();
+        var updatedConfig = config with { Passkeys = updatedPasskeys };
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
+        var saveResult = await storageService.SetItem(configs with { Configs = updatedDict });
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save transport changes", Severity.Error);
@@ -221,7 +195,7 @@
         }
     }
 
-    bool HasPasskeys => MyStoredPasskeys.Passkeys.Any();
+    bool HasPasskeys => MyStoredPasskeys.Any();
 
     /// <summary>
     /// Gets the appropriate icon for a passkey based on the current theme.
@@ -244,12 +218,7 @@
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
                 <PageHeading Title="Passkeys" />
-                <ViewSelector T="StoredPasskey"
-                              ViewDefs="@PasskeyViewDefs"
-                              SelectedViewDefId="@selectedViewDefId"
-                              SelectedViewDefIdChanged="@OnViewDefChanged"
-                              FilteredCount="@DisplayedPasskeys.Count"
-                              TotalCount="@MyStoredPasskeys.Passkeys.Count" />
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@MyStoredPasskeys.Count passkeys</MudText>
                 <MudStack Class="pt-4">
                     @if (DisplayedPasskeys.Any())
                     {
@@ -277,17 +246,6 @@
                                     </MudStack>
                                     <MudText Class="bt-text-light-small"><span>Created: </span>@pk.CreationTime.ToString("u")</MudText>
                                     <MudText Class="bt-text-light-small"><span>Updated: </span>@pk.LastUpdatedUtc.ToString("u")</MudText>
-                                    @{
-                                        var isConsistent = IsConsistentWithCurrentKeriaConnection(pk);
-                                    }
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
-                                        <MudIcon Icon="@(isConsistent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
-                                                 Color="@(isConsistent ? Color.Success : Color.Error)"
-                                                 Size="Size.Small" />
-                                        <MudText Color="@(isConsistent ? Color.Success : Color.Error)" Class="bt-text-light-small">
-                                            Consistent with configured KERIA Service
-                                        </MudText>
-                                    </MudStack>
                                     <MudText Class="mt-2 bt-text-light-small">Transports:</MudText>
                                     <MudStack Row="true" Class="ml-2 bt-transport-wrap">
                                         @foreach (var transport in AllTransports)

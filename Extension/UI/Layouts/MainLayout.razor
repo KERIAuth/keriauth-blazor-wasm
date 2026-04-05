@@ -136,7 +136,7 @@
     async Task SetActiveAid(string prefix)
     {
         // Update SelectedPrefix in the current KeriaConnectConfig
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        var selectedDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
         if (!string.IsNullOrEmpty(selectedDigest))
         {
             var configs = appCache.MyKeriaConnectConfigs;

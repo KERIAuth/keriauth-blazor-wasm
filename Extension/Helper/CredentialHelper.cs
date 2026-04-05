@@ -20,6 +20,38 @@ public static class CredentialHelper {
     };
 
     /// <summary>
+    /// Splits a raw JSON array of credentials into a dictionary keyed by sad.d (SAID).
+    /// Uses JsonDocument to iterate elements and GetRawText() to preserve field ordering.
+    /// </summary>
+    public static Dictionary<string, string> SplitCredentialsArrayToDict(string rawJsonArray) {
+        var result = new Dictionary<string, string>();
+        using var doc = JsonDocument.Parse(rawJsonArray);
+        foreach (var element in doc.RootElement.EnumerateArray()) {
+            if (element.TryGetProperty("sad", out var sad) && sad.TryGetProperty("d", out var d)) {
+                var said = d.GetString();
+                if (!string.IsNullOrEmpty(said)) {
+                    result[said] = element.GetRawText();
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Deserializes a dictionary of credentials (keyed by sad.d, values are raw JSON) into List of RecursiveDictionary.
+    /// </summary>
+    public static List<RecursiveDictionary> DeserializeCredentialsDict(Dictionary<string, string> credentials) {
+        if (credentials is null || credentials.Count == 0) return [];
+        return credentials.Values
+            .Select(rawJson => {
+                var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(rawJson, DeserializeOptions);
+                return dict is not null ? RecursiveDictionary.FromObjectDictionary(dict) : null;
+            })
+            .Where(rd => rd is not null)
+            .ToList()!;
+    }
+
+    /// <summary>
     /// Deserializes raw JSON from signify-ts getCredentialsList() into List of RecursiveDictionary.
     /// Uses DictionaryConverter to preserve field ordering for CESR/SAID integrity.
     /// </summary>

@@ -146,7 +146,7 @@ public class SessionManager : IDisposable {
                 return FluentResults.Result.Fail("Preferences not found");
             }
 
-            var selectedDigest = prefsRes.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+            var selectedDigest = prefsRes.Value.SelectedKeriaConnectionDigest;
             if (string.IsNullOrEmpty(selectedDigest)) {
                 return FluentResults.Result.Fail("No KERIA configuration selected");
             }
@@ -418,6 +418,12 @@ public class SessionManager : IDisposable {
                 $"Failed to remove KeriaConnectionInfo: {removeConnectionRes.Errors[0].Message}");
         }
 
+        var removeCachedIdentifiersRes = await _storageService.RemoveItem<CachedIdentifiers>(StorageArea.Session);
+        if (removeCachedIdentifiersRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove CachedIdentifiers: {removeCachedIdentifiersRes.Errors[0].Message}");
+        }
+
         var removeCredentialsRes = await _storageService.RemoveItem<CachedCredentials>(StorageArea.Session);
         if (removeCredentialsRes.IsFailed) {
             throw new InvalidOperationException(
@@ -428,6 +434,18 @@ public class SessionManager : IDisposable {
         if (removeNotificationsRes.IsFailed) {
             throw new InvalidOperationException(
                 $"Failed to remove Notifications: {removeNotificationsRes.Errors[0].Message}");
+        }
+
+        var removePollingStateRes = await _storageService.RemoveItem<PollingState>(StorageArea.Session);
+        if (removePollingStateRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove PollingState: {removePollingStateRes.Errors[0].Message}");
+        }
+
+        var removePendingRequestsRes = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+        if (removePendingRequestsRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to remove PendingBwAppRequests: {removePendingRequestsRes.Errors[0].Message}");
         }
 
         var removeResolvedSchemasRes = await _storageService.RemoveItem<ResolvedSchemas>(StorageArea.Session);

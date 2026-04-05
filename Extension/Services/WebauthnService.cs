@@ -209,14 +209,24 @@ public class WebauthnService : IWebauthnService {
                 LastUpdatedUtc = creationTime
             };
 
-            // Add to storage
-            var existingData = await GetStoredPasskeysDataAsync();
-            var allPasskeys = existingData.Passkeys.ToList();
+            // Add to storage within the current KeriaConnectConfig
+            var digestResult2 = await GetCurrentKeriaConnectionDigestAsync();
+            if (digestResult2.IsFailed) return Result.Fail<string>("No KERIA configuration selected");
+
+            var configsResult2 = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+            if (configsResult2.IsFailed || configsResult2.Value is null) return Result.Fail<string>("Could not retrieve KeriaConnectConfigs");
+
+            var digest2 = digestResult2.Value;
+            if (!configsResult2.Value.Configs.TryGetValue(digest2, out var config2)) {
+                return Result.Fail<string>("Config not found for current digest");
+            }
+
+            var allPasskeys = config2.Passkeys.ToList();
             allPasskeys.Add(newPasskey);
 
-            var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { Passkeys = allPasskeys, IsStored = true },
-                StorageArea.Local);
+            var updatedConfig2 = config2 with { Passkeys = allPasskeys };
+            var updatedDict2 = new Dictionary<string, KeriaConnectConfig>(configsResult2.Value.Configs) { [digest2] = updatedConfig2 };
+            var storeResult = await _storageService.SetItem(configsResult2.Value with { Configs = updatedDict2 });
             if (storeResult.IsFailed) {
                 _logger.LogError(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
                 return Result.Fail<string>("Failed to store passkey");
@@ -321,27 +331,37 @@ public class WebauthnService : IWebauthnService {
         }
     }
 
-    public async Task<Result<StoredPasskeys>> GetStoredPasskeysAsync() {
+    public async Task<Result<List<StoredPasskey>>> GetStoredPasskeysAsync() {
         var data = await GetStoredPasskeysDataAsync();
-        var validPasskeys = data.Passkeys
+        var validPasskeys = data
             .Where(a => a.SchemaVersion == StoredPasskeySchema.CurrentVersion)
             .ToList();
-        return Result.Ok(data with { Passkeys = validPasskeys });
+        return Result.Ok(validPasskeys);
     }
 
     public async Task<Result> RemovePasskeyAsync(string credentialBase64) {
         try {
-            var existingData = await GetStoredPasskeysDataAsync();
-            var allPasskeys = existingData.Passkeys.ToList();
+            var digestResult = await GetCurrentKeriaConnectionDigestAsync();
+            if (digestResult.IsFailed) return Result.Fail(digestResult.Errors);
+
+            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+            if (configsResult.IsFailed || configsResult.Value is null) return Result.Fail("Could not retrieve KeriaConnectConfigs");
+
+            var digest = digestResult.Value;
+            if (!configsResult.Value.Configs.TryGetValue(digest, out var config)) {
+                return Result.Fail("Config not found");
+            }
+
+            var allPasskeys = config.Passkeys.ToList();
             var removed = allPasskeys.RemoveAll(a => a.CredentialBase64 == credentialBase64);
 
             if (removed == 0) {
                 return Result.Fail("Passkey not found");
             }
 
-            var storeResult = await _storageService.SetItem(
-                new StoredPasskeys { Passkeys = allPasskeys, IsStored = true },
-                StorageArea.Local);
+            var updatedConfig = config with { Passkeys = allPasskeys };
+            var updatedDict = new Dictionary<string, KeriaConnectConfig>(configsResult.Value.Configs) { [digest] = updatedConfig };
+            var storeResult = await _storageService.SetItem(configsResult.Value with { Configs = updatedDict });
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
             }
@@ -501,17 +521,18 @@ public class WebauthnService : IWebauthnService {
     }
 
     /// <summary>
-    /// Gets the full StoredPasskeys data from local storage.
-    /// KeriaConnectionDigest is now computed from KeriaConnectConfig, not stored at collection level.
+    /// Gets passkeys for the currently selected KERIA config from KeriaConnectConfigs.
     /// </summary>
-    private async Task<StoredPasskeys> GetStoredPasskeysDataAsync() {
-        var result = await _storageService.GetItem<StoredPasskeys>(StorageArea.Local);
-        if (result.IsSuccess && result.Value is not null) {
-            return result.Value;
-        }
+    private async Task<List<StoredPasskey>> GetStoredPasskeysDataAsync() {
+        var digestResult = await GetCurrentKeriaConnectionDigestAsync();
+        if (digestResult.IsFailed) return [];
 
-        // Return empty structure - KeriaConnectionDigest is computed separately from KeriaConnectConfig
-        return new StoredPasskeys { Passkeys = [] };
+        var configsResult = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+        if (configsResult.IsFailed || configsResult.Value is null) return [];
+
+        return configsResult.Value.Configs.TryGetValue(digestResult.Value, out var config)
+            ? config.Passkeys
+            : [];
     }
 
     /// <summary>
@@ -523,7 +544,7 @@ public class WebauthnService : IWebauthnService {
         if (prefsResult.IsFailed || prefsResult.Value is null) {
             return Result.Fail<string>("Could not retrieve Preferences for KeriaConnectionDigest");
         }
-        var digest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+        var digest = prefsResult.Value.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(digest)) {
             return Result.Fail<string>("No KERIA configuration selected");
         }
@@ -561,7 +582,7 @@ public class WebauthnService : IWebauthnService {
     /// </summary>
     private async Task<List<StoredPasskey>> GetAllPasskeysFromStorageAsync() {
         var data = await GetStoredPasskeysDataAsync();
-        return data.Passkeys.ToList();
+        return data.ToList();
     }
 
     /// <summary>

@@ -2503,17 +2503,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         connectionInfo.IsSuccess, connectionInfo.Value is not null);
 
                     if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
-                        // Update existing KeriaConnectionInfo with new identifiers
+                        // Update CachedIdentifiers with new identifiers
                         await _storageService.SetItem(
-                            connectionInfo.Value with {
-                                IdentifiersList = [identifiersResult.Value]
-                            },
+                            new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
                             StorageArea.Session);
-                        logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated existing KeriaConnectionInfo with identifiers");
+                        logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
                     }
                     else {
                         // KeriaConnectionInfo doesn't exist - create it using the digest computed from connect data
-                        // Compute the digest from the connect request/result data
                         var tempConfig = new KeriaConnectConfig(
                             providerName: null,
                             adminUrl: connectRequest.AdminUrl,
@@ -2529,11 +2526,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         }
                         else {
                             var newConnectionInfo = new KeriaConnectionInfo {
-                                KeriaConnectionDigest = digestResult.Value,
-                                IdentifiersList = [identifiersResult.Value]
+                                KeriaConnectionDigest = digestResult.Value
                             };
                             await _storageService.SetItem(newConnectionInfo, StorageArea.Session);
-                            logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created new KeriaConnectionInfo in session storage with digest: {Digest}", digestResult.Value);
+                            await _storageService.SetItem(
+                                new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
+                                StorageArea.Session);
+                            logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
                         }
                     }
                 }
@@ -2599,7 +2598,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             var rawJsonResult = await _signifyClientService.GetCredentialsRaw();
             if (rawJsonResult.IsSuccess) {
-                await _storageService.SetItem(new CachedCredentials(rawJsonResult.Value), StorageArea.Session);
+                var credentialsDict = CredentialHelper.SplitCredentialsArrayToDict(rawJsonResult.Value);
+                await _storageService.SetItem(new CachedCredentials { Credentials = credentialsDict }, StorageArea.Session);
+                await UpdatePollingTimestampAsync(ps => ps with { CredentialsLastFetchedUtc = DateTime.UtcNow });
                 logger.LogInformation(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
             }
             else {
@@ -4421,11 +4422,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     ConnectionDate = DateTime.UtcNow
                 };
 
-                var connectionsResult = await _storageService.GetItem<Models.Storage.Connections>();
-                var currentItems = connectionsResult.IsSuccess && connectionsResult.Value is not null
-                    ? connectionsResult.Value.Items : [];
-                var newItems = new List<Connection>(currentItems) { connection };
-                await _storageService.SetItem(new Models.Storage.Connections { Items = newItems });
+                var prefsResult2 = await _storageService.GetItem<Preferences>();
+                var digest2 = prefsResult2.IsSuccess ? prefsResult2.Value?.SelectedKeriaConnectionDigest : null;
+                if (!string.IsNullOrEmpty(digest2)) {
+                    var configsResult2 = await _storageService.GetItem<KeriaConnectConfigs>();
+                    if (configsResult2.IsSuccess && configsResult2.Value?.Configs.TryGetValue(digest2, out KeriaConnectConfig? cfg) == true) {
+                        var updatedCfg = cfg with { Connections = [.. cfg.Connections, connection] };
+                        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configsResult2.Value.Configs) { [digest2] = updatedCfg };
+                        await _storageService.SetItem(configsResult2.Value with { Configs = updatedDict });
+                    }
+                }
 
                 logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": Connection persisted, name={Name}, sender={Sender}, receiver={Receiver}",
                     connection.Name, connection.SenderPrefix, connection.ReceiverPrefix);
@@ -4590,7 +4596,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Read SelectedPrefix from current KeriaConnectConfig
             var prefsResult = await _storageService.GetItem<Preferences>();
             var selectedDigest = prefsResult.IsSuccess && prefsResult.Value is not null
-                ? prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest
+                ? prefsResult.Value.SelectedKeriaConnectionDigest
                 : string.Empty;
 
             if (!string.IsNullOrEmpty(selectedDigest)) {
@@ -4842,11 +4848,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var updatedConnectionInfo = connectionInfoResult.Value with {
-                IdentifiersList = [identifiersResult.Value]
-            };
-
-            var setResult = await _storageService.SetItem<KeriaConnectionInfo>(updatedConnectionInfo, StorageArea.Session);
+            var setResult = await _storageService.SetItem(
+                new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
+                StorageArea.Session);
             if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to update storage: {Errors}", errorMsg);
@@ -5100,7 +5104,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return Result.Fail<string>("No KERIA connection info found in session storage");
         }
 
-        var identifiersList = connectionInfoResult.Value.IdentifiersList;
+        var cachedIdentifiers = await _storageService.GetItem<CachedIdentifiers>(StorageArea.Session);
+        var identifiersList = cachedIdentifiers.IsSuccess ? cachedIdentifiers.Value?.IdentifiersList : null;
         if (identifiersList == null || identifiersList.Count == 0) {
             return Result.Fail<string>("No identifiers found in cached connection info");
         }
@@ -5122,15 +5127,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             var identifiersResult = await _signifyClientService.GetIdentifiers();
             if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
-                var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-                if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
-                    await _storageService.SetItem(
-                        connectionInfo.Value with {
-                            IdentifiersList = [identifiersResult.Value]
-                        },
-                        StorageArea.Session);
-                    logger.LogInformation(nameof(RefreshIdentifiersCache) + ": Updated identifiers in session storage");
-                }
+                await _storageService.SetItem(
+                    new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
+                    StorageArea.Session);
+                await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                logger.LogInformation(nameof(RefreshIdentifiersCache) + ": Updated CachedIdentifiers in session storage");
 
                 // Auto-select the first AID if none is selected yet
                 await AutoSelectFirstPrefixIfNeeded(identifiersResult.Value);
@@ -5144,13 +5145,28 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    /// <summary>
+    /// Updates a specific timestamp field on the PollingState session record.
+    /// Reads current state, applies the update function, and writes back.
+    /// </summary>
+    private async Task UpdatePollingTimestampAsync(Func<PollingState, PollingState> update) {
+        try {
+            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
+            var current = result.IsSuccess && result.Value is not null ? result.Value : new PollingState();
+            await _storageService.SetItem(update(current), StorageArea.Session);
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, nameof(UpdatePollingTimestampAsync) + ": Failed to update polling timestamp");
+        }
+    }
+
     private async Task AutoSelectFirstPrefixIfNeeded(Identifiers identifiers) {
         if (identifiers.Aids.Count == 0) return;
 
         var prefsResult = await _storageService.GetItem<Preferences>();
         if (!prefsResult.IsSuccess || prefsResult.Value is null) return;
 
-        var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+        var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest)) return;
 
         var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
@@ -5224,7 +5240,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (prefsResult.IsFailed || prefsResult.Value == null) {
                 return Result.Fail("Preferences not found");
             }
-            var selectedDigest = prefsResult.Value.KeriaPreference.SelectedKeriaConnectionDigest;
+            var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
             if (string.IsNullOrEmpty(selectedDigest)) {
                 return Result.Fail("No KERIA configuration selected");
             }

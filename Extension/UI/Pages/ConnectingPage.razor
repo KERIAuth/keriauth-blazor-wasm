@@ -61,7 +61,7 @@
         var res = await ConnectAndFetchIdentifiers();
         if (res.IsSuccess)
         {
-            await appCache.WaitForAppCache([() => appCache.MyKeriaConnectionInfo.IdentifiersList is not null && appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0]);
+            await appCache.WaitForAppCache([() => appCache.MyCachedIdentifiers.IdentifiersList is not null && appCache.MyCachedIdentifiers.IdentifiersList.Count > 0]);
             // Only navigate if we're still on ConnectingPage (another handler may have navigated away, e.g., to handle a pending request)
             if ("/" + navManager.ToBaseRelativePath(navManager.Uri) == Routes.Paths.Connecting)
             {
@@ -129,8 +129,8 @@
         // BackgroundWorker's Connect handler fetches identifiers and stores them in session storage.
         // Wait for the storage update to be reflected in appCache.
         var waitSuccess = await appCache.WaitForAppCache([
-            () => appCache.MyKeriaConnectionInfo.IdentifiersList is not null &&
-                  appCache.MyKeriaConnectionInfo.IdentifiersList.Count > 0
+            () => appCache.MyCachedIdentifiers.IdentifiersList is not null &&
+                  appCache.MyCachedIdentifiers.IdentifiersList.Count > 0
         ], 30000, 100);
 
         if (!waitSuccess)

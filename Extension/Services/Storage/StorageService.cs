@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Extension.Helper;
 using Extension.Models;
+using Extension.Models.Storage;
 using FluentResults;
 using JsBind.Net;
 using Microsoft.Extensions.Logging;
@@ -276,6 +277,16 @@ public class StorageService : IStorageService, IDisposable {
 
             if (jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(key), out var element)) {
                 var value = JsonSerializer.Deserialize<T>(element, JsonOptions.Storage);
+
+                if (value is IVersionedStorageModel versioned) {
+                    var expected = StorageModelRegistry.GetExpectedVersion(key);
+                    if (expected is not null && versioned.SchemaVersion != expected.Value) {
+                        _logger.LogWarning(nameof(GetItem) + ": {Key} schema version mismatch (stored={Stored}, expected={Expected}). Returning default.",
+                            key, versioned.SchemaVersion, expected.Value);
+                        return Result.Ok<T?>(default);
+                    }
+                }
+
                 _logger.LogDebug(nameof(GetItem) + ": Retrieved {Key} from {Area} storage", key, area);
                 return Result.Ok<T?>(value);
             }

@@ -105,7 +105,7 @@
 
     async Task PersistWasProfileSuggested(string? selectedPrefix = null)
     {
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        var selectedDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest))
         {
             logger.LogWarning("PersistWasProfileSuggested: No selected KERIA connection digest");

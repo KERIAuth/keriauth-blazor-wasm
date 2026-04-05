@@ -2,7 +2,10 @@
 using Extension.Models.Storage;
 
 namespace Extension.Models {
-    public record OnboardState : IStorageModel {
+    public record OnboardState : IVersionedStorageModel {
+        [JsonPropertyName("SchemaVersion")]
+        public int SchemaVersion { get; init; } = 1;
+
         [JsonPropertyName("IsWelcomed")]
         public bool IsWelcomed { get; init; }
 

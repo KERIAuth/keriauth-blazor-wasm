@@ -104,8 +104,7 @@ namespace Extension {
             IsMenuOpenInSidePanelOnStartup = DefaultIsMenuOpenInSidePanelOnStartup,
             IsMenuOpenInTabOnStartup = DefaultIsMenuOpenInTabOnStartup,
             IsSignRequestDetailShown = false,
-            IsStored = false,
-            KeriaPreference = new KeriaPreference()
+            IsStored = false
         };
 
         // Other settings

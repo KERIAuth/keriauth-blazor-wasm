@@ -384,13 +384,13 @@ public class WebauthnModelsTests {
 
     #endregion
 
-    #region StoredPasskeys Collection Tests
+    #region KeriaConnectConfig with Passkeys Tests
 
     [Fact]
-    public void StoredPasskeys_Serialization_RoundTrip() {
+    public void KeriaConnectConfig_WithPasskeys_Serialization_RoundTrip() {
         // Arrange
         var now = DateTime.UtcNow;
-        var original = new StoredPasskeys {
+        var original = new KeriaConnectConfig {
             Passkeys = [
                 new StoredPasskey {
                     SchemaVersion = StoredPasskeySchema.CurrentVersion,
@@ -417,7 +417,7 @@ public class WebauthnModelsTests {
 
         // Act
         var json = JsonSerializer.Serialize(original, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<StoredPasskeys>(json, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<KeriaConnectConfig>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);
@@ -427,13 +427,13 @@ public class WebauthnModelsTests {
     }
 
     [Fact]
-    public void StoredPasskeys_Empty_SerializesCorrectly() {
+    public void KeriaConnectConfig_EmptyPasskeys_SerializesCorrectly() {
         // Arrange
-        var empty = new StoredPasskeys { Passkeys = [] };
+        var config = new KeriaConnectConfig();
 
         // Act
-        var json = JsonSerializer.Serialize(empty, JsonOptions);
-        var deserialized = JsonSerializer.Deserialize<StoredPasskeys>(json, JsonOptions);
+        var json = JsonSerializer.Serialize(config, JsonOptions);
+        var deserialized = JsonSerializer.Deserialize<KeriaConnectConfig>(json, JsonOptions);
 
         // Assert
         Assert.NotNull(deserialized);

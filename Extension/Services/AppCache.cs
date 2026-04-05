@@ -99,7 +99,7 @@
         private StorageObserver<KeriaConnectConfigs>? keriaConnectConfigsObserver;
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
         private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
-        private StorageObserver<Connections>? connectionsObserver;
+        private StorageObserver<CachedIdentifiers>? cachedIdentifiersObserver;
         private StorageObserver<Notifications>? notificationsObserver;
         private StorageObserver<CachedCredentials>? cachedCredentialsObserver;
 
@@ -122,7 +122,10 @@
         /// </summary>
         public KeriaConnectConfig MyKeriaConnectConfig => GetSelectedKeriaConnectConfig() ?? DefaultKeriaConnectConfig;
         public KeriaConnectionInfo MyKeriaConnectionInfo { get; private set; } = new KeriaConnectionInfo() {
-            KeriaConnectionDigest = "",
+            KeriaConnectionDigest = ""
+        };
+
+        public CachedIdentifiers MyCachedIdentifiers { get; private set; } = new CachedIdentifiers {
             IdentifiersList = []
         };
 
@@ -171,7 +174,7 @@
         /// </summary>
         public PendingBwAppRequests MyPendingBwAppRequests { get; private set; } = PendingBwAppRequests.Empty;
 
-        public Connections MyConnections { get; private set; } = new Connections();
+        public List<Connection> MyConnections => MyKeriaConnectConfig.Connections;
 
         public Notifications MyNotifications { get; private set; } = new Notifications();
 
@@ -205,7 +208,7 @@
         /// </summary>
         /// <returns>The selected config if found, null otherwise.</returns>
         public KeriaConnectConfig? GetSelectedKeriaConnectConfig() {
-            return GetConfigByDigest(MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest);
+            return GetConfigByDigest(MyPreferences.SelectedKeriaConnectionDigest);
         }
 
         /// <summary>
@@ -222,12 +225,19 @@
         /// reflects the change immediately (rather than waiting for async storage observer).
         /// This ensures IsIdentifierFetched returns false for proper routing through ConnectingPage.
         /// </summary>
-        public void ClearKeriaConnectionInfo() {
+        /// <summary>
+        /// Synchronously clears session-related in-memory state so IsAuthenticated
+        /// becomes false immediately, rather than waiting for async storage.onChanged.
+        /// Call after ClearSessionForConfigChangeAsync or ClearKeriaSessionRecordsAsync.
+        /// </summary>
+        public void ClearSessionState() {
             MyKeriaConnectionInfo = new KeriaConnectionInfo() {
-                KeriaConnectionDigest = "",
-                IdentifiersList = []
+                KeriaConnectionDigest = ""
             };
-            _logger.LogInformation(nameof(AppCache) + ": Cleared KeriaConnectionInfo synchronously");
+            MyCachedIdentifiers = new CachedIdentifiers { IdentifiersList = [] };
+            MySessionState = new SessionStateModel { SessionExpirationUtc = DateTime.MinValue };
+            MyPendingBwAppRequests = PendingBwAppRequests.Empty;
+            _logger.LogInformation(nameof(AppCache) + ": Cleared session state synchronously");
             Changed?.Invoke();
         }
 
@@ -238,7 +248,7 @@
         /// <exception cref="InvalidOperationException">Thrown when session digest doesn't match preference.</exception>
         public void ValidateSessionDigestMatchesPreference() {
             var sessionDigest = MyKeriaConnectionInfo.KeriaConnectionDigest;
-            var preferenceDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+            var preferenceDigest = MyPreferences.SelectedKeriaConnectionDigest;
 
             // Empty session digest is valid (no active session)
             if (string.IsNullOrEmpty(sessionDigest)) {
@@ -265,7 +275,7 @@
             // Only validate when connection info digest matches the selected preference
             // During config switches, KeriaConnectionInfo may be stale (from previous config)
             var connectionDigest = MyKeriaConnectionInfo?.KeriaConnectionDigest;
-            var preferenceDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+            var preferenceDigest = MyPreferences.SelectedKeriaConnectionDigest;
 
             if (string.IsNullOrEmpty(connectionDigest)) {
                 // No connection info yet, skip validation
@@ -290,7 +300,7 @@
             }
 
             // If no identifiers are fetched, skip validation (will be validated when identifiers arrive)
-            var identifiersList = MyKeriaConnectionInfo?.IdentifiersList;
+            var identifiersList = MyCachedIdentifiers?.IdentifiersList;
             if (identifiersList is null || identifiersList.Count == 0) {
                 return true;
             }
@@ -326,7 +336,7 @@
 
         public List<Aid> Aids {
             get {
-                var identifiersList = MyKeriaConnectionInfo?.IdentifiersList;
+                var identifiersList = MyCachedIdentifiers?.IdentifiersList;
                 if (identifiersList is null || identifiersList.Count == 0) {
                     return EmptyAidsList;
                 }
@@ -340,7 +350,7 @@
 
         public bool IsIdentifierFetched =>
             MyKeriaConnectConfig.AgentAidPrefix is not null &&
-            MyKeriaConnectionInfo?.IdentifiersList?.Count > 0;
+            MyCachedIdentifiers?.IdentifiersList?.Count > 0;
         public bool IsAuthenticated => IsSessionUnlocked && IsInitialized;
 
         public bool ShowedGettingStarted => MyOnboardState.ShowedGettingStarted;
@@ -372,12 +382,17 @@
             IsProductOnboarded &&
             MyPreferences.IsStored;
         // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
+        public bool IsSelectedKeriaConnectionDigestStored =>
+            !string.IsNullOrEmpty(MyPreferences.SelectedKeriaConnectionDigest) &&
+            MyKeriaConnectConfigs.Configs.ContainsKey(MyPreferences.SelectedKeriaConnectionDigest);
+
+        // TODO P3 add other aspects of KeriaConfig validation as needed.  See also ValidateConfiguration() in KeriaConnectConfig.cs
         public bool IsKeriaConfigValidated =>
+            IsSelectedKeriaConnectionDigestStored &&
             !string.IsNullOrEmpty(MyKeriaConnectConfig.AdminUrl) &&
             !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.ClientAidPrefix) &&
             !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.AgentAidPrefix) &&
-            !(MyKeriaConnectConfig.PasscodeHash == 0) &&
-            !string.IsNullOrWhiteSpace(MyKeriaConnectConfig.AdminUrl);
+            !(MyKeriaConnectConfig.PasscodeHash == 0);
 
         private static bool IsValidHttpUri(string? uriString) {
             return Uri.TryCreate(uriString, UriKind.Absolute, out var uri)
@@ -399,7 +414,7 @@
         /// Call when IsAuthenticated transitions to false unexpectedly.
         /// </summary>
         public void LogAuthDiagnostic(ILogger logger) {
-            var selectedDigest = MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+            var selectedDigest = MyPreferences.SelectedKeriaConnectionDigest;
             var configFound = !string.IsNullOrEmpty(selectedDigest) && MyKeriaConnectConfigs.Configs.ContainsKey(selectedDigest);
             logger.LogWarning(
                 "AUTH DIAGNOSTIC: IsAuthenticated={IsAuth}, IsSessionUnlocked={IsUnlocked}, IsInitialized={IsInit}" +
@@ -485,7 +500,7 @@
             keriaConnectConfigsObserver?.Dispose();
             keriaConnectionInfoObserver?.Dispose();
             pendingBwAppRequestsObserver?.Dispose();
-            connectionsObserver?.Dispose();
+            cachedIdentifiersObserver?.Dispose();
             notificationsObserver?.Dispose();
             cachedCredentialsObserver?.Dispose();
             _initLock?.Dispose();
@@ -577,15 +592,25 @@
                     StorageArea.Session,
                     onNext: (value) => {
                         MyKeriaConnectionInfo = value ?? new KeriaConnectionInfo() {
-                            KeriaConnectionDigest = "",
-                            IdentifiersList = []
+                            KeriaConnectionDigest = ""
                         };
                         _logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
-                        // Validate that SelectedPrefix (from config) is among the fetched identifiers
-                        ValidateSelectedPrefixAmongIdentifiers();
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing Keria connection info storage"),
+                    null,
+                    _logger
+                );
+                cachedIdentifiersObserver = new StorageObserver<CachedIdentifiers>(
+                    storageService,
+                    StorageArea.Session,
+                    onNext: (value) => {
+                        MyCachedIdentifiers = value ?? new CachedIdentifiers { IdentifiersList = [] };
+                        _logger.LogInformation(nameof(AppCache) + ": updated MyCachedIdentifiers: count={Count}", value?.IdentifiersList?.Count ?? 0);
+                        ValidateSelectedPrefixAmongIdentifiers();
+                        Changed?.Invoke();
+                    },
+                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing CachedIdentifiers storage"),
                     null,
                     _logger
                 );
@@ -598,18 +623,6 @@
                         Changed?.Invoke();
                     },
                     onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing pending BW→App requests storage"),
-                    null,
-                    _logger
-                );
-                connectionsObserver = new StorageObserver<Connections>(
-                    storageService,
-                    StorageArea.Local,
-                    onNext: (value) => {
-                        MyConnections = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyConnections: count={Count}", value.Items.Count);
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing connections storage"),
                     null,
                     _logger
                 );
@@ -667,14 +680,14 @@
             var prefsTask = storageService.GetItem<Preferences>();
             var onboardTask = storageService.GetItem<OnboardState>();
             var configsTask = storageService.GetItem<KeriaConnectConfigs>();
-            var connectionsTask = storageService.GetItem<Connections>();
             var sessionStateTask = storageService.GetItem<SessionStateModel>(StorageArea.Session);
             var connectionInfoTask = storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            var cachedIdentifiersTask = storageService.GetItem<CachedIdentifiers>(StorageArea.Session);
             var pendingTask = storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
             var notificationsTask = storageService.GetItem<Notifications>(StorageArea.Session);
 
-            await Task.WhenAll(prefsTask, onboardTask, configsTask, connectionsTask,
-                sessionStateTask, connectionInfoTask, pendingTask, notificationsTask);
+            await Task.WhenAll(prefsTask, onboardTask, configsTask,
+                sessionStateTask, connectionInfoTask, cachedIdentifiersTask, pendingTask, notificationsTask);
 
             // Apply results — Local storage records
             var prefsResult = prefsTask.Result;
@@ -706,16 +719,6 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectConfigs not found (expected on first run)");
             }
 
-            var connectionsResult = connectionsTask.Result;
-            if (connectionsResult.IsSuccess && connectionsResult.Value is not null) {
-                MyConnections = connectionsResult.Value;
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections loaded (count={Count})",
-                    connectionsResult.Value.Items.Count);
-            }
-            else {
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - Connections not found (none stored)");
-            }
-
             // Apply results — Session storage records (may not exist if session is locked or browser was restarted)
             var sessionStateResult = sessionStateTask.Result;
             if (sessionStateResult.IsSuccess && sessionStateResult.Value is not null) {
@@ -734,6 +737,16 @@
             }
             else {
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - KeriaConnectionInfo not found (not connected)");
+            }
+
+            var cachedIdentifiersResult = cachedIdentifiersTask.Result;
+            if (cachedIdentifiersResult.IsSuccess && cachedIdentifiersResult.Value is not null) {
+                MyCachedIdentifiers = cachedIdentifiersResult.Value;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedIdentifiers loaded (count={Count})",
+                    cachedIdentifiersResult.Value.IdentifiersList.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedIdentifiers not found (not connected)");
             }
 
             var pendingRequestsResult = pendingTask.Result;

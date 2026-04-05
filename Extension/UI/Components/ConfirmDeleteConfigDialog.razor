@@ -22,12 +22,9 @@
 
             @if (PasskeyCount > 0)
             {
-                <MudCheckBox @bind-Value="_deletePasskeys" Color="Color.Error">
-                    Also delete @PasskeyCountLabel for this configuration
-                </MudCheckBox>
-                <MudText Typo="Typo.caption">
-                    If unchecked, passkeys will be preserved but won't work until you recreate this configuration.
-                </MudText>
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    @PasskeyCountLabel registered for this configuration will also be deleted.
+                </MudAlert>
             }
         </MudStack>
     </DialogContent>
@@ -50,11 +47,9 @@
     [Parameter]
     public int PasskeyCount { get; set; }
 
-    private bool _deletePasskeys;
-
     string PasskeyCountLabel => PasskeyCount == 1 ? "1 passkey" : $"{PasskeyCount} passkeys";
 
     private void Cancel() => MudDialog?.Cancel();
 
-    private void Confirm() => MudDialog?.Close(DialogResult.Ok(_deletePasskeys));
+    private void Confirm() => MudDialog?.Close(DialogResult.Ok(true));
 }

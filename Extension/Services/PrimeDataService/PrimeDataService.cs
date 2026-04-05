@@ -892,11 +892,27 @@ namespace Extension.Services.PrimeDataService {
             Dictionary<string, string> nameToPrefix,
             string stepLabel) {
             _logger.LogInformation("{Step}: Storing {Count} connections...", stepLabel, pairs.Length);
-            var existingResult = await _storageService.GetItem<Connections>();
-            var existingItems = existingResult.IsSuccess && existingResult.Value is not null
-                ? existingResult.Value.Items
-                : new List<Connection>();
 
+            // Get the current config digest from preferences
+            var prefsResult = await _storageService.GetItem<Preferences>();
+            if (prefsResult.IsFailed || prefsResult.Value is null) {
+                return Result.Fail("Could not retrieve Preferences for storing connections");
+            }
+            var digest = prefsResult.Value.SelectedKeriaConnectionDigest;
+            if (string.IsNullOrEmpty(digest)) {
+                return Result.Fail("No KERIA configuration selected");
+            }
+
+            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            if (configsResult.IsFailed || configsResult.Value is null) {
+                return Result.Fail("Could not retrieve KeriaConnectConfigs");
+            }
+            var configs = configsResult.Value;
+            if (!configs.Configs.TryGetValue(digest, out var config)) {
+                return Result.Fail($"Config not found for digest {digest}");
+            }
+
+            var existingItems = config.Connections;
             var newConnections = new List<Connection>(existingItems);
             foreach (var (resolver, _, alias) in pairs) {
                 newConnections.Add(new Connection {
@@ -907,7 +923,9 @@ namespace Extension.Services.PrimeDataService {
                 });
             }
 
-            var setResult = await _storageService.SetItem(new Connections { Items = newConnections });
+            var updatedConfig = config with { Connections = newConnections };
+            var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
+            var setResult = await _storageService.SetItem(configs with { Configs = updatedDict });
             if (setResult.IsFailed) {
                 var err = $"Failed to store connections: {setResult.Errors[0].Message}";
                 _logger.LogError("{Error}", err);

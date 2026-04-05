@@ -27,7 +27,7 @@
     bool IsAddingAid { get; set; }
    
     // computed properties
-    List<Aid> AllIdentifiers => appCache?.MyKeriaConnectionInfo?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
+    List<Aid> AllIdentifiers => appCache?.MyCachedIdentifiers?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
         ? list[0].Aids
         : [];
 
@@ -143,7 +143,7 @@
     async Task SetActiveAid(string prefix)
     {
         // Update SelectedPrefix in the current KeriaConnectConfig
-        var selectedDigest = appCache.MyPreferences.KeriaPreference.SelectedKeriaConnectionDigest;
+        var selectedDigest = appCache.MyPreferences.SelectedKeriaConnectionDigest;
         if (!string.IsNullOrEmpty(selectedDigest))
         {
             var configs = appCache.MyKeriaConnectConfigs;

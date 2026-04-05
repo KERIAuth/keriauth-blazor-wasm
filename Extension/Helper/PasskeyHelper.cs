@@ -21,18 +21,18 @@ public static class PasskeyHelper {
     /// Computes the number of passkeys available for a specific KERIA connection and generates
     /// a human-readable label.
     /// </summary>
-    /// <param name="storedPasskeys">Collection of stored passkeys to filter.</param>
+    /// <param name="passkeys">Collection of stored passkeys to filter.</param>
     /// <param name="keriaConnectionDigest">The KERIA connection digest to match against.</param>
     /// <returns>A tuple containing the count and label for matching passkeys.</returns>
     public static PasskeyAvailability GetPasskeysAvailable(
-        StoredPasskeys storedPasskeys,
+        List<StoredPasskey> passkeys,
         string? keriaConnectionDigest
     ) {
-        if (storedPasskeys is null || string.IsNullOrEmpty(keriaConnectionDigest)) {
+        if (passkeys is null || passkeys.Count == 0 || string.IsNullOrEmpty(keriaConnectionDigest)) {
             return new PasskeyAvailability(0, "No passkeys registered");
         }
 
-        var count = storedPasskeys.Passkeys
+        var count = passkeys
             .Count(p => p.KeriaConnectionDigest == keriaConnectionDigest);
 
         var label = count switch {

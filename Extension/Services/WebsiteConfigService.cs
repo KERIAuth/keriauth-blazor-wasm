@@ -43,7 +43,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var updatedWebsiteList = websitesResult.Value.WebsiteList.Append(website).ToList();
 
         // Create a new Websites record with the updated list
-        var updatedWebsites = new WebsiteConfigList(updatedWebsiteList);
+        var updatedWebsites = new WebsiteConfigList { WebsiteList = updatedWebsiteList };
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(updatedWebsites);
         if (saveResult.IsFailed) {
@@ -64,7 +64,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         var newWebsites = websitesResult.Value.WebsiteList
             .Where((ww) => ww.Origin != originUri);
 
-        var wcl = new WebsiteConfigList([.. newWebsites]);
+        var wcl = new WebsiteConfigList { WebsiteList = [.. newWebsites] };
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(wcl);
         if (saveResult.IsFailed) {
@@ -83,10 +83,11 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             return Result.Fail("Update: could not fetch websites from storage");
         }
 
-        var newList = new WebsiteConfigList(
-            websitesResult.Value.WebsiteList
+        var newList = new WebsiteConfigList {
+            WebsiteList = websitesResult.Value.WebsiteList
                 .Select(config => config.Origin == websiteConfig.Origin ? websiteConfig : config)
-                .ToList());
+                .ToList()
+        };
 
         var saveResult = await storageService.SetItem<WebsiteConfigList>(newList);
         if (saveResult.IsFailed) {
@@ -111,7 +112,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
             if (getWebsitesRes.Value is null) {
                 // This is the first website configured. Need to first add the Websites collection
                 // var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
-                websiteConfigList = new WebsiteConfigList(WebsiteList: [new WebsiteConfig(originUri, [], null, null, false, false, false)]);
+                websiteConfigList = new WebsiteConfigList { WebsiteList = [new WebsiteConfig(originUri, [], null, null, false, false, false)] };
                 var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
                     // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
