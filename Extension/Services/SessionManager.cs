@@ -398,7 +398,7 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Removing KERIA session records");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Clearing all Session storage");
 
         // Clear in-memory passcode
         _passcode = null;
@@ -406,55 +406,18 @@ public class SessionManager : IDisposable {
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        var removeSessionStateRes = await _storageService.RemoveItem<SessionStateModel>(StorageArea.Session);
-        if (removeSessionStateRes.IsFailed) {
+        // Clear ALL Session storage atomically. This is the authoritative "lock" operation:
+        // any new Session record introduced in the future is automatically cleared on lock,
+        // ensuring no stale state can survive across an unlock cycle.
+        // Session storage is ephemeral by design (cleared on browser close), so bulk clearing
+        // is always safe — BwReadyState will self-heal via BackgroundWorker's observer.
+        var clearResult = await _storageService.Clear(StorageArea.Session);
+        if (clearResult.IsFailed) {
             throw new InvalidOperationException(
-                $"Failed to remove SessionStateModel: {removeSessionStateRes.Errors[0].Message}");
+                $"Failed to clear Session storage: {clearResult.Errors[0].Message}");
         }
 
-        var removeConnectionRes = await _storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
-        if (removeConnectionRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove KeriaConnectionInfo: {removeConnectionRes.Errors[0].Message}");
-        }
-
-        var removeCachedIdentifiersRes = await _storageService.RemoveItem<CachedIdentifiers>(StorageArea.Session);
-        if (removeCachedIdentifiersRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove CachedIdentifiers: {removeCachedIdentifiersRes.Errors[0].Message}");
-        }
-
-        var removeCredentialsRes = await _storageService.RemoveItem<CachedCredentials>(StorageArea.Session);
-        if (removeCredentialsRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove CachedCredentials: {removeCredentialsRes.Errors[0].Message}");
-        }
-
-        var removeNotificationsRes = await _storageService.RemoveItem<Notifications>(StorageArea.Session);
-        if (removeNotificationsRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove Notifications: {removeNotificationsRes.Errors[0].Message}");
-        }
-
-        var removePollingStateRes = await _storageService.RemoveItem<PollingState>(StorageArea.Session);
-        if (removePollingStateRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove PollingState: {removePollingStateRes.Errors[0].Message}");
-        }
-
-        var removePendingRequestsRes = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
-        if (removePendingRequestsRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove PendingBwAppRequests: {removePendingRequestsRes.Errors[0].Message}");
-        }
-
-        var removeResolvedSchemasRes = await _storageService.RemoveItem<ResolvedSchemas>(StorageArea.Session);
-        if (removeResolvedSchemasRes.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove ResolvedSchemas: {removeResolvedSchemasRes.Errors[0].Message}");
-        }
-
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": KERIA session records cleared");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Session storage cleared");
     }
 
     /// <summary>

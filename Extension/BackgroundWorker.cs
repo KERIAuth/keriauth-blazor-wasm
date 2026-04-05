@@ -4492,6 +4492,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
                 break;
 
+            case AppBwMessageType.Values.RequestLockSession:
+                // Fire-and-forget lock request from App. BW clears its in-memory passcode,
+                // disconnects the signify client, cancels polling, and clears session storage.
+                // Apps observe the session clear via storage.onChanged and update their UI.
+                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestLockSession event received");
+                try {
+                    await _signifyClientService.Disconnect();
+                    await CancelNotificationPollingAsync();
+                    await _sessionManager.LockSessionAsync();
+                }
+                catch (Exception ex) {
+                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestLockSession");
+                }
+                break;
+
             case AppBwMessageType.Values.AppClosed:
                 // App closed notification - handle cleanup if needed
                 logger.LogInformation(nameof(HandlePortEventAsync) + ": App closed event received from portId={PortId}", portId);

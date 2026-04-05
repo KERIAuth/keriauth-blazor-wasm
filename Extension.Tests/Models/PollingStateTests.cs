@@ -16,6 +16,7 @@ public class PollingStateTests {
         Assert.Null(state.ConnectionsLastFetchedUtc);
         Assert.Null(state.IdentifiersLastFetchedUtc);
         Assert.Null(state.CredentialsLastFetchedUtc);
+        Assert.Null(state.NotificationsLastFetchedUtc);
     }
 
     [Fact]
@@ -24,7 +25,8 @@ public class PollingStateTests {
         var state = new PollingState {
             ConnectionsLastFetchedUtc = now,
             IdentifiersLastFetchedUtc = now.AddMinutes(-1),
-            CredentialsLastFetchedUtc = now.AddMinutes(-2)
+            CredentialsLastFetchedUtc = now.AddMinutes(-2),
+            NotificationsLastFetchedUtc = now.AddMinutes(-3)
         };
 
         var json = JsonSerializer.Serialize(state, JsonOptions);
@@ -34,6 +36,7 @@ public class PollingStateTests {
         Assert.NotNull(deserialized.ConnectionsLastFetchedUtc);
         Assert.NotNull(deserialized.IdentifiersLastFetchedUtc);
         Assert.NotNull(deserialized.CredentialsLastFetchedUtc);
+        Assert.NotNull(deserialized.NotificationsLastFetchedUtc);
     }
 
     [Fact]

@@ -123,8 +123,9 @@ public class NotificationPollingService : INotificationPollingService {
         if (fingerprint == _lastNotificationFingerprint) return;
         _lastNotificationFingerprint = fingerprint;
 
-        var stored = new Notifications { Items = notifications };
+        var stored = new CachedNotifications { Items = notifications };
         await _storageService.SetItem(stored, StorageArea.Session);
+        await UpdateNotificationsLastFetchedAsync();
 
         if (OnCredentialNotificationsChanged is not null) {
             var credentialFingerprint = string.Join("|",
@@ -140,6 +141,20 @@ public class NotificationPollingService : INotificationPollingService {
                     _logger.LogWarning(ex, nameof(PollOnDemandAsync) + ": Error in OnCredentialNotificationsChanged callback");
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Updates NotificationsLastFetchedUtc on PollingState after a successful fetch.
+    /// </summary>
+    private async Task UpdateNotificationsLastFetchedAsync() {
+        try {
+            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
+            var current = result.IsSuccess && result.Value is not null ? result.Value : new PollingState();
+            await _storageService.SetItem(current with { NotificationsLastFetchedUtc = DateTime.UtcNow }, StorageArea.Session);
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, nameof(UpdateNotificationsLastFetchedAsync) + ": Failed to update polling timestamp");
         }
     }
 

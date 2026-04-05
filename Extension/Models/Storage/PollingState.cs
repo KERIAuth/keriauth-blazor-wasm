@@ -15,4 +15,7 @@ public record PollingState : IStorageModel {
 
     [JsonPropertyName("CredentialsLastFetchedUtc")]
     public DateTime? CredentialsLastFetchedUtc { get; init; }
+
+    [JsonPropertyName("NotificationsLastFetchedUtc")]
+    public DateTime? NotificationsLastFetchedUtc { get; init; }
 }

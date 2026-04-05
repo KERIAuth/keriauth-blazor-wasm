@@ -1,5 +1,6 @@
 ﻿@inherits BaseLayout
 
+@using Extension.Models.Messages.AppBw
 @using Extension.Models.Storage
 @using Extension.Services
 @using Extension.Services.Storage
@@ -19,6 +20,7 @@
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject AppCache appCache
 @inject SessionManager sessionManager
+@inject Extension.Services.Port.IAppBwPortService appBwPortService
 
 @code {
     // fields...
@@ -108,10 +110,22 @@
 
     async Task Lock()
     {
-        await sessionManager.ClearKeriaSessionRecordsAsync();
-        await appCache.WaitForAppCache([
-            () => !appCache.IsAuthenticated
-        ]);
+        // Send fire-and-forget lock request to BackgroundWorker. BW clears its in-memory
+        // passcode, disconnects signify, and clears session storage. This is the
+        // authoritative lock — App-side state is updated reactively via storage observers.
+        try
+        {
+            await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestLockSession);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Lock: Failed to send RequestLockSession event to BW");
+        }
+
+        // Synchronously clear App-side in-memory state so IsAuthenticated flips immediately,
+        // rather than waiting for async storage.onChanged propagation.
+        appCache.ClearSessionState();
+
         navManager.NavigateTo(Routes.Paths.Unlock);
     }
 

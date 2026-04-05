@@ -100,7 +100,7 @@
         private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
         private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
         private StorageObserver<CachedIdentifiers>? cachedIdentifiersObserver;
-        private StorageObserver<Notifications>? notificationsObserver;
+        private StorageObserver<CachedNotifications>? notificationsObserver;
         private StorageObserver<CachedCredentials>? cachedCredentialsObserver;
 
         // Base properties with default values
@@ -176,7 +176,7 @@
 
         public List<Connection> MyConnections => MyKeriaConnectConfig.Connections;
 
-        public Notifications MyNotifications { get; private set; } = new Notifications();
+        public CachedNotifications MyNotifications { get; private set; } = new CachedNotifications();
 
         /// <summary>
         /// In-memory menu open/collapse state, not persisted to storage.
@@ -626,7 +626,7 @@
                     null,
                     _logger
                 );
-                notificationsObserver = new StorageObserver<Notifications>(
+                notificationsObserver = new StorageObserver<CachedNotifications>(
                     storageService,
                     StorageArea.Session,
                     onNext: (value) => {
@@ -684,7 +684,7 @@
             var connectionInfoTask = storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             var cachedIdentifiersTask = storageService.GetItem<CachedIdentifiers>(StorageArea.Session);
             var pendingTask = storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
-            var notificationsTask = storageService.GetItem<Notifications>(StorageArea.Session);
+            var notificationsTask = storageService.GetItem<CachedNotifications>(StorageArea.Session);
 
             await Task.WhenAll(prefsTask, onboardTask, configsTask,
                 sessionStateTask, connectionInfoTask, cachedIdentifiersTask, pendingTask, notificationsTask);
