@@ -4,7 +4,7 @@
 @using Extension.Services
 @inject IJSRuntime js
 @inject NavigationManager navManager
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @using static Extension.AppConfig;
 @inject IDialogService dialogService
 @inject ILogger<DeletePage> logger
@@ -49,9 +49,9 @@
         isRemoveConfirmed = result.GetValueOrDefault();
         if (isRemoveConfirmed)
         {
-            await storageService.Clear(StorageArea.Local);
-            await storageService.Clear(StorageArea.Sync);
-            await storageService.Clear(StorageArea.Session);
+            await storageGateway.Clear(StorageArea.Local);
+            await storageGateway.Clear(StorageArea.Sync);
+            await storageGateway.Clear(StorageArea.Session);
 
             webExtensions.Runtime.Reload();
             // unreachable

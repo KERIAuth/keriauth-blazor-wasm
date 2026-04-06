@@ -10,7 +10,7 @@
 @inject NavigationManager navManager
 @inject ILogger<OfferCreateNewProfilePage> logger
 @inject AppCache appCache
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IDialogService dialogService
 @inject IAppBwPortService appBwPortService
 @inject ISnackbar snackbar
@@ -126,7 +126,7 @@
         var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
             [selectedDigest] = updatedConfig
         };
-        var storeResult = await storageService.SetItem(new KeriaConnectConfigs {
+        var storeResult = await storageGateway.SetItem(new KeriaConnectConfigs {
             Configs = updatedConfigs,
             IsStored = true
         });

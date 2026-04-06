@@ -14,7 +14,7 @@
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<UnlockPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
@@ -206,7 +206,7 @@
 
                 // Update preference with new digest
                 var prefs = appCache.MyPreferences;
-                await storageService.SetItem<Preferences>(prefs with
+                await storageGateway.SetItem<Preferences>(prefs with
                 {
                     SelectedKeriaConnectionDigest = digest
                 });
@@ -305,7 +305,7 @@
     async Task SetIsPasskeyUsePreferred(bool isPasskeyUsePreferred)
     {
         throwIfNotConfigured();
-        await storageService.SetItem<Preferences>(appCache.MyPreferences with
+        await storageGateway.SetItem<Preferences>(appCache.MyPreferences with
             {
                 IsPasskeyUsePreferred = isPasskeyUsePreferred
             }, StorageArea.Local);

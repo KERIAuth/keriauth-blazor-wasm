@@ -9,7 +9,7 @@
 @implements IDisposable
 
 @inject ILogger<NotificationsPage> logger
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IJSRuntime js
 @inject ISnackbar snackbar
 @inject AppCache appCache
@@ -262,7 +262,7 @@
         {
             [nameof(NotificationsPage)] = newId
         };
-        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
+        await storageGateway.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
     async Task ToggleNotificationDetail(Notification notification) {

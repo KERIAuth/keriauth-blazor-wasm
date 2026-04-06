@@ -18,7 +18,7 @@ namespace Extension.Services;
 /// Uses C# for cryptography (SHA-256, AES-GCM) and minimal TypeScript shim for navigator.credentials API.
 /// </summary>
 public class WebauthnService : IWebauthnService {
-    private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly INavigatorCredentialsBinding _credentialsBinding;
     private readonly ICryptoService _cryptoService;
     private readonly IFidoMetadataService _fidoMetadataService;
@@ -34,14 +34,14 @@ public class WebauthnService : IWebauthnService {
     private static readonly string KeriAuthExtensionName = AppConfig.ProductName;
 
     public WebauthnService(
-        IStorageService storageService,
+        IStorageGateway storageGateway,
         INavigatorCredentialsBinding credentialsBinding,
         ICryptoService cryptoService,
         IFidoMetadataService fidoMetadataService,
         IJSRuntime jsRuntime,
         ILogger<WebauthnService> logger,
         IAppBwPortService appBwPortService) {
-        _storageService = storageService;
+        _storageGateway = storageGateway;
         _credentialsBinding = credentialsBinding;
         _cryptoService = cryptoService;
         _fidoMetadataService = fidoMetadataService;
@@ -213,7 +213,7 @@ public class WebauthnService : IWebauthnService {
             var digestResult2 = await GetCurrentKeriaConnectionDigestAsync();
             if (digestResult2.IsFailed) return Result.Fail<string>("No KERIA configuration selected");
 
-            var configsResult2 = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+            var configsResult2 = await _storageGateway.GetItem<KeriaConnectConfigs>(StorageArea.Local);
             if (configsResult2.IsFailed || configsResult2.Value is null) return Result.Fail<string>("Could not retrieve KeriaConnectConfigs");
 
             var digest2 = digestResult2.Value;
@@ -226,7 +226,7 @@ public class WebauthnService : IWebauthnService {
 
             var updatedConfig2 = config2 with { Passkeys = allPasskeys };
             var updatedDict2 = new Dictionary<string, KeriaConnectConfig>(configsResult2.Value.Configs) { [digest2] = updatedConfig2 };
-            var storeResult = await _storageService.SetItem(configsResult2.Value with { Configs = updatedDict2 });
+            var storeResult = await _storageGateway.SetItem(configsResult2.Value with { Configs = updatedDict2 });
             if (storeResult.IsFailed) {
                 _logger.LogError(nameof(RegisterAttestStoreAuthenticatorAsync) + ": Failed to store passkey: {Errors}", string.Join(", ", storeResult.Errors));
                 return Result.Fail<string>("Failed to store passkey");
@@ -344,7 +344,7 @@ public class WebauthnService : IWebauthnService {
             var digestResult = await GetCurrentKeriaConnectionDigestAsync();
             if (digestResult.IsFailed) return Result.Fail(digestResult.Errors);
 
-            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+            var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>(StorageArea.Local);
             if (configsResult.IsFailed || configsResult.Value is null) return Result.Fail("Could not retrieve KeriaConnectConfigs");
 
             var digest = digestResult.Value;
@@ -361,7 +361,7 @@ public class WebauthnService : IWebauthnService {
 
             var updatedConfig = config with { Passkeys = allPasskeys };
             var updatedDict = new Dictionary<string, KeriaConnectConfig>(configsResult.Value.Configs) { [digest] = updatedConfig };
-            var storeResult = await _storageService.SetItem(configsResult.Value with { Configs = updatedDict });
+            var storeResult = await _storageGateway.SetItem(configsResult.Value with { Configs = updatedDict });
             if (storeResult.IsFailed) {
                 return Result.Fail(storeResult.Errors);
             }
@@ -527,7 +527,7 @@ public class WebauthnService : IWebauthnService {
         var digestResult = await GetCurrentKeriaConnectionDigestAsync();
         if (digestResult.IsFailed) return [];
 
-        var configsResult = await _storageService.GetItem<KeriaConnectConfigs>(StorageArea.Local);
+        var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>(StorageArea.Local);
         if (configsResult.IsFailed || configsResult.Value is null) return [];
 
         return configsResult.Value.Configs.TryGetValue(digestResult.Value, out var config)
@@ -540,7 +540,7 @@ public class WebauthnService : IWebauthnService {
     /// Returns the SelectedKeriaConnectionDigest directly since it's already computed and stored.
     /// </summary>
     public async Task<Result<string>> GetCurrentKeriaConnectionDigestAsync() {
-        var prefsResult = await _storageService.GetItem<Preferences>(StorageArea.Local);
+        var prefsResult = await _storageGateway.GetItem<Preferences>(StorageArea.Local);
         if (prefsResult.IsFailed || prefsResult.Value is null) {
             return Result.Fail<string>("Could not retrieve Preferences for KeriaConnectionDigest");
         }

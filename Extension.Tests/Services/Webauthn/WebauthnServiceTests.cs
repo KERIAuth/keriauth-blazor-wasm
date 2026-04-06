@@ -16,7 +16,7 @@ namespace Extension.Tests.Services.Webauthn;
 /// Passkeys are now stored within KeriaConnectConfig inside KeriaConnectConfigs.
 /// </summary>
 public class WebauthnServiceTests {
-    private readonly Mock<IStorageService> _mockStorageService;
+    private readonly Mock<IStorageGateway> _mockStorageGateway;
     private readonly Mock<INavigatorCredentialsBinding> _mockCredentialsBinding;
     private readonly Mock<ICryptoService> _mockCryptoService;
     private readonly Mock<IFidoMetadataService> _mockFidoMetadataService;
@@ -27,7 +27,7 @@ public class WebauthnServiceTests {
     private const string TestDigest = "test-digest";
 
     public WebauthnServiceTests() {
-        _mockStorageService = new Mock<IStorageService>();
+        _mockStorageGateway = new Mock<IStorageGateway>();
         _mockCredentialsBinding = new Mock<INavigatorCredentialsBinding>();
         _mockCryptoService = new Mock<ICryptoService>();
         _mockFidoMetadataService = new Mock<IFidoMetadataService>();
@@ -38,7 +38,7 @@ public class WebauthnServiceTests {
 
     private WebauthnService CreateService() {
         return new WebauthnService(
-            _mockStorageService.Object,
+            _mockStorageGateway.Object,
             _mockCredentialsBinding.Object,
             _mockCryptoService.Object,
             _mockFidoMetadataService.Object,
@@ -53,7 +53,7 @@ public class WebauthnServiceTests {
     /// </summary>
     private void SetupPasskeyMocks(string? digest, List<StoredPasskey> passkeys) {
         var prefs = new Preferences { SelectedKeriaConnectionDigest = digest };
-        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+        _mockStorageGateway.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
         if (digest is not null) {
@@ -61,9 +61,9 @@ public class WebauthnServiceTests {
             var configs = new KeriaConnectConfigs {
                 Configs = new Dictionary<string, KeriaConnectConfig> { [digest] = config }
             };
-            _mockStorageService.Setup(s => s.GetItem<KeriaConnectConfigs>(StorageArea.Local))
+            _mockStorageGateway.Setup(s => s.GetItem<KeriaConnectConfigs>(StorageArea.Local))
                 .ReturnsAsync(Result.Ok<KeriaConnectConfigs?>(configs));
-            _mockStorageService.Setup(s => s.SetItem(It.IsAny<KeriaConnectConfigs>(), StorageArea.Local))
+            _mockStorageGateway.Setup(s => s.SetItem(It.IsAny<KeriaConnectConfigs>(), StorageArea.Local))
                 .ReturnsAsync(Result.Ok());
         }
     }
@@ -146,7 +146,7 @@ public class WebauthnServiceTests {
 
         // Assert
         Assert.True(result.IsSuccess);
-        _mockStorageService.Verify(
+        _mockStorageGateway.Verify(
             s => s.SetItem(
                 It.Is<KeriaConnectConfigs>(kcc =>
                     kcc.Configs[TestDigest].Passkeys.Count == 1 &&
@@ -177,7 +177,7 @@ public class WebauthnServiceTests {
     [Fact]
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenPreferencesNotFound() {
         // Arrange
-        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+        _mockStorageGateway.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Fail<Preferences?>("Preferences not found"));
 
         var service = CreateService();
@@ -209,7 +209,7 @@ public class WebauthnServiceTests {
     public async Task AuthenticateAndDecryptPasscodeAsync_FailsWhenSelectedKeriaConnectionDigestEmpty() {
         // Arrange
         var prefs = new Preferences { SelectedKeriaConnectionDigest = "" };
-        _mockStorageService.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
+        _mockStorageGateway.Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<Preferences?>(prefs));
 
         var service = CreateService();

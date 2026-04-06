@@ -12,7 +12,7 @@ namespace Extension.Services.ConfigureService;
 
 public class ConfigureService : IConfigureService {
     private readonly ISignifyClientService _signifyClient;
-    private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly SessionManager _sessionManager;
     private readonly ILogger<ConfigureService> _logger;
 
@@ -20,11 +20,11 @@ public class ConfigureService : IConfigureService {
 
     public ConfigureService(
         ISignifyClientService signifyClient,
-        IStorageService storageService,
+        IStorageGateway storageGateway,
         SessionManager sessionManager,
         ILogger<ConfigureService> logger) {
         _signifyClient = signifyClient;
-        _storageService = storageService;
+        _storageGateway = storageGateway;
         _sessionManager = sessionManager;
         _logger = logger;
     }
@@ -113,7 +113,7 @@ public class ConfigureService : IConfigureService {
                 var updatedDict = new Dictionary<string, KeriaConnectConfig>(existingConfigs.Configs) {
                     [completeDigest] = provenConfig
                 };
-                var storeResult = await _storageService.SetItem(existingConfigs with { Configs = updatedDict });
+                var storeResult = await _storageGateway.SetItem(existingConfigs with { Configs = updatedDict });
                 if (storeResult.IsFailed) {
                     return await FailAndCleanupAsync(4, "Failed to finalize configuration", storeResult.Errors);
                 }
@@ -125,7 +125,7 @@ public class ConfigureService : IConfigureService {
             var connectionInfo = new KeriaConnectionInfo {
                 KeriaConnectionDigest = completeDigest
             };
-            var storeConnectionResult = await _storageService.SetItem(connectionInfo, StorageArea.Session);
+            var storeConnectionResult = await _storageGateway.SetItem(connectionInfo, StorageArea.Session);
             if (storeConnectionResult.IsFailed) {
                 return await FailAndCleanupAsync(4, "Failed to cache connection info", storeConnectionResult.Errors);
             }
@@ -146,9 +146,9 @@ public class ConfigureService : IConfigureService {
         _logger.LogInformation("ResetAsync: Cleaning up session and unproven configs");
 
         // Remove session-scoped items
-        await _storageService.RemoveItem<SessionStateModel>(StorageArea.Session);
-        await _storageService.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
-        await _storageService.RemoveItem<ConfigureProgress>(StorageArea.Session);
+        await _storageGateway.RemoveItem<SessionStateModel>(StorageArea.Session);
+        await _storageGateway.RemoveItem<KeriaConnectionInfo>(StorageArea.Session);
+        await _storageGateway.RemoveItem<ConfigureProgress>(StorageArea.Session);
 
         // Remove only unproven configs
         await CleanupUnprovenConfigsAsync();
@@ -190,21 +190,21 @@ public class ConfigureService : IConfigureService {
 
         newDict[digest] = config;
 
-        var storeResult = await _storageService.SetItem(existingConfigs with { Configs = newDict });
+        var storeResult = await _storageGateway.SetItem(existingConfigs with { Configs = newDict });
         if (storeResult.IsFailed) {
             return Result.Fail<string>($"Failed to store KeriaConnectConfigs: {string.Join(", ", storeResult.Errors)}");
         }
 
         // Update Preferences with selected digest
         if (setAsSelected && !digest.StartsWith("partial_", StringComparison.Ordinal)) {
-            var prefsResult = await _storageService.GetItem<Preferences>();
+            var prefsResult = await _storageGateway.GetItem<Preferences>();
             var currentPrefs = prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored
                 ? prefsResult.Value
                 : new Preferences { IsStored = true };
             var updatedPrefs = currentPrefs with {
                 SelectedKeriaConnectionDigest = digest
             };
-            var prefsStoreResult = await _storageService.SetItem(updatedPrefs);
+            var prefsStoreResult = await _storageGateway.SetItem(updatedPrefs);
             if (prefsStoreResult.IsFailed) {
                 _logger.LogWarning("Failed to update SelectedKeriaConnectionDigest: {Errors}", string.Join(", ", prefsStoreResult.Errors));
             }
@@ -227,10 +227,10 @@ public class ConfigureService : IConfigureService {
             newDict.Remove(key);
         }
 
-        await _storageService.SetItem(configs with { Configs = newDict });
+        await _storageGateway.SetItem(configs with { Configs = newDict });
 
         // If the selected digest was an unproven config, revert to most recent proven config
-        var prefsResult = await _storageService.GetItem<Preferences>();
+        var prefsResult = await _storageGateway.GetItem<Preferences>();
         if (prefsResult.IsSuccess && prefsResult.Value is not null) {
             var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
             if (selectedDigest is not null && unprovenKeys.Contains(selectedDigest)) {
@@ -243,13 +243,13 @@ public class ConfigureService : IConfigureService {
                 var updatedPrefs = prefsResult.Value with {
                     SelectedKeriaConnectionDigest = mostRecentProven
                 };
-                await _storageService.SetItem(updatedPrefs);
+                await _storageGateway.SetItem(updatedPrefs);
             }
         }
     }
 
     private async Task<KeriaConnectConfigs> GetConfigsAsync() {
-        var result = await _storageService.GetItem<KeriaConnectConfigs>();
+        var result = await _storageGateway.GetItem<KeriaConnectConfigs>();
         return result.IsSuccess && result.Value is not null && result.Value.IsStored
             ? result.Value
             : new KeriaConnectConfigs { IsStored = true };
@@ -305,7 +305,7 @@ public class ConfigureService : IConfigureService {
 
     private async Task ReportProgress(int step, int totalSteps, string description) {
         _logger.LogInformation("Configure progress: Step {Step} of {Total}: {Description}", step, totalSteps, description);
-        await _storageService.SetItem(new ConfigureProgress {
+        await _storageGateway.SetItem(new ConfigureProgress {
             Step = step,
             TotalSteps = totalSteps,
             Description = description
@@ -313,10 +313,10 @@ public class ConfigureService : IConfigureService {
     }
 
     private async Task ReportComplete() {
-        await _storageService.SetItem(new ConfigureProgress { IsComplete = true }, StorageArea.Session);
+        await _storageGateway.SetItem(new ConfigureProgress { IsComplete = true }, StorageArea.Session);
     }
 
     private async Task ReportError(string description) {
-        await _storageService.SetItem(new ConfigureProgress { IsError = true, Description = description }, StorageArea.Session);
+        await _storageGateway.SetItem(new ConfigureProgress { IsError = true, Description = description }, StorageArea.Session);
     }
 }

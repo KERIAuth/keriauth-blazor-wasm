@@ -13,7 +13,7 @@
 @inject HttpClient http
 @inject IJSRuntime js
 @inject NavigationManager navManager
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ISnackbar snackbar
 @inject ILogger<MainLayout> logger
 @inject IWebExtensionsApi webExtensionsApi
@@ -161,7 +161,7 @@
                 {
                     [selectedDigest] = updatedConfig
                 };
-                await storageService.SetItem(new KeriaConnectConfigs
+                await storageGateway.SetItem(new KeriaConnectConfigs
                 {
                     Configs = updatedConfigs,
                     IsStored = true

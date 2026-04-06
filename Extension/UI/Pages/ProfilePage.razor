@@ -7,7 +7,7 @@
 @implements IDisposable
 
 @inject HttpClient httpClient
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<ProfilePage> logger
@@ -501,7 +501,7 @@
     async Task SetActiveAid(string prefix)
     {
         // Update SelectedPrefix in the current KeriaConnectConfig
-        var configsResult = await storageService.GetItem<KeriaConnectConfigs>();
+        var configsResult = await storageGateway.GetItem<KeriaConnectConfigs>();
         if (!configsResult.IsSuccess || configsResult.Value is null)
         {
             logger.LogWarning("Failed to get KeriaConnectConfigs");
@@ -521,7 +521,7 @@
             {
                 [selectedDigest] = updatedConfig
             };
-            await storageService.SetItem(new KeriaConnectConfigs
+            await storageGateway.SetItem(new KeriaConnectConfigs
             {
                 Configs = updatedConfigs,
                 IsStored = true

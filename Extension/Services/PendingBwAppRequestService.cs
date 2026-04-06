@@ -10,7 +10,6 @@ using Microsoft.Extensions.Logging;
 /// Uses chrome.storage.session for persistence across service worker restarts.
 /// </summary>
 public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposable {
-    private readonly IStorageService _storageService;
     private readonly IStorageGateway _storageGateway;
     private readonly ILogger<PendingBwAppRequestService> _logger;
     private readonly List<IObserver<PendingBwAppRequests>> _observers = [];
@@ -19,11 +18,9 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
     public event EventHandler<PendingBwAppRequests>? RequestsChanged;
 
     public PendingBwAppRequestService(
-        IStorageService storageService,
         IStorageGateway storageGateway,
         ILogger<PendingBwAppRequestService> logger
     ) {
-        _storageService = storageService;
         _storageGateway = storageGateway;
         _logger = logger;
 
@@ -43,7 +40,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
         try {
             // Get current requests
-            var getResult = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var getResult = await _storageGateway.GetItem<PendingBwAppRequests>(StorageArea.Session);
             if (getResult.IsFailed) {
                 return Result.Fail(getResult.Errors);
             }
@@ -65,7 +62,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             var updated = new PendingBwAppRequests { Requests = [request] };
 
             // Save to storage
-            var setResult = await _storageService.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
+            var setResult = await _storageGateway.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
             if (setResult.IsFailed) {
                 return Result.Fail(setResult.Errors);
             }
@@ -84,7 +81,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         _logger.LogInformation(nameof(RemoveRequestAsync) + ": requestId={RequestId}", requestId);
 
         try {
-            var getResult = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var getResult = await _storageGateway.GetItem<PendingBwAppRequests>(StorageArea.Session);
             if (getResult.IsFailed) {
                 return Result.Fail(getResult.Errors);
             }
@@ -94,13 +91,13 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
             // If no requests left, remove the storage item entirely
             if (updated.IsEmpty) {
-                var removeResult = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+                var removeResult = await _storageGateway.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
                 if (removeResult.IsFailed) {
                     return Result.Fail(removeResult.Errors);
                 }
             }
             else {
-                var setResult = await _storageService.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
+                var setResult = await _storageGateway.SetItem<PendingBwAppRequests>(updated, StorageArea.Session);
                 if (setResult.IsFailed) {
                     return Result.Fail(setResult.Errors);
                 }
@@ -120,7 +117,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
     public async Task<Result<PendingBwAppRequests>> GetRequestsAsync() {
         try {
-            var result = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var result = await _storageGateway.GetItem<PendingBwAppRequests>(StorageArea.Session);
             if (result.IsFailed) {
                 return Result.Fail<PendingBwAppRequests>(result.Errors);
             }
@@ -153,7 +150,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         _logger.LogInformation(nameof(ClearAllRequestsAsync) + ": Clearing all pending requests");
 
         try {
-            var result = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+            var result = await _storageGateway.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
             if (result.IsFailed) {
                 return Result.Fail(result.Errors);
             }
@@ -171,7 +168,7 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
         _logger.LogInformation(nameof(CleanupStaleRequestsAsync) + ": Removing requests older than {MaxAge}", maxAge);
 
         try {
-            var getResult = await _storageService.GetItem<PendingBwAppRequests>(StorageArea.Session);
+            var getResult = await _storageGateway.GetItem<PendingBwAppRequests>(StorageArea.Session);
             if (getResult.IsFailed) {
                 return Result.Fail(getResult.Errors);
             }
@@ -185,13 +182,13 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
             }
 
             if (cleaned.IsEmpty) {
-                var removeResult = await _storageService.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
+                var removeResult = await _storageGateway.RemoveItem<PendingBwAppRequests>(StorageArea.Session);
                 if (removeResult.IsFailed) {
                     return Result.Fail(removeResult.Errors);
                 }
             }
             else {
-                var setResult = await _storageService.SetItem<PendingBwAppRequests>(cleaned, StorageArea.Session);
+                var setResult = await _storageGateway.SetItem<PendingBwAppRequests>(cleaned, StorageArea.Session);
                 if (setResult.IsFailed) {
                     return Result.Fail(setResult.Errors);
                 }

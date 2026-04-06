@@ -103,7 +103,6 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IUserActivityService, UserActivityService>();
             builder.Services.AddSingleton<SessionManager>(sp => new(
                 sp.GetRequiredService<ILogger<SessionManager>>(),
-                sp.GetRequiredService<IStorageService>(),
                 sp.GetRequiredService<IStorageGateway>(),
                 sp.GetRequiredService<IJsRuntimeAdapter>(),
                 isSessionOwner: false));
@@ -121,7 +120,7 @@ builder.UseBrowserExtension(browserExtension => {
 
 // Services common to both BackgroundWorker and App contexts
 builder.Services.AddBrowserExtensionServices();
-builder.Services.AddSingleton<IStorageService, StorageService>();
+// StorageService removed — all consumers now use IStorageGateway directly
 builder.Services.AddSingleton<IStorageGateway, StorageGateway>();
 builder.Services.AddSingleton<IJsModuleLoader, JsModuleLoader>();
 builder.Services.AddSingleton<IWebsiteConfigService, WebsiteConfigService>();

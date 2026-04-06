@@ -31,7 +31,6 @@ namespace Extension.Services;
 /// </summary>
 public class SessionManager : IDisposable {
     private readonly ILogger<SessionManager> _logger;
-    private readonly IStorageService _storageService;
     private readonly IStorageGateway _storageGateway;
     private readonly WebExtensionsApi _webExtensionsApi;
     private const string unicodeLockIcon = "\U0001F512"; // Unicode lock icon 🔒
@@ -51,12 +50,10 @@ public class SessionManager : IDisposable {
     /// </summary>
     public SessionManager(
         ILogger<SessionManager> logger,
-        IStorageService storageService,
         IStorageGateway storageGateway,
         IJsRuntimeAdapter jsRuntimeAdapter,
         bool isSessionOwner = true) {
         _logger = logger;
-        _storageService = storageService;
         _storageGateway = storageGateway;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
@@ -106,7 +103,7 @@ public class SessionManager : IDisposable {
     /// </summary>
     private async Task CheckAndClearExpiredSessionOnStartupAsync() {
         try {
-            var sessionStateRes = await _storageService.GetItem<SessionStateModel>(StorageArea.Session);
+            var sessionStateRes = await _storageGateway.GetItem<SessionStateModel>(StorageArea.Session);
 
             if (sessionStateRes.IsFailed) {
                 _logger.LogDebug(nameof(CheckAndClearExpiredSessionOnStartupAsync) + ": No SessionStateModel found on startup - session is locked");
@@ -144,7 +141,7 @@ public class SessionManager : IDisposable {
             }
 
             // Get preferences to find the selected config digest
-            var prefsRes = await _storageService.GetItem<Preferences>();
+            var prefsRes = await _storageGateway.GetItem<Preferences>();
             if (prefsRes.IsFailed || prefsRes.Value is null) {
                 return FluentResults.Result.Fail("Preferences not found");
             }
@@ -155,7 +152,7 @@ public class SessionManager : IDisposable {
             }
 
             // Get the KeriaConnectConfigs dictionary
-            var configsRes = await _storageService.GetItem<KeriaConnectConfigs>();
+            var configsRes = await _storageGateway.GetItem<KeriaConnectConfigs>();
             if (configsRes.IsFailed || configsRes.Value is null || !configsRes.Value.IsStored) {
                 return FluentResults.Result.Fail("KERIA configuration not found");
             }
@@ -182,7 +179,7 @@ public class SessionManager : IDisposable {
             // Write expiration to session storage (not sensitive)
             var timeoutMinutes = prefsRes.Value.InactivityTimeoutMinutes;
             var expirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
-            var setRes = await _storageService.SetItem<SessionStateModel>(
+            var setRes = await _storageGateway.SetItem<SessionStateModel>(
                 new SessionStateModel { SessionExpirationUtc = expirationUtc },
                 StorageArea.Session
             );
@@ -351,7 +348,7 @@ public class SessionManager : IDisposable {
     /// </summary>
     public async Task ExtendIfUnlockedAsync() {
         if (await IsUnlockedAsync()) {
-            var prefsRes = await _storageService.GetItem<Preferences>();
+            var prefsRes = await _storageGateway.GetItem<Preferences>();
             if (prefsRes.IsFailed) {
                 throw new InvalidOperationException(
                     $"Failed to get Preferences: {prefsRes.Errors[0].Message}");
@@ -363,7 +360,7 @@ public class SessionManager : IDisposable {
             var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
 
             // Update SessionStateModel with new expiration time
-            var setRes = await _storageService.SetItem<SessionStateModel>(
+            var setRes = await _storageGateway.SetItem<SessionStateModel>(
                 new SessionStateModel { SessionExpirationUtc = newExpirationUtc },
                 StorageArea.Session
             );
@@ -414,7 +411,7 @@ public class SessionManager : IDisposable {
         // ensuring no stale state can survive across an unlock cycle.
         // Session storage is ephemeral by design (cleared on browser close), so bulk clearing
         // is always safe — BwReadyState will self-heal via BackgroundWorker's observer.
-        var clearResult = await _storageService.Clear(StorageArea.Session);
+        var clearResult = await _storageGateway.Clear(StorageArea.Session);
         if (clearResult.IsFailed) {
             throw new InvalidOperationException(
                 $"Failed to clear Session storage: {clearResult.Errors[0].Message}");
@@ -448,7 +445,7 @@ public class SessionManager : IDisposable {
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        var clearResult = await _storageService.Clear(StorageArea.Session);
+        var clearResult = await _storageGateway.Clear(StorageArea.Session);
         if (clearResult.IsFailed) {
             throw new InvalidOperationException(
                 $"Failed to clear session storage: {clearResult.Errors[0].Message}");
@@ -470,7 +467,7 @@ public class SessionManager : IDisposable {
         }
 
         // 2. Check SessionStateModel.SessionExpirationUtc is not expired
-        var sessionStateRes = await _storageService.GetItem<SessionStateModel>(StorageArea.Session);
+        var sessionStateRes = await _storageGateway.GetItem<SessionStateModel>(StorageArea.Session);
         if (sessionStateRes.IsFailed || sessionStateRes.Value is null) {
             _logger.LogInformation(nameof(IsUnlockedAsync) + ": SessionStateModel not found — session is locked");
             return false;

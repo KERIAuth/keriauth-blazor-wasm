@@ -4,7 +4,7 @@
 @using Extension.Services.Storage
 @using Extension.Utilities
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<GettingStartedPage> logger
 @inject HttpClient httpClient
 @inject NavigationManager navManager
@@ -47,7 +47,7 @@
         {
             ShowedGettingStarted = true
         };
-        await storageService.SetItem<OnboardState>(updatedOnboardState);
+        await storageGateway.SetItem<OnboardState>(updatedOnboardState);
         await appCache.WaitForAppCache([() => appCache.MyOnboardState.ShowedGettingStarted == true]);
         navManager.NavigateTo(Routes.Paths.Router);
     }

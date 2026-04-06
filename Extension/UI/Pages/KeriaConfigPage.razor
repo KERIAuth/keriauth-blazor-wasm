@@ -11,7 +11,7 @@
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject AppCache appCache
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IWebauthnService webauthnService
 @inject SessionManager sessionManager
 @inject ISnackbar snackbar
@@ -81,7 +81,7 @@
 
         // Update preference BEFORE clearing session, so UnlockPage finds the correct passkeys.
         var prefs = appCache.MyPreferences;
-        await storageService.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = Digest });
+        await storageGateway.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = Digest });
 
         await appCache.WaitForAppCache([
             () => appCache.MyPreferences.SelectedKeriaConnectionDigest == Digest
@@ -158,7 +158,7 @@
         var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
             [Digest] = updatedConfig
         };
-        await storageService.SetItem(configs with { Configs = updatedDict });
+        await storageGateway.SetItem(configs with { Configs = updatedDict });
     }
 
     private async Task DeleteConfig() {
@@ -189,7 +189,7 @@
                     .FirstOrDefault(d => d != Digest);
 
                 var prefs = appCache.MyPreferences;
-                await storageService.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = otherDigest });
+                await storageGateway.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = otherDigest });
 
                 if (appCache.IsAuthenticated) {
                     await sessionManager.ClearSessionForConfigChangeAsync();
@@ -205,7 +205,7 @@
             var configs = appCache.MyKeriaConnectConfigs;
             var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs);
             updatedDict.Remove(Digest);
-            await storageService.SetItem(configs with { Configs = updatedDict });
+            await storageGateway.SetItem(configs with { Configs = updatedDict });
 
             snackbar.Add("Configuration deleted", Severity.Success);
             navManager.NavigateTo(Routes.Paths.KeriaConfigs);

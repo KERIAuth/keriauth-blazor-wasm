@@ -18,13 +18,11 @@ using Xunit;
 /// Note: Full integration testing of alarm scheduling requires browser environment.
 /// </summary>
 public class SessionManagerTests {
-    private readonly Mock<IStorageService> _mockStorageService;
     private readonly Mock<IStorageGateway> _mockStorageGateway;
     private readonly Mock<ILogger<SessionManager>> _mockLogger;
     private readonly MockJsRuntimeAdapter _mockJsRuntimeAdapter;
 
     public SessionManagerTests() {
-        _mockStorageService = new Mock<IStorageService>();
         _mockStorageGateway = new Mock<IStorageGateway>();
         _mockLogger = new Mock<ILogger<SessionManager>>();
         _mockJsRuntimeAdapter = new MockJsRuntimeAdapter();
@@ -35,26 +33,26 @@ public class SessionManagerTests {
 
     private void SetupDefaultStorageMocks() {
         // Mock GetItem<SessionStateModel> to return not found (session locked state)
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.GetItem<SessionStateModel>(StorageArea.Session))
             .ReturnsAsync(Result.Fail<SessionStateModel?>("Not found"));
 
         // Mock GetItem<Preferences> to return default preferences
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.GetItem<Preferences>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<Preferences?>(new Preferences { IsStored = true }));
 
         // Mock GetItem<KeriaConnectConfigs> to return empty configs
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.GetItem<KeriaConnectConfigs>(StorageArea.Local))
             .ReturnsAsync(Result.Ok<KeriaConnectConfigs?>(new KeriaConnectConfigs { IsStored = true }));
 
         // Mock Subscribe to return a disposable
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Subscribe(It.IsAny<IObserver<SessionStateModel>>(), StorageArea.Session))
             .Returns(Mock.Of<IDisposable>());
 
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Subscribe(It.IsAny<IObserver<Preferences>>(), StorageArea.Local))
             .Returns(Mock.Of<IDisposable>());
     }
@@ -64,13 +62,12 @@ public class SessionManagerTests {
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_CallsClearOnSessionStorage() {
         // Arrange
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Clear(StorageArea.Session))
             .ReturnsAsync(Result.Ok());
 
         var sut = new SessionManager(
             _mockLogger.Object,
-            _mockStorageService.Object,
             _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
@@ -82,7 +79,7 @@ public class SessionManagerTests {
         await sut.ClearSessionForConfigChangeAsync();
 
         // Assert
-        _mockStorageService.Verify(
+        _mockStorageGateway.Verify(
             s => s.Clear(StorageArea.Session),
             Times.Once,
             "ClearSessionForConfigChangeAsync should call Clear on Session storage area"
@@ -92,13 +89,12 @@ public class SessionManagerTests {
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_ThrowsOnStorageFailure() {
         // Arrange
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Clear(StorageArea.Session))
             .ReturnsAsync(Result.Fail("Storage error"));
 
         var sut = new SessionManager(
             _mockLogger.Object,
-            _mockStorageService.Object,
             _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
@@ -117,13 +113,12 @@ public class SessionManagerTests {
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_DoesNotClearLocalStorage() {
         // Arrange
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Clear(StorageArea.Session))
             .ReturnsAsync(Result.Ok());
 
         var sut = new SessionManager(
             _mockLogger.Object,
-            _mockStorageService.Object,
             _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
@@ -135,7 +130,7 @@ public class SessionManagerTests {
         await sut.ClearSessionForConfigChangeAsync();
 
         // Assert - verify Local storage was NOT cleared
-        _mockStorageService.Verify(
+        _mockStorageGateway.Verify(
             s => s.Clear(StorageArea.Local),
             Times.Never,
             "ClearSessionForConfigChangeAsync should NOT clear Local storage (KeriaConnectConfigs, Preferences)"
@@ -145,13 +140,12 @@ public class SessionManagerTests {
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_DoesNotClearSyncStorage() {
         // Arrange
-        _mockStorageService
+        _mockStorageGateway
             .Setup(s => s.Clear(StorageArea.Session))
             .ReturnsAsync(Result.Ok());
 
         var sut = new SessionManager(
             _mockLogger.Object,
-            _mockStorageService.Object,
             _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
@@ -163,7 +157,7 @@ public class SessionManagerTests {
         await sut.ClearSessionForConfigChangeAsync();
 
         // Assert - verify Sync storage was NOT cleared (contains passkeys)
-        _mockStorageService.Verify(
+        _mockStorageGateway.Verify(
             s => s.Clear(StorageArea.Sync),
             Times.Never,
             "ClearSessionForConfigChangeAsync should NOT clear Sync storage (contains passkeys)"

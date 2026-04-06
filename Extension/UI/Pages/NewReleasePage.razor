@@ -29,14 +29,14 @@
 @using System.Text
 @using System.Security.Cryptography
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<NewReleasePage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject IJsRuntimeAdapter jsRuntimeAdapter
 @inject ISnackbar snackbar
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject AppCache appCache
 
@@ -106,7 +106,7 @@
         {
             InstallVersionAcknowledged = ManifestVersion,
         };
-        _ = await storageService.SetItem<OnboardState>(newOnboardState);
+        _ = await storageGateway.SetItem<OnboardState>(newOnboardState);
         StateHasChanged();
         navManager.NavigateTo(Routes.Paths.Router);
     }

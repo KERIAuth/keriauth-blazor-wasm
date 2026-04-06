@@ -3,7 +3,7 @@
 @using Extension.Services
 @using Extension.Helper
 @inject IJSRuntime js
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject AppCache appCache
 @inject ILogger<AddConnectionDialog> logger
 
@@ -120,7 +120,7 @@
     private async Task OnBeepOnScanSuccessChanged(bool value) {
         var currentPrefs = appCache.MyPreferences;
         if (currentPrefs.BeepOnScanSuccess != value) {
-            await storageService.SetItem(
+            await storageGateway.SetItem(
                 currentPrefs with { BeepOnScanSuccess = value });
             await appCache.WaitForAppCache([() => appCache.MyPreferences.BeepOnScanSuccess == value]);
         }
@@ -132,7 +132,7 @@
             deviceId, currentPrefs.PreferredCameraDeviceId ?? "(null)");
         if (currentPrefs.PreferredCameraDeviceId != deviceId) {
             // logger.LogWarning("OnCameraDeviceChanged: storing new preference");
-            await storageService.SetItem(
+            await storageGateway.SetItem(
                 currentPrefs with { PreferredCameraDeviceId = deviceId });
             await appCache.WaitForAppCache([() => appCache.MyPreferences.PreferredCameraDeviceId == deviceId]);
             // logger.LogWarning("OnCameraDeviceChanged: appCache updated, verified={Verified}", appCache.MyPreferences.PreferredCameraDeviceId == deviceId);

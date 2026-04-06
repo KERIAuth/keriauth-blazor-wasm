@@ -4,23 +4,32 @@ using Extension.Models.Storage;
 using FluentResults;
 
 /// <summary>
+/// Status of a versioned storage record read.
+/// </summary>
+public enum StorageItemStatus {
+    Found,
+    NotFound,
+    VersionMismatch
+}
+
+/// <summary>
 /// Batched-capable storage gateway over chrome.storage.*. Introduced alongside
-/// <see cref="IStorageService"/> to add bulk read, bulk write, write transactions,
+/// <see cref="IStorageGateway"/> to add bulk read, bulk write, write transactions,
 /// and batched change notifications that the existing service does not expose
 /// at its public API despite WebExtensions.Net already supporting them underneath.
 ///
-/// Migration strategy: this interface coexists with <see cref="IStorageService"/>.
+/// Migration strategy: this interface coexists with <see cref="IStorageGateway"/>.
 /// Call sites migrate incrementally; once all producers and observers are on
 /// <see cref="IStorageGateway"/>, the old service is deleted in a later phase.
 ///
 /// All storage keys are derived from typeof(T).Name, matching the convention used
-/// by <see cref="IStorageService"/>, so records written by one service are readable
+/// by <see cref="IStorageGateway"/>, so records written by one service are readable
 /// by the other during migration.
 /// </summary>
 public interface IStorageGateway {
     /// <summary>
     /// Get a single record from the given storage area.
-    /// Same semantics as <see cref="IStorageService.GetItem{T}"/>: returns null when the
+    /// Same semantics as <see cref="IStorageGateway.GetItem{T}"/>: returns null when the
     /// record is absent or when its stored schema version does not match the expected
     /// version (discard-and-default).
     /// </summary>
@@ -38,6 +47,18 @@ public interface IStorageGateway {
     /// </summary>
     Task<Result> RemoveItem<T>(StorageArea area = StorageArea.Local)
         where T : class, IStorageModel;
+
+    /// <summary>
+    /// Clear all items in the specified storage area.
+    /// </summary>
+    Task<Result> Clear(StorageArea area = StorageArea.Local);
+
+    /// <summary>
+    /// Probes a versioned record and reports its status (Found, NotFound, VersionMismatch).
+    /// Used during startup migration detection.
+    /// </summary>
+    Task<Result<StorageItemStatus>> GetItemStatus<T>(StorageArea area = StorageArea.Local)
+        where T : class, IVersionedStorageModel;
 
     /// <summary>
     /// Bulk read of multiple record types in a single chrome.storage.*.get(keys[])
@@ -62,7 +83,7 @@ public interface IStorageGateway {
 
     /// <summary>
     /// Subscribe to changes of a single record type. Semantics match
-    /// <see cref="IStorageService.Subscribe{T}"/>, including the async initial-value push
+    /// <see cref="IStorageGateway.Subscribe{T}"/>, including the async initial-value push
     /// after subscription.
     /// </summary>
     IDisposable Subscribe<T>(IObserver<T> observer, StorageArea area = StorageArea.Local)

@@ -22,23 +22,21 @@ using Xunit;
 /// from the bulk read during Initialize().
 /// </summary>
 public class AppCacheTests : IDisposable {
-    private readonly Mock<IStorageService> _mockStorageService;
     private readonly Mock<IStorageGateway> _mockStorageGateway;
     private readonly Mock<IWebExtensionsApi> _mockWebExtensionsApi;
     private readonly AppCache _sut;
 
     public AppCacheTests() {
-        _mockStorageService = new Mock<IStorageService>();
         _mockStorageGateway = new Mock<IStorageGateway>();
         _mockWebExtensionsApi = new Mock<IWebExtensionsApi>();
         var logger = new Mock<ILogger<AppCache>>();
 
         // WaitForBwReadyAsync polls GetItem<BwReadyState> — return ready immediately.
-        _mockStorageService
+        _mockStorageGateway
             .Setup(x => x.GetItem<BwReadyState>(StorageArea.Session))
             .ReturnsAsync(Result.Ok<BwReadyState?>(new BwReadyState { IsInitialized = true, InitializedAtUtc = DateTime.UtcNow }));
 
-        _sut = new AppCache(_mockStorageService.Object, _mockStorageGateway.Object, logger.Object, _mockWebExtensionsApi.Object);
+        _sut = new AppCache(_mockStorageGateway.Object, logger.Object, _mockWebExtensionsApi.Object);
     }
 
     public void Dispose() {
@@ -154,7 +152,6 @@ public class AppCacheTests : IDisposable {
 /// </summary>
 [Collection("StorageService Sequential Tests")]
 public class AppCacheBatchTests : IAsyncLifetime, IDisposable {
-    private readonly Mock<IStorageService> _mockStorageService;
     private readonly StorageGateway _realGateway;
     private readonly AppCache _sut;
     private int _changedCount;
@@ -170,23 +167,17 @@ public class AppCacheBatchTests : IAsyncLifetime, IDisposable {
     };
 
     public AppCacheBatchTests() {
-        _mockStorageService = new Mock<IStorageService>();
         var mockJsRuntime = new MockJsRuntimeAdapter();
         _realGateway = new StorageGateway(mockJsRuntime, new Mock<ILogger<StorageGateway>>().Object);
         var mockWebExtensionsApi = new Mock<IWebExtensionsApi>();
         var logger = new Mock<ILogger<AppCache>>();
 
-        // WaitForBwReadyAsync polls GetItem<BwReadyState> — return ready immediately.
-        _mockStorageService
-            .Setup(x => x.GetItem<BwReadyState>(StorageArea.Session))
-            .ReturnsAsync(Result.Ok<BwReadyState?>(new BwReadyState { IsInitialized = true, InitializedAtUtc = DateTime.UtcNow }));
-
-        _sut = new AppCache(_mockStorageService.Object, _realGateway, logger.Object, mockWebExtensionsApi.Object);
+        _sut = new AppCache(_realGateway, logger.Object, mockWebExtensionsApi.Object);
     }
 
     public async Task InitializeAsync() {
-        // Initialize AppCache (registers batch observers on the real StorageGateway).
-        await _sut.EnsureInitializedAsync();
+        // Call Initialize() directly (skips WaitForBwReadyAsync which needs a real BW).
+        await _sut.Initialize();
         _sut.Changed += () => _changedCount++;
     }
 

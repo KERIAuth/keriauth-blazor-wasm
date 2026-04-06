@@ -20,7 +20,7 @@
 @using System;
 @using System.Collections.Generic;
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @using static Extension.Helper.PreviousPage
@@ -28,7 +28,6 @@
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
-@inject IStorageService storageService
 @inject IAppBwPortService appBwPortService
 @using Extension.Services.Port
 @inject IJSRuntime jsRuntime

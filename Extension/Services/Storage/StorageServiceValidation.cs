@@ -7,16 +7,16 @@ using Extension.Models;
 /// Validation helper for storage operations across different storage areas.
 /// Enforces rules like read-only Managed storage and quota-only Local/Sync storage.
 /// </summary>
-public static class StorageServiceValidation {
+public static class StorageGatewayValidation {
     /// <summary>
     /// Operations not allowed on Managed storage (read-only for extensions).
     /// IT administrators configure Managed storage via enterprise policies.
     /// </summary>
     private static readonly HashSet<string> ManagedReadOnlyOps = new() {
-        nameof(IStorageService.Clear),
-        nameof(IStorageService.RemoveItem),
-        nameof(IStorageService.SetItem),
-        nameof(IStorageService.RestoreBackupItems)
+        nameof(IStorageGateway.Clear),
+        nameof(IStorageGateway.RemoveItem),
+        nameof(IStorageGateway.SetItem),
+        "RestoreBackupItems"
     };
 
     /// <summary>
@@ -25,8 +25,8 @@ public static class StorageServiceValidation {
     /// This differs from Chrome docs which say Local/Sync have quotas, but we follow the library's API.
     /// </summary>
     private static readonly HashSet<string> QuotaRequiredOps = new() {
-        nameof(IStorageService.GetBytesInUse),
-        nameof(IStorageService.GetQuota)
+        "GetBytesInUse",
+        "GetQuota"
     };
 
     /// <summary>

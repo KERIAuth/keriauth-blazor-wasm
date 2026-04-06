@@ -6,10 +6,10 @@ using System.Text.Json;
 
 namespace Extension.Services;
 
-public class WebsiteConfigService(IStorageService storageService, ILogger<WebsiteConfigService> logger) : IWebsiteConfigService {
+public class WebsiteConfigService(IStorageGateway storageGateway, ILogger<WebsiteConfigService> logger) : IWebsiteConfigService {
     public async Task<Result<WebsiteConfigList?>> GetList() {
         // logger.LogInformation("Getting websites from storage");
-        return await storageService.GetItem<WebsiteConfigList>();
+        return await storageGateway.GetItem<WebsiteConfigList>();
     }
 
     private async Task<Result<WebsiteConfig?>> Get(Uri originUri) {
@@ -45,7 +45,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
         // Create a new Websites record with the updated list
         var updatedWebsites = new WebsiteConfigList { WebsiteList = updatedWebsiteList };
 
-        var saveResult = await storageService.SetItem<WebsiteConfigList>(updatedWebsites);
+        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(updatedWebsites);
         if (saveResult.IsFailed) {
             return Result.Fail("could not save website to storage");
         }
@@ -66,7 +66,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
 
         var wcl = new WebsiteConfigList { WebsiteList = [.. newWebsites] };
 
-        var saveResult = await storageService.SetItem<WebsiteConfigList>(wcl);
+        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(wcl);
         if (saveResult.IsFailed) {
             return Result.Fail("could not save updated websites to storage");
         }
@@ -89,7 +89,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 .ToList()
         };
 
-        var saveResult = await storageService.SetItem<WebsiteConfigList>(newList);
+        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(newList);
         if (saveResult.IsFailed) {
             return Result.Fail("could not save updated website to storage");
         }
@@ -113,7 +113,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 // This is the first website configured. Need to first add the Websites collection
                 // var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
                 websiteConfigList = new WebsiteConfigList { WebsiteList = [new WebsiteConfig(originUri, [], null, null, false, false, false)] };
-                var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
+                var setItemRes = await storageGateway.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
                     // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
                     return Result.Fail(error: setItemRes.Errors[0]);
@@ -134,7 +134,7 @@ public class WebsiteConfigService(IStorageService storageService, ILogger<Websit
                 WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
                 // newWebsiteConfig.Validate();
                 websiteConfigList.WebsiteList.Add(newWebsiteConfig);
-                var setItemRes = await storageService.SetItem<WebsiteConfigList>(websiteConfigList);
+                var setItemRes = await storageGateway.SetItem<WebsiteConfigList>(websiteConfigList);
                 if (setItemRes.IsFailed) {
                     // logger.LogError("getOrCreateWebsite: Error adding website to database: {err}", setItemRes.Errors);
                     return Result.Fail(error: setItemRes.Errors[0]);

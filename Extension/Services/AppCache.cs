@@ -67,12 +67,10 @@
     /// See AppCacheComponentExtensions.cs for the SubscribeToAppCache extension method.
     ///
     /// </summary>
-    /// <param name="storageService"></param>
     /// <param name="storageGateway"></param>
     /// <param name="logger"></param>
     /// <param name="webExtensionsApi"></param>
-    public class AppCache(IStorageService storageService, IStorageGateway storageGateway, ILogger<AppCache> logger, IWebExtensionsApi webExtensionsApi) : IDisposable {
-        private readonly IStorageService storageService = storageService;
+    public class AppCache(IStorageGateway storageGateway, ILogger<AppCache> logger, IWebExtensionsApi webExtensionsApi) : IDisposable {
         private readonly IStorageGateway storageGateway = storageGateway;
         private readonly ILogger<AppCache> _logger = logger;
         internal ILogger Logger => _logger;
@@ -880,7 +878,7 @@
             var elapsedMs = 0;
 
             while (elapsedMs < AppConfig.BwReadyTimeoutMs) {
-                var result = await storageService.GetItem<BwReadyState>(StorageArea.Session);
+                var result = await storageGateway.GetItem<BwReadyState>(StorageArea.Session);
 
                 if (result.IsSuccess && result.Value?.IsInitialized == true) {
                     _logger.LogInformation(

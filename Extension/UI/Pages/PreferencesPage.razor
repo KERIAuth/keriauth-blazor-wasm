@@ -10,7 +10,7 @@
 @using static Extension.Helper.PreviousPage
 
 @inject NavigationManager navManager
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IJSRuntime js
 @inject AppCache appCache
 @inject ILogger<PreferencesPage> logger
@@ -87,7 +87,7 @@
 
     async Task Persist(Preferences prefs)
     {
-        await storageService.SetItem<Preferences>(prefs);
+        await storageGateway.SetItem<Preferences>(prefs);
         // Note: reactive update of AppCache will trigger this page's StateHasChanged via SubscribeToAppCache()
         // Note: timer updates in MainLayout.razor are reactive via AppCache subscription
         // BackgroundWorker timer reset should also be updated because of reactive to this preferences change, or app activity in general

@@ -7,7 +7,7 @@
 @inject ILogger<OfferPasskeyPage> logger
 @inject IJSRuntime js
 @inject AppCache appCache
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 
 @code {
     private MudButton? createPasskeyButton;
@@ -71,7 +71,7 @@
         var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
             [selectedDigest] = updatedConfig
         };
-        var storeResult = await storageService.SetItem(new KeriaConnectConfigs {
+        var storeResult = await storageGateway.SetItem(new KeriaConnectConfigs {
             Configs = updatedConfigs,
             IsStored = true
         });

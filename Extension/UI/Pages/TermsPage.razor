@@ -4,7 +4,7 @@
 @using Extension.Utilities
 @using static Extension.AppConfig
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<TermsPage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
@@ -111,7 +111,7 @@
             PrivacyAgreedUtc = now,
         };
 
-        _ = await storageService.SetItem<OnboardState>(newOnboardState);
+        _ = await storageGateway.SetItem<OnboardState>(newOnboardState);
         logger.LogInformation("Terms and Privacy agreement recorded at {Timestamp}", now);
 
         navManager.NavigateTo(Routes.Paths.Router);

@@ -3,11 +3,10 @@
 using Extension.Services.Storage;
 
 public class IdentifierService {
-    public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifierService> logger, IStorageService storageService) {
+    public IdentifierService(string prefix, string alias, Guid keriaConnectionGuid, ILogger<IdentifierService> logger) {
             Prefix = prefix;
             Alias = alias;
             KeriaConnectionGuid = keriaConnectionGuid;
-            _ = storageService;
             _ = logger;
         }
 

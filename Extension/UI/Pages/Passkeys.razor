@@ -15,7 +15,7 @@
 
 @using System.Net.Http.Json
 @inject HttpClient httpClient
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<Passkeys> logger
@@ -79,7 +79,7 @@
             .ToList();
         var updatedConfig = config with { Passkeys = updatedPasskeys };
         var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
-        var saveResult = await storageService.SetItem(configs with { Configs = updatedDict });
+        var saveResult = await storageGateway.SetItem(configs with { Configs = updatedDict });
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save passkey changes", Severity.Error);
@@ -156,7 +156,7 @@
             .ToList();
         var updatedConfig = config with { Passkeys = updatedPasskeys };
         var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
-        var saveResult = await storageService.SetItem(configs with { Configs = updatedDict });
+        var saveResult = await storageGateway.SetItem(configs with { Configs = updatedDict });
         if (saveResult.IsFailed)
         {
             snackbar.Add("Failed to save transport changes", Severity.Error);

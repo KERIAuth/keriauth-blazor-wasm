@@ -14,7 +14,7 @@
 @using FluentResults
 
 @inject ILogger<RequestSignHeadersPage> logger
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject IWebsiteConfigService websiteConfigService
 
 @code {
@@ -164,7 +164,7 @@
     async Task SetIsDetailShown(bool isDetailShown)
     {
         // TODO P3 IsSignRequestDetailShown should be per website, since not every site should be trusted the same
-        await storageService.SetItem<Preferences>(Prefs with { IsSignRequestDetailShown = isDetailShown });
+        await storageGateway.SetItem<Preferences>(Prefs with { IsSignRequestDetailShown = isDetailShown });
         return;
     }
 

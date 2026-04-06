@@ -59,7 +59,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly ILogger<BackgroundWorker> logger;
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
-    private readonly IStorageService _storageService;
     private readonly IStorageGateway _storageGateway;
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
@@ -131,7 +130,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         ILogger<BackgroundWorker> logger,
         IJSRuntime jsRuntime,
         IJsRuntimeAdapter jsRuntimeAdapter,
-        IStorageService storageService,
         IStorageGateway storageGateway,
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
@@ -147,7 +145,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
-        _storageService = storageService;
         _storageGateway = storageGateway;
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
@@ -373,7 +370,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Clear BwReadyState first to force re-initialization on browser startup
             // (session storage may have persisted from previous browser session)
-            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+            await _storageGateway.RemoveItem<BwReadyState>(StorageArea.Session);
             await EnsureInitializedAsync();
             logger.LogInformation(nameof(OnStartupAsync) + ": Background worker reinitialized on browser startup");
         }
@@ -569,7 +566,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task OnInstalledInstallAsync() {
         try {
             // Clear BwReadyState first to force fresh initialization
-            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+            await _storageGateway.RemoveItem<BwReadyState>(StorageArea.Session);
 
             await EnsureInitializedAsync();
 
@@ -616,7 +613,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Write the MigrationNotice so the App can warn the user on next page render.
                 // The App is a passive displayer — BW is authoritative for detection.
                 var notice = new MigrationNotice { DiscardedTypeNames = discardedTypes };
-                var noticeResult = await _storageService.SetItem(notice);
+                var noticeResult = await _storageGateway.SetItem(notice);
                 if (noticeResult.IsFailed) {
                     logger.LogError(nameof(InitializeStorageDefaultsAsync) +
                         ": Failed to write MigrationNotice: {Error}",
@@ -633,13 +630,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Step 2: Create skeleton records where missing (or after being cleared above).
 
             // Check and create Preferences if not exists
-            var prefsResult = await _storageService.GetItem<Preferences>();
+            var prefsResult = await _storageGateway.GetItem<Preferences>();
             if (prefsResult.IsSuccess && prefsResult.Value is not null && prefsResult.Value.IsStored) {
                 logger.LogDebug(nameof(InitializeStorageDefaultsAsync) + ": Preferences already exists");
             }
             else {
                 var defaultPrefs = new Preferences { IsStored = true };
-                var setResult = await _storageService.SetItem<Preferences>(defaultPrefs);
+                var setResult = await _storageGateway.SetItem<Preferences>(defaultPrefs);
                 if (setResult.IsFailed) {
                     logger.LogError(nameof(InitializeStorageDefaultsAsync) + ": Failed to create Preferences: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -650,13 +647,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Check and create OnboardState if not exists
-            var onboardResult = await _storageService.GetItem<OnboardState>();
+            var onboardResult = await _storageGateway.GetItem<OnboardState>();
             if (onboardResult.IsSuccess && onboardResult.Value is not null && onboardResult.Value.IsStored) {
                 logger.LogDebug(nameof(InitializeStorageDefaultsAsync) + ": OnboardState already exists");
             }
             else {
                 var defaultOnboard = new OnboardState { IsStored = true, IsWelcomed = false };
-                var setResult = await _storageService.SetItem<OnboardState>(defaultOnboard);
+                var setResult = await _storageGateway.SetItem<OnboardState>(defaultOnboard);
                 if (setResult.IsFailed) {
                     logger.LogError(nameof(InitializeStorageDefaultsAsync) + ": Failed to create OnboardState: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -669,13 +666,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Check and create KeriaConnectConfigs skeleton if not exists
             // Unlike Preferences and OnboardState, KeriaConnectConfigs requires user input (KERIA URLs)
             // so we only create an empty skeleton with IsStored = true. ConfigurePage will update with real values.
-            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>();
             if (configsResult.IsSuccess && configsResult.Value is not null && configsResult.Value.IsStored) {
                 logger.LogDebug(nameof(InitializeStorageDefaultsAsync) + ": KeriaConnectConfigs already exists (count={Count})", configsResult.Value.Configs.Count);
             }
             else {
                 var defaultConfigs = new KeriaConnectConfigs { IsStored = true };
-                var setResult = await _storageService.SetItem<KeriaConnectConfigs>(defaultConfigs);
+                var setResult = await _storageGateway.SetItem<KeriaConnectConfigs>(defaultConfigs);
                 if (setResult.IsFailed) {
                     logger.LogError(nameof(InitializeStorageDefaultsAsync) + ": Failed to create KeriaConnectConfigs: {Error}",
                         string.Join("; ", setResult.Errors.Select(e => e.Message)));
@@ -697,8 +694,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Probes a versioned Local storage record. If a version mismatch is detected,
     /// appends the type name to the discardedTypes list.
     /// </summary>
-    private async Task ProbeAndRecordMismatchAsync<T>(List<string> discardedTypes) where T : IVersionedStorageModel {
-        var statusResult = await _storageService.GetItemStatus<T>();
+    private async Task ProbeAndRecordMismatchAsync<T>(List<string> discardedTypes) where T : class, IVersionedStorageModel {
+        var statusResult = await _storageGateway.GetItemStatus<T>();
         if (statusResult.IsSuccess && statusResult.Value == StorageItemStatus.VersionMismatch) {
             discardedTypes.Add(typeof(T).Name);
         }
@@ -711,16 +708,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task RemoveStaleRecordAsync(string typeName) {
         switch (typeName) {
             case nameof(Preferences):
-                await _storageService.RemoveItem<Preferences>();
+                await _storageGateway.RemoveItem<Preferences>();
                 break;
             case nameof(OnboardState):
-                await _storageService.RemoveItem<OnboardState>();
+                await _storageGateway.RemoveItem<OnboardState>();
                 break;
             case nameof(KeriaConnectConfigs):
-                await _storageService.RemoveItem<KeriaConnectConfigs>();
+                await _storageGateway.RemoveItem<KeriaConnectConfigs>();
                 break;
             case nameof(WebsiteConfigList):
-                await _storageService.RemoveItem<WebsiteConfigList>();
+                await _storageGateway.RemoveItem<WebsiteConfigList>();
                 break;
             default:
                 logger.LogWarning(nameof(RemoveStaleRecordAsync) + ": Unknown stale record type {Type} — skipping", typeName);
@@ -739,7 +736,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 IsInitialized = true,
                 InitializedAtUtc = DateTime.UtcNow
             };
-            var result = await _storageService.SetItem<BwReadyState>(readyState, StorageArea.Session);
+            var result = await _storageGateway.SetItem<BwReadyState>(readyState, StorageArea.Session);
             if (result.IsFailed) {
                 logger.LogError(nameof(SetBwReadyStateAsync) + ": Failed to set BwReadyState: {Error}",
                     string.Join("; ", result.Errors.Select(e => e.Message)));
@@ -938,7 +935,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation(nameof(OnInstalledUpdateAsync) + ": Extension updated from {Previous} to {Current}", previousVersion, currentVersion);
 
             // Clear BwReadyState first to force fresh initialization after update
-            await _storageService.RemoveItem<BwReadyState>(StorageArea.Session);
+            await _storageGateway.RemoveItem<BwReadyState>(StorageArea.Session);
 
             // TODO P3: EnsureInitializedAsync handles: storage defaults (may need migration), session manager, and BwReadyState
 
@@ -2552,7 +2549,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     identifiersResult.IsSuccess, identifiersResult.Value is not null);
 
                 if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
-                    var connectionInfo = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+                    var connectionInfo = await _storageGateway.GetItem<KeriaConnectionInfo>(StorageArea.Session);
                     logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Existing KeriaConnectionInfo in session: IsSuccess={Success}, hasValue={HasValue}",
                         connectionInfo.IsSuccess, connectionInfo.Value is not null);
 
@@ -2712,7 +2709,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<bool> IsWithinPollSkipThresholdAsync(Func<PollingState, DateTime?> selector, TimeSpan threshold) {
         try {
-            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
+            var result = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
             if (!result.IsSuccess || result.Value is null) return false;
             var timestamp = selector(result.Value);
             if (timestamp is null) return false;
@@ -3822,7 +3819,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task<bool> EnsureSchemaResolvedAsync(string schemaSaid, string callerName) {
         try {
             // Fast path: check session cache of previously resolved schemas
-            var cachedResult = await _storageService.GetItem<ResolvedSchemas>(StorageArea.Session);
+            var cachedResult = await _storageGateway.GetItem<ResolvedSchemas>(StorageArea.Session);
             if (cachedResult.IsSuccess && cachedResult.Value?.Schemas.ContainsKey(schemaSaid) == true) {
                 logger.LogDebug("{Caller}: Schema {SchemaSaid} found in session cache", callerName, schemaSaid);
                 return true;
@@ -3919,12 +3916,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
     private async Task AddToResolvedSchemaCacheAsync(string schemaSaid, string rawJson) {
         try {
-            var existing = await _storageService.GetItem<ResolvedSchemas>(StorageArea.Session);
+            var existing = await _storageGateway.GetItem<ResolvedSchemas>(StorageArea.Session);
             var schemas = existing.IsSuccess && existing.Value is not null
                 ? new Dictionary<string, string>(existing.Value.Schemas)
                 : new Dictionary<string, string>();
             schemas[schemaSaid] = rawJson;
-            await _storageService.SetItem(new ResolvedSchemas { Schemas = schemas }, StorageArea.Session);
+            await _storageGateway.SetItem(new ResolvedSchemas { Schemas = schemas }, StorageArea.Session);
         }
         catch (Exception ex) {
             logger.LogDebug(ex, "AddToResolvedSchemaCacheAsync: Failed to update cache (non-critical)");
@@ -4446,14 +4443,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     ConnectionDate = DateTime.UtcNow
                 };
 
-                var prefsResult2 = await _storageService.GetItem<Preferences>();
+                var prefsResult2 = await _storageGateway.GetItem<Preferences>();
                 var digest2 = prefsResult2.IsSuccess ? prefsResult2.Value?.SelectedKeriaConnectionDigest : null;
                 if (!string.IsNullOrEmpty(digest2)) {
-                    var configsResult2 = await _storageService.GetItem<KeriaConnectConfigs>();
+                    var configsResult2 = await _storageGateway.GetItem<KeriaConnectConfigs>();
                     if (configsResult2.IsSuccess && configsResult2.Value?.Configs.TryGetValue(digest2, out KeriaConnectConfig? cfg) == true) {
                         var updatedCfg = cfg with { Connections = [.. cfg.Connections, connection] };
                         var updatedDict = new Dictionary<string, KeriaConnectConfig>(configsResult2.Value.Configs) { [digest2] = updatedCfg };
-                        await _storageService.SetItem(configsResult2.Value with { Configs = updatedDict });
+                        await _storageGateway.SetItem(configsResult2.Value with { Configs = updatedDict });
                     }
                 }
 
@@ -4536,7 +4533,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // BW owns all writes to MigrationNotice; App is a passive displayer.
                 logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestAcknowledgeMigrationNotice event received");
                 try {
-                    var removeResult = await _storageService.RemoveItem<MigrationNotice>();
+                    var removeResult = await _storageGateway.RemoveItem<MigrationNotice>();
                     if (removeResult.IsFailed) {
                         logger.LogWarning(nameof(HandlePortEventAsync) + ": Failed to remove MigrationNotice: {Error}",
                             string.Join("; ", removeResult.Errors.Select(e => e.Message)));
@@ -4746,13 +4743,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         if (rememberedPrefix is null) {
             // Read SelectedPrefix from current KeriaConnectConfig
-            var prefsResult = await _storageService.GetItem<Preferences>();
+            var prefsResult = await _storageGateway.GetItem<Preferences>();
             var selectedDigest = prefsResult.IsSuccess && prefsResult.Value is not null
                 ? prefsResult.Value.SelectedKeriaConnectionDigest
                 : string.Empty;
 
             if (!string.IsNullOrEmpty(selectedDigest)) {
-                var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+                var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>();
                 if (configsResult.IsSuccess && configsResult.Value?.Configs.TryGetValue(selectedDigest, out var config) == true) {
                     rememberedPrefix = config.SelectedPrefix;
                 }
@@ -4992,7 +4989,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Update storage with new identifiers list
-            var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+            var connectionInfoResult = await _storageGateway.GetItem<KeriaConnectionInfo>(StorageArea.Session);
             if (connectionInfoResult.IsFailed || connectionInfoResult.Value is null) {
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to get KeriaConnectionInfo from storage");
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -5253,12 +5250,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// This avoids calling signifyClientService.GetIdentifiers() repeatedly.
     /// </summary>
     private async Task<Result<string>> GetIdentifierNameFromCacheAsync(string prefix) {
-        var connectionInfoResult = await _storageService.GetItem<KeriaConnectionInfo>(StorageArea.Session);
+        var connectionInfoResult = await _storageGateway.GetItem<KeriaConnectionInfo>(StorageArea.Session);
         if (connectionInfoResult.IsFailed || connectionInfoResult.Value == null) {
             return Result.Fail<string>("No KERIA connection info found in session storage");
         }
 
-        var cachedIdentifiers = await _storageService.GetItem<CachedIdentifiers>(StorageArea.Session);
+        var cachedIdentifiers = await _storageGateway.GetItem<CachedIdentifiers>(StorageArea.Session);
         var identifiersList = cachedIdentifiers.IsSuccess ? cachedIdentifiers.Value?.IdentifiersList : null;
         if (identifiersList == null || identifiersList.Count == 0) {
             return Result.Fail<string>("No identifiers found in cached connection info");
@@ -5340,13 +5337,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task AutoSelectFirstPrefixIfNeeded(Identifiers identifiers) {
         if (identifiers.Aids.Count == 0) return;
 
-        var prefsResult = await _storageService.GetItem<Preferences>();
+        var prefsResult = await _storageGateway.GetItem<Preferences>();
         if (!prefsResult.IsSuccess || prefsResult.Value is null) return;
 
         var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
         if (string.IsNullOrEmpty(selectedDigest)) return;
 
-        var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+        var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>();
         if (!configsResult.IsSuccess || configsResult.Value is null) return;
         if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var currentConfig)) return;
 
@@ -5360,7 +5357,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         var updatedConfigs = new Dictionary<string, KeriaConnectConfig>(configsResult.Value.Configs) {
             [selectedDigest] = updatedConfig
         };
-        await _storageService.SetItem(configsResult.Value with { Configs = updatedConfigs });
+        await _storageGateway.SetItem(configsResult.Value with { Configs = updatedConfigs });
     }
 
     /// <summary>
@@ -5413,7 +5410,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Get preferences to find the selected config digest
-            var prefsResult = await _storageService.GetItem<Preferences>();
+            var prefsResult = await _storageGateway.GetItem<Preferences>();
             if (prefsResult.IsFailed || prefsResult.Value == null) {
                 return Result.Fail("Preferences not found");
             }
@@ -5423,7 +5420,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Get KeriaConnectConfigs dictionary and look up the selected config
-            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>();
             if (configsResult.IsFailed || configsResult.Value == null || !configsResult.Value.IsStored) {
                 return Result.Fail("No KERIA connection configurations found");
             }

@@ -8,22 +8,21 @@
 @using System.Collections.Generic;
 @using Extension.Utilities
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject NavigationManager navManager
 @inject IJSRuntime js
 @inject ILogger<WebsitesPage> logger
 @inject IDialogService dialogService
 @inject ISnackbar snackbar
 @inject IWebsiteConfigService websiteConfigService
-@inject IStorageService storageService
 @inject IAppBwPortService appBwPortService
 @using Extension.Services.Port
 @inject IJSRuntime jsRuntime
 @inject AppCache appCache
 
 @code {
-    // fields
-    List<WebsiteConfig>? allWebsites;
+    // reactive properties — read directly from AppCache on every render
+    List<WebsiteConfig> allWebsites => appCache.MyWebsiteConfigList.WebsiteList;
     string selectedViewDefId =>
         appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(WebsitesPage), out var savedId) && WebsiteViewDefs.Any(v => v.Id == savedId)
             ? savedId
@@ -47,11 +46,9 @@
     ];
 
     ViewDef<WebsiteConfig>? SelectedViewDef => WebsiteViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
-    List<WebsiteConfig> FilteredWebsites => allWebsites is not null
-        ? ViewDefHelper.Apply(allWebsites, SelectedViewDef)
-        : [];
+    List<WebsiteConfig> FilteredWebsites => ViewDefHelper.Apply(allWebsites, SelectedViewDef);
 
-    bool IsLoaded => allWebsites is not null;
+    bool IsLoaded => true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -60,8 +57,9 @@
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged then refresh website list
-        await this.SubscribeToAppCache(appCache, () => { RefreshFromAppCache(); return Task.CompletedTask; });
+        // Subscribe to AppCache changes - will trigger StateHasChanged which re-evaluates
+        // the computed allWebsites property from appCache.MyWebsiteConfigList
+        await this.SubscribeToAppCache(appCache);
 
     }
 
@@ -71,29 +69,13 @@
         {
             [nameof(WebsitesPage)] = newId
         };
-        await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
+        await storageGateway.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
-    protected override Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        logger.LogInformation($"OnParametersSetAsync");
-        RefreshFromAppCache();
-        return Task.CompletedTask;
-    }
-
-    private void RefreshFromAppCache()
-    {
-        var websites = appCache.MyWebsiteConfigList.WebsiteList;
-        if (websites.Count > 0)
-        {
-            allWebsites = websites;
-            SelectedWebsiteOrigin = allWebsites.First().Origin.OriginalString;
-        }
-        else
-        {
-            allWebsites = [];
-            SelectedWebsiteOrigin = null;
-        }
+        logger.LogInformation($"OnParametersSet");
+        SelectedWebsiteOrigin = allWebsites.Count > 0 ? allWebsites.First().Origin.OriginalString : null;
     }
 
     // Handle callback from the WebsiteConfigDisplay

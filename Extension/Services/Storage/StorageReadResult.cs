@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 /// is peeked (without full deserialization) against <see cref="StorageModelRegistry"/>.
 /// Mismatched keys are recorded in <see cref="VersionMismatchKeys"/>, and
 /// <see cref="Get{T}"/> returns null for them — matching the existing per-record
-/// <see cref="IStorageService.GetItem{T}"/> discard-and-default semantics.
+/// <see cref="IStorageGateway.GetItem{T}"/> discard-and-default semantics.
 /// </summary>
 public sealed class StorageReadResult {
     // Raw JsonElement for each requested type (by typeof(T).Name), or null if the

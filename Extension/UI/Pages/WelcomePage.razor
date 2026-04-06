@@ -4,7 +4,7 @@
 @using Microsoft.AspNetCore.Components.WebAssembly.Hosting
 @using static System.Net.WebRequestMethods
 
-@inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<WelcomePage> logger
 @inject HttpClient http
 @inject NavigationManager navManager
@@ -36,7 +36,7 @@
     {
         logger.LogInformation("AcknowledgeWelcome...");
         var newOnboardState = appCache.MyOnboardState with { IsWelcomed = true };
-        await storageService.SetItem<OnboardState>(newOnboardState);
+        await storageGateway.SetItem<OnboardState>(newOnboardState);
         logger.LogInformation("AcknowledgeWelcome set onboardState");
         navManager.NavigateTo(Routes.Paths.Router);
         return;

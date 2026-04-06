@@ -230,7 +230,7 @@
 @code {
     [Inject] private NavigationManager navManager { get; set; } = default!;
     [Inject] private AppCache appCache { get; set; } = default!;
-    [Inject] private IStorageService storageService { get; set; } = default!;
+    [Inject] private IStorageGateway storageGateway { get; set; } = default!;
     [Inject] private IAppBwPortService appBwPortService { get; set; } = default!;
 
     private string sampleText = "Sample text";
@@ -255,7 +255,7 @@
     private async Task SetAndPersistIsDarkTheme(bool isDarkTheme)
     {
         var prefs = appCache.MyPreferences with { IsDarkTheme = isDarkTheme };
-        await storageService.SetItem<Preferences>(prefs);
+        await storageGateway.SetItem<Preferences>(prefs);
         await appBwPortService.SendEventAsync(AppBwMessageType.Values.UserActivity);
     }
 }

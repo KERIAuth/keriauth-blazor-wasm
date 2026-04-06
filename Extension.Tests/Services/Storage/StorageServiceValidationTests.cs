@@ -4,20 +4,20 @@ using Extension.Services.Storage;
 using Xunit;
 
 /// <summary>
-/// Unit tests for StorageServiceValidation helper class.
+/// Unit tests for StorageGatewayValidation helper class.
 /// Tests the operation validity matrix documented in STORAGE_SERVICE_MIGRATION.md.
 /// </summary>
-public class StorageServiceValidationTests {
+public class StorageGatewayValidationTests {
     #region Managed Storage Read-Only Tests
 
     [Theory]
-    [InlineData(nameof(IStorageService.SetItem))]
-    [InlineData(nameof(IStorageService.RemoveItem))]
-    [InlineData(nameof(IStorageService.Clear))]
-    [InlineData(nameof(IStorageService.RestoreBackupItems))]
+    [InlineData(nameof(IStorageGateway.SetItem))]
+    [InlineData(nameof(IStorageGateway.RemoveItem))]
+    [InlineData(nameof(IStorageGateway.Clear))]
+    [InlineData("RestoreBackupItems")]
     public void ValidateOperation_ManagedStorage_WriteOperations_ReturnsFailed(string operation) {
         // Act
-        var result = StorageServiceValidation.ValidateOperation(operation, StorageArea.Managed);
+        var result = StorageGatewayValidation.ValidateOperation(operation, StorageArea.Managed);
 
         // Assert
         Assert.True(result.IsFailed);
@@ -26,12 +26,12 @@ public class StorageServiceValidationTests {
     }
 
     [Theory]
-    [InlineData(nameof(IStorageService.GetItem))]
-    [InlineData(nameof(IStorageService.GetBackupItems))]
-    // [InlineData(nameof(IStorageService.Initialize))]
+    [InlineData(nameof(IStorageGateway.GetItem))]
+    [InlineData("GetBackupItems")]
+    // [InlineData(nameof(IStorageGateway.Initialize))]
     public void ValidateOperation_ManagedStorage_ReadOperations_ReturnsSuccess(string operation) {
         // Act
-        var result = StorageServiceValidation.ValidateOperation(operation, StorageArea.Managed);
+        var result = StorageGatewayValidation.ValidateOperation(operation, StorageArea.Managed);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -46,10 +46,10 @@ public class StorageServiceValidationTests {
     [InlineData(StorageArea.Managed)]
     public void ValidateOperation_QuotaOperations_OnLocalOrManaged_ReturnsFailed(StorageArea area) {
         // Act
-        var getBytesResult = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.GetBytesInUse), area);
-        var getQuotaResult = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.GetQuota), area);
+        var getBytesResult = StorageGatewayValidation.ValidateOperation(
+            "GetBytesInUse", area);
+        var getQuotaResult = StorageGatewayValidation.ValidateOperation(
+            "GetQuota", area);
 
         // Assert
         Assert.True(getBytesResult.IsFailed);
@@ -64,10 +64,10 @@ public class StorageServiceValidationTests {
     [InlineData(StorageArea.Sync)]
     public void ValidateOperation_QuotaOperations_OnSessionOrSync_ReturnsSuccess(StorageArea area) {
         // Act
-        var getBytesResult = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.GetBytesInUse), area);
-        var getQuotaResult = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.GetQuota), area);
+        var getBytesResult = StorageGatewayValidation.ValidateOperation(
+            "GetBytesInUse", area);
+        var getQuotaResult = StorageGatewayValidation.ValidateOperation(
+            "GetQuota", area);
 
         // Assert
         Assert.True(getBytesResult.IsSuccess);
@@ -84,65 +84,65 @@ public class StorageServiceValidationTests {
     /// </summary>
     [Theory]
     // Initialize - Valid for all areas
-    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Local, true)]
-    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Session, true)]
-    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Sync, true)]
-    // [InlineData(nameof(IStorageService.Initialize), StorageArea.Managed, true)]
+    // [InlineData(nameof(IStorageGateway.Initialize), StorageArea.Local, true)]
+    // [InlineData(nameof(IStorageGateway.Initialize), StorageArea.Session, true)]
+    // [InlineData(nameof(IStorageGateway.Initialize), StorageArea.Sync, true)]
+    // [InlineData(nameof(IStorageGateway.Initialize), StorageArea.Managed, true)]
 
     // Clear - Not valid for Managed
-    [InlineData(nameof(IStorageService.Clear), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.Clear), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.Clear), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.Clear), StorageArea.Managed, false)]
+    [InlineData(nameof(IStorageGateway.Clear), StorageArea.Local, true)]
+    [InlineData(nameof(IStorageGateway.Clear), StorageArea.Session, true)]
+    [InlineData(nameof(IStorageGateway.Clear), StorageArea.Sync, true)]
+    [InlineData(nameof(IStorageGateway.Clear), StorageArea.Managed, false)]
 
     // RemoveItem - Not valid for Managed
-    [InlineData(nameof(IStorageService.RemoveItem), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.RemoveItem), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.RemoveItem), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.RemoveItem), StorageArea.Managed, false)]
+    [InlineData(nameof(IStorageGateway.RemoveItem), StorageArea.Local, true)]
+    [InlineData(nameof(IStorageGateway.RemoveItem), StorageArea.Session, true)]
+    [InlineData(nameof(IStorageGateway.RemoveItem), StorageArea.Sync, true)]
+    [InlineData(nameof(IStorageGateway.RemoveItem), StorageArea.Managed, false)]
 
     // GetItem - Valid for all areas
-    [InlineData(nameof(IStorageService.GetItem), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.GetItem), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.GetItem), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.GetItem), StorageArea.Managed, true)]
+    [InlineData(nameof(IStorageGateway.GetItem), StorageArea.Local, true)]
+    [InlineData(nameof(IStorageGateway.GetItem), StorageArea.Session, true)]
+    [InlineData(nameof(IStorageGateway.GetItem), StorageArea.Sync, true)]
+    [InlineData(nameof(IStorageGateway.GetItem), StorageArea.Managed, true)]
 
     // SetItem - Not valid for Managed
-    [InlineData(nameof(IStorageService.SetItem), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.SetItem), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.SetItem), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.SetItem), StorageArea.Managed, false)]
+    [InlineData(nameof(IStorageGateway.SetItem), StorageArea.Local, true)]
+    [InlineData(nameof(IStorageGateway.SetItem), StorageArea.Session, true)]
+    [InlineData(nameof(IStorageGateway.SetItem), StorageArea.Sync, true)]
+    [InlineData(nameof(IStorageGateway.SetItem), StorageArea.Managed, false)]
 
     // GetBackupItems - Valid for all areas
-    [InlineData(nameof(IStorageService.GetBackupItems), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.GetBackupItems), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.GetBackupItems), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.GetBackupItems), StorageArea.Managed, true)]
+    [InlineData("GetBackupItems", StorageArea.Local, true)]
+    [InlineData("GetBackupItems", StorageArea.Session, true)]
+    [InlineData("GetBackupItems", StorageArea.Sync, true)]
+    [InlineData("GetBackupItems", StorageArea.Managed, true)]
 
     // RestoreBackupItems - Not valid for Managed
-    [InlineData(nameof(IStorageService.RestoreBackupItems), StorageArea.Local, true)]
-    [InlineData(nameof(IStorageService.RestoreBackupItems), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.RestoreBackupItems), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.RestoreBackupItems), StorageArea.Managed, false)]
+    [InlineData("RestoreBackupItems", StorageArea.Local, true)]
+    [InlineData("RestoreBackupItems", StorageArea.Session, true)]
+    [InlineData("RestoreBackupItems", StorageArea.Sync, true)]
+    [InlineData("RestoreBackupItems", StorageArea.Managed, false)]
 
     // GetBytesInUse - Only valid for Session and Sync (WebExtensions.Net StorageAreaWithUsage)
-    [InlineData(nameof(IStorageService.GetBytesInUse), StorageArea.Local, false)]
-    [InlineData(nameof(IStorageService.GetBytesInUse), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.GetBytesInUse), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.GetBytesInUse), StorageArea.Managed, false)]
+    [InlineData("GetBytesInUse", StorageArea.Local, false)]
+    [InlineData("GetBytesInUse", StorageArea.Session, true)]
+    [InlineData("GetBytesInUse", StorageArea.Sync, true)]
+    [InlineData("GetBytesInUse", StorageArea.Managed, false)]
 
     // GetQuota - Only valid for Session and Sync
-    [InlineData(nameof(IStorageService.GetQuota), StorageArea.Local, false)]
-    [InlineData(nameof(IStorageService.GetQuota), StorageArea.Session, true)]
-    [InlineData(nameof(IStorageService.GetQuota), StorageArea.Sync, true)]
-    [InlineData(nameof(IStorageService.GetQuota), StorageArea.Managed, false)]
+    [InlineData("GetQuota", StorageArea.Local, false)]
+    [InlineData("GetQuota", StorageArea.Session, true)]
+    [InlineData("GetQuota", StorageArea.Sync, true)]
+    [InlineData("GetQuota", StorageArea.Managed, false)]
     public void ValidateOperation_OperationValidityMatrix_MatchesSpecification(
         string operation,
         StorageArea area,
         bool expectedValid
     ) {
         // Act
-        var result = StorageServiceValidation.ValidateOperation(operation, area);
+        var result = StorageGatewayValidation.ValidateOperation(operation, area);
 
         // Assert
         Assert.Equal(expectedValid, result.IsSuccess);
@@ -160,8 +160,8 @@ public class StorageServiceValidationTests {
     [Fact]
     public void ValidateAndFail_WithInvalidOperation_ReturnsTypedFailure() {
         // Act
-        var result = StorageServiceValidation.ValidateAndFail<string>(
-            nameof(IStorageService.SetItem),
+        var result = StorageGatewayValidation.ValidateAndFail<string>(
+            nameof(IStorageGateway.SetItem),
             StorageArea.Managed
         );
 
@@ -174,8 +174,8 @@ public class StorageServiceValidationTests {
     public void ValidateAndFail_WithValidOperation_ThrowsException() {
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => {
-            StorageServiceValidation.ValidateAndFail<string>(
-                nameof(IStorageService.GetItem),
+            StorageGatewayValidation.ValidateAndFail<string>(
+                nameof(IStorageGateway.GetItem),
                 StorageArea.Local
             );
         });
@@ -190,8 +190,8 @@ public class StorageServiceValidationTests {
     [Fact]
     public void ValidateOperation_ManagedWriteError_ContainsHelpfulMessage() {
         // Act
-        var result = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.SetItem),
+        var result = StorageGatewayValidation.ValidateOperation(
+            nameof(IStorageGateway.SetItem),
             StorageArea.Managed
         );
 
@@ -211,8 +211,8 @@ public class StorageServiceValidationTests {
     [Fact]
     public void ValidateOperation_QuotaError_ContainsHelpfulMessage() {
         // Act
-        var result = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.GetBytesInUse),
+        var result = StorageGatewayValidation.ValidateOperation(
+            "GetBytesInUse",
             StorageArea.Local
         );
 
@@ -237,7 +237,7 @@ public class StorageServiceValidationTests {
     [Fact]
     public void ValidateOperation_UnknownOperation_ReturnsSuccess() {
         // Act - Unknown operation names should not cause validation failures
-        var result = StorageServiceValidation.ValidateOperation(
+        var result = StorageGatewayValidation.ValidateOperation(
             "NonExistentOperation",
             StorageArea.Local
         );
@@ -250,7 +250,7 @@ public class StorageServiceValidationTests {
     public void ValidateOperation_NullOperation_DoesNotThrow() {
         // Act & Assert - Should handle null gracefully
         var exception = Record.Exception(() => {
-            StorageServiceValidation.ValidateOperation(null!, StorageArea.Local);
+            StorageGatewayValidation.ValidateOperation(null!, StorageArea.Local);
         });
 
         // Null operation should not throw during validation
@@ -261,12 +261,12 @@ public class StorageServiceValidationTests {
     [Fact]
     public void ValidateOperation_CaseSensitiveOperationName_Matters() {
         // Act
-        var lowerCaseResult = StorageServiceValidation.ValidateOperation(
+        var lowerCaseResult = StorageGatewayValidation.ValidateOperation(
             "setitem", // lowercase - won't match
             StorageArea.Managed
         );
-        var correctCaseResult = StorageServiceValidation.ValidateOperation(
-            nameof(IStorageService.SetItem), // correct case
+        var correctCaseResult = StorageGatewayValidation.ValidateOperation(
+            nameof(IStorageGateway.SetItem), // correct case
             StorageArea.Managed
         );
 
@@ -290,7 +290,7 @@ public class StorageServiceValidationTests {
         // Act & Assert
         foreach (StorageArea area in Enum.GetValues<StorageArea>()) {
             // Subscribe is not in the validation lists, so should always pass
-            var result = StorageServiceValidation.ValidateOperation("Subscribe", area);
+            var result = StorageGatewayValidation.ValidateOperation("Subscribe", area);
             Assert.True(result.IsSuccess,
                 $"Subscribe should be valid for {area} storage per STORAGE_SERVICE_MIGRATION.md");
         }
@@ -303,7 +303,7 @@ public class StorageServiceValidationTests {
         // Managed storage needs Subscribe for IT policy changes
 
         // Act
-        var result = StorageServiceValidation.ValidateOperation(
+        var result = StorageGatewayValidation.ValidateOperation(
             "Subscribe", // Not in any restriction list
             StorageArea.Managed
         );

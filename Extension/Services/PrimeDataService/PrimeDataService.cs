@@ -12,16 +12,14 @@ using Microsoft.Extensions.Logging;
 namespace Extension.Services.PrimeDataService {
     public class PrimeDataService : IPrimeDataService {
         private readonly ISignifyClientService _signifyClient;
-        private readonly IStorageService _storageService;
         private readonly IStorageGateway _storageGateway;
         private readonly ISchemaService _schemaService;
         private readonly ILogger<PrimeDataService> _logger;
         private DateTime _lastProgressWriteUtc = DateTime.MinValue;
         private const int ProgressThrottleMs = 500;
 
-        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, IStorageGateway storageGateway, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
+        public PrimeDataService(ISignifyClientService signifyClient, IStorageGateway storageGateway, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
             _signifyClient = signifyClient;
-            _storageService = storageService;
             _storageGateway = storageGateway;
             _schemaService = schemaService;
             _logger = logger;
@@ -923,7 +921,7 @@ namespace Extension.Services.PrimeDataService {
             _logger.LogInformation("{Step}: Storing {Count} connections...", stepLabel, pairs.Length);
 
             // Get the current config digest from preferences
-            var prefsResult = await _storageService.GetItem<Preferences>();
+            var prefsResult = await _storageGateway.GetItem<Preferences>();
             if (prefsResult.IsFailed || prefsResult.Value is null) {
                 return Result.Fail("Could not retrieve Preferences for storing connections");
             }
@@ -932,7 +930,7 @@ namespace Extension.Services.PrimeDataService {
                 return Result.Fail("No KERIA configuration selected");
             }
 
-            var configsResult = await _storageService.GetItem<KeriaConnectConfigs>();
+            var configsResult = await _storageGateway.GetItem<KeriaConnectConfigs>();
             if (configsResult.IsFailed || configsResult.Value is null) {
                 return Result.Fail("Could not retrieve KeriaConnectConfigs");
             }
@@ -954,7 +952,7 @@ namespace Extension.Services.PrimeDataService {
 
             var updatedConfig = config with { Connections = newConnections };
             var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig };
-            var setResult = await _storageService.SetItem(configs with { Configs = updatedDict });
+            var setResult = await _storageGateway.SetItem(configs with { Configs = updatedDict });
             if (setResult.IsFailed) {
                 var err = $"Failed to store connections: {setResult.Errors[0].Message}";
                 _logger.LogError("{Error}", err);

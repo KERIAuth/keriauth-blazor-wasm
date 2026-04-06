@@ -12,11 +12,11 @@ using WebExtensions.Net;
 
 /// <summary>
 /// Batched-capable storage layer over chrome.storage.*. Introduced in parallel with
-/// <see cref="StorageService"/> and intended to replace it incrementally. See
+/// <see cref="StorageGateway"/> and intended to replace it incrementally. See
 /// <see cref="IStorageGateway"/> for API details and migration notes.
 ///
 /// Phase 2 scope: single-item operations (GetItem, SetItem, RemoveItem, Subscribe)
-/// with the same semantics as the existing <see cref="StorageService"/>. Bulk read,
+/// with the same semantics as the existing <see cref="StorageGateway"/>. Bulk read,
 /// bulk write, write transactions, and batch observers are implemented in later phases
 /// and currently throw <see cref="NotImplementedException"/>.
 /// </summary>
@@ -40,7 +40,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
 
     /// <summary>
     /// Statically configurable log level for lifecycle messages (constructor, future Initialize).
-    /// Mirrors <see cref="StorageService.ServiceLogLevel"/> so both services can be verbosity-tuned together.
+    /// Mirrors <see cref="StorageGateway.ServiceLogLevel"/> so both services can be verbosity-tuned together.
     /// </summary>
     public static LogLevel ServiceLogLevel { get; set; } = LogLevel.Debug;
 
@@ -57,7 +57,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
     /// Registers the global chrome.storage.onChanged listener on first demand.
     /// Idempotent — subsequent calls are no-ops.
     ///
-    /// Note: StorageService already registers its own identical listener. Chrome multicasts
+    /// Note: StorageGateway already registers its own identical listener. Chrome multicasts
     /// onChanged events to every listener, so both services receive each event independently
     /// and each dispatches to its own subscribers. No interference between them.
     /// </summary>
@@ -103,13 +103,13 @@ public class StorageGateway : IStorageGateway, IDisposable {
 
     public async Task<Result> SetItem<T>(T value, StorageArea area = StorageArea.Local)
         where T : class, IStorageModel {
-        // Reuse StorageServiceValidation: it keys on operation names that match IStorageService's methods.
+        // Reuse StorageGatewayValidation: it keys on operation names that match IStorageGateway's methods.
         // SetItem is blocked on Managed storage because Managed is read-only from the extension's
         // perspective. Its contents are provisioned out-of-band by IT administrators via enterprise
         // deployment (Windows registry keys, or JSON/plist policy files on macOS/Linux) — never
         // written by the extension itself. Reads of Managed, however, are permitted and used for
         // EnterprisePolicyConfig.
-        var validation = StorageServiceValidation.ValidateOperation(nameof(IStorageService.SetItem), area);
+        var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.SetItem), area);
         if (validation.IsFailed) return validation;
 
         var key = typeof(T).Name;
@@ -127,7 +127,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
 
     public async Task<Result> RemoveItem<T>(StorageArea area = StorageArea.Local)
         where T : class, IStorageModel {
-        var validation = StorageServiceValidation.ValidateOperation(nameof(IStorageService.RemoveItem), area);
+        var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.RemoveItem), area);
         if (validation.IsFailed) return validation;
 
         var key = typeof(T).Name;
@@ -139,6 +139,48 @@ public class StorageGateway : IStorageGateway, IDisposable {
         catch (Exception ex) {
             _logger.LogError(ex, nameof(RemoveItem) + ": Failed to remove {Key} from {Area} storage", key, area);
             return Result.Fail(new StorageError($"Remove {key} from {area} failed", ex));
+        }
+    }
+
+    public async Task<Result> Clear(StorageArea area = StorageArea.Local) {
+        var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.Clear), area);
+        if (validation.IsFailed) return validation;
+
+        try {
+            await ClearStorageArea(area);
+            _logger.LogInformation(nameof(Clear) + ": Cleared {Area} storage", area);
+            return Result.Ok();
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, nameof(Clear) + ": Failed to clear {Area} storage", area);
+            return Result.Fail(new StorageError($"Clear {area} failed", ex));
+        }
+    }
+
+    public async Task<Result<StorageItemStatus>> GetItemStatus<T>(StorageArea area = StorageArea.Local)
+        where T : class, IVersionedStorageModel {
+        var key = typeof(T).Name;
+        try {
+            var jsonElement = await GetFromStorageArea(area, key);
+            if (!jsonElement.TryGetProperty(Encoding.UTF8.GetBytes(key), out var element)) {
+                return Result.Ok(StorageItemStatus.NotFound);
+            }
+
+            var value = JsonSerializer.Deserialize<T>(element, JsonOptions.Storage);
+            if (value is null) {
+                return Result.Ok(StorageItemStatus.NotFound);
+            }
+
+            var expected = StorageModelRegistry.GetExpectedVersion(key);
+            if (expected is not null && value.SchemaVersion != expected.Value) {
+                return Result.Ok(StorageItemStatus.VersionMismatch);
+            }
+
+            return Result.Ok(StorageItemStatus.Found);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, nameof(GetItemStatus) + ": Failed to probe {Key} in {Area} storage", key, area);
+            return Result.Fail<StorageItemStatus>(new StorageError($"GetItemStatus {key} failed", ex));
         }
     }
 
@@ -175,7 +217,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
 
         _logger.LogDebug(nameof(Subscribe) + ": Subscribed to {Key} in {Area} storage", key, area);
 
-        // Fire-and-forget initial-value push, matching StorageService.Subscribe<T> semantics.
+        // Fire-and-forget initial-value push, matching StorageGateway.Subscribe<T> semantics.
         _ = Task.Run(async () => {
             try {
                 var result = await GetItem<T>(area);
@@ -278,9 +320,9 @@ public class StorageGateway : IStorageGateway, IDisposable {
     }
 
     public async Task<Result> SetItems(StorageArea area, params IStorageModel[] values) {
-        // Reuse StorageServiceValidation: SetItems is a multi-key form of SetItem,
+        // Reuse StorageGatewayValidation: SetItems is a multi-key form of SetItem,
         // so the same Managed-read-only rule applies.
-        var validation = StorageServiceValidation.ValidateOperation(nameof(IStorageService.SetItem), area);
+        var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.SetItem), area);
         if (validation.IsFailed) return validation;
 
         if (values is null || values.Length == 0) {
@@ -381,7 +423,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
     /// and (b) every batch observer registered for the affected area.
     ///
     /// Per-record observers see one OnNext call per matching key (deletions notify with the
-    /// type's default instance, matching <see cref="StorageService.NotifyObserversOfDeletion"/>
+    /// type's default instance, matching deletion-default
     /// semantics). Batch observers see the entire batch in one OnBatch call.
     /// </summary>
     private void OnStorageChanged(object changes, string areaName) {
@@ -477,7 +519,7 @@ public class StorageGateway : IStorageGateway, IDisposable {
                 NotifyPerRecordObservers(area, key, entryList, newValue);
             }
             else {
-                // Deletion: notify with the type's default instance, matching StorageService behavior.
+                // Deletion: notify with the type's default instance, matching StorageGateway behavior.
                 NotifyPerRecordObserversOfDeletion(area, key, entryList);
             }
         }
@@ -529,8 +571,8 @@ public class StorageGateway : IStorageGateway, IDisposable {
     }
 
     // ---------- Low-level chrome.storage helpers ----------
-    // Mirrors StorageService's private helpers. Kept local so StorageGateway has no
-    // dependency on StorageService during the migration window.
+    // Mirrors StorageGateway's private helpers. Kept local so StorageGateway has no
+    // dependency on StorageGateway during the migration window.
 
     private async ValueTask<JsonElement> GetFromStorageArea(StorageArea area, string key) {
         switch (area) {
@@ -606,6 +648,25 @@ public class StorageGateway : IStorageGateway, IDisposable {
             case StorageArea.Managed:
                 await _webExtensionsApi.Storage.Managed.Remove(
                     new WebExtensions.Net.Storage.StorageAreaRemoveKeys(key));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(area), area, "Unknown storage area");
+        }
+    }
+
+    private async ValueTask ClearStorageArea(StorageArea area) {
+        switch (area) {
+            case StorageArea.Local:
+                await _webExtensionsApi.Storage.Local.Clear();
+                break;
+            case StorageArea.Session:
+                await _webExtensionsApi.Storage.Session.Clear();
+                break;
+            case StorageArea.Sync:
+                await _webExtensionsApi.Storage.Sync.Clear();
+                break;
+            case StorageArea.Managed:
+                await _webExtensionsApi.Storage.Managed.Clear();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(area), area, "Unknown storage area");

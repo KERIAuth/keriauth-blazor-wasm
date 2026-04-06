@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 
 public class NotificationPollingService : INotificationPollingService {
     private readonly ISignifyClientService _signifyClient;
-    private readonly IStorageService _storageService;
     private readonly IStorageGateway _storageGateway;
     private readonly ILogger<NotificationPollingService> _logger;
 
@@ -29,11 +28,9 @@ public class NotificationPollingService : INotificationPollingService {
 
     public NotificationPollingService(
         ISignifyClientService signifyClient,
-        IStorageService storageService,
         IStorageGateway storageGateway,
         ILogger<NotificationPollingService> logger) {
         _signifyClient = signifyClient;
-        _storageService = storageService;
         _storageGateway = storageGateway;
         _logger = logger;
     }
@@ -156,9 +153,9 @@ public class NotificationPollingService : INotificationPollingService {
     /// </summary>
     private async Task UpdateNotificationsLastFetchedAsync() {
         try {
-            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
+            var result = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
             var current = result.IsSuccess && result.Value is not null ? result.Value : new PollingState();
-            await _storageService.SetItem(current with { NotificationsLastFetchedUtc = DateTime.UtcNow }, StorageArea.Session);
+            await _storageGateway.SetItem(current with { NotificationsLastFetchedUtc = DateTime.UtcNow }, StorageArea.Session);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(UpdateNotificationsLastFetchedAsync) + ": Failed to update polling timestamp");
