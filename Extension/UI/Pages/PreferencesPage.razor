@@ -147,6 +147,7 @@
         {
             // Clear ALL session storage to lock the session
             await sessionManager.ClearSessionForConfigChangeAsync();
+            await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked]);
 
             _selectedKeriaConfigDigest = digest;
 

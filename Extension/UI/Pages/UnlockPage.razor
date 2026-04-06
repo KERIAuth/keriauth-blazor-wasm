@@ -424,8 +424,8 @@
             return;
         }
 
-        // Wait for AppCache to reflect the new session state from storage
-        await appCache.WaitForAppCache([() => appCache.IsSessionUnlocked]);
+        // Wait for BW's unlock writes to propagate to AppCache via storage.onChanged
+        await appCache.WaitForStorageSync();
 
         // expect navigation to ConnectingPage via Index
         navManager.NavigateTo(Routes.Paths.Router);

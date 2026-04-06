@@ -10,6 +10,8 @@ using FluentResults;
 using Microsoft.Extensions.Logging;
 
 namespace Extension.Services.PrimeDataService {
+    // TODO P2 move PrimeDataService so it is not a direct dependency of App program.cs;
+    // rather, interactions should be via AppBw messages
     public class PrimeDataService : IPrimeDataService {
         private readonly ISignifyClientService _signifyClient;
         private readonly IStorageGateway _storageGateway;

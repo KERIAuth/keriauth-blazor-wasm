@@ -90,6 +90,7 @@
         // Clear session storage and in-memory state
         if (appCache.IsAuthenticated) {
             await sessionManager.ClearSessionForConfigChangeAsync();
+            await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked]);
         }
 
         // Synchronously clear AppCache so IsAuthenticated becomes false immediately,
@@ -193,6 +194,7 @@
 
                 if (appCache.IsAuthenticated) {
                     await sessionManager.ClearSessionForConfigChangeAsync();
+                    await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked]);
                 }
             }
 

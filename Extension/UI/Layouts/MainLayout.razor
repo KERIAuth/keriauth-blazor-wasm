@@ -110,21 +110,19 @@
 
     async Task Lock()
     {
-        // Send lock request to BW first so it stops maintaining the session (clears
-        // in-memory passcode, disconnects signify, cancels keep-alive, clears session storage).
+        // Send lock request to BW, then wait for BW's session clear to propagate
+        // to AppCache via storage.onChanged (tracked by session sequence marker).
         try
         {
             await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestLockSession);
+            await appCache.WaitForStorageSync(() => !appCache.IsSessionUnlocked);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Lock: Failed to send RequestLockSession event to BW");
+            logger.LogWarning(ex, "Lock: Failed to send/sync RequestLockSession");
         }
 
-        // Clear App-side in-memory state immediately — no WaitForAppCache, which would
-        // leave a window where async storage.onChanged events create intermediate states
-        // (IsAuthenticated=true, IsIdentifierFetched=false) causing RouterPage to navigate
-        // to ConnectingPage instead of UnlockPage.
+        // Fallback: clear local state in case sync timed out
         appCache.ClearSessionState();
 
         navManager.NavigateTo(Routes.Paths.Unlock);

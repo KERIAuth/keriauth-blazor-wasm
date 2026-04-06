@@ -244,12 +244,12 @@ public abstract class TabDialogPageBase : AuthenticatedPageBase, IAsyncDisposabl
     /// <param name="timeoutMs">Maximum time to wait in milliseconds.</param>
     /// <returns>True if cache cleared within timeout, false otherwise.</returns>
     protected async Task<bool> WaitForAppCacheClearAsync(int timeoutMs = 3000) {
-        var waitResult = await AppCache.WaitForAppCache([() => !AppCache.HasPendingBwAppRequests], timeoutMs);
+        var waitResult = await AppCache.WaitForStorageSync(maxWaitMs: timeoutMs);
         if (!waitResult) {
-            Logger.LogWarning(nameof(WaitForAppCacheClearAsync) + ": AppCache did not clear pending requests within timeout, proceeding anyway");
+            Logger.LogWarning(nameof(WaitForAppCacheClearAsync) + ": Storage sync timed out, proceeding anyway");
         }
         else {
-            Logger.LogInformation(nameof(WaitForAppCacheClearAsync) + ": AppCache confirmed no pending requests");
+            Logger.LogInformation(nameof(WaitForAppCacheClearAsync) + ": Storage sync confirmed");
         }
         return waitResult;
     }

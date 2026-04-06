@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Extension.Services.ConfigureService;
 
+// TODO P2 move ConfigureService so it is not a direct dependency of App program.cs;
+// rather, interactions should be via AppBw messages
 public class ConfigureService : IConfigureService {
     private readonly ISignifyClientService _signifyClient;
     private readonly IStorageGateway _storageGateway;

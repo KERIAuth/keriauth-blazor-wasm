@@ -92,6 +92,13 @@
         /// </summary>
         public bool IsBwReady { get; private set; }
 
+        /// <summary>
+        /// Last session storage sequence number processed by BatchObserver.
+        /// BW increments this on every session write; WaitForStorageSync polls it.
+        /// Access via Interlocked for thread safety (volatile not available for long on 32-bit).
+        /// </summary>
+        private long _lastProcessedSeq;
+
 
         // Batch observer subscriptions — single BatchObserver instance registered for both areas.
         private IDisposable? _localBatchSubscription;
@@ -528,6 +535,45 @@
         }
 
         /// <summary>
+        /// Waits until AppCache has processed a NEW session storage write from BW.
+        /// Snapshots the current _lastProcessedSeq, then polls storage until a higher
+        /// sequence appears AND AppCache's BatchObserver has processed it.
+        /// If a condition is provided, keeps waiting (advancing the baseline) until the
+        /// condition is also satisfied — this ensures the specific BW operation (not just
+        /// any write) has propagated.
+        /// Returns true if synced within timeout, false on timeout.
+        /// </summary>
+        // TODO P2: Consider extending sequence sync to Local storage area.
+        public async Task<bool> WaitForStorageSync(Func<bool>? condition = null, int maxWaitMs = AppConfig.WaitForAppCacheTimeoutMs) {
+            var baselineSeq = Interlocked.Read(ref _lastProcessedSeq);
+
+            var elapsed = 0;
+            while (elapsed < maxWaitMs) {
+                await Task.Delay(AppConfig.WaitForAppCachePollIntervalMs);
+                elapsed += AppConfig.WaitForAppCachePollIntervalMs;
+
+                // Read current sequence from storage (bypassing cache)
+                var result = await storageGateway.GetItem<SessionSequence>(StorageArea.Session);
+                var storedSeq = result.IsSuccess ? result.Value?.Seq ?? 0 : 0;
+
+                // Synced when: storage has a newer sequence than our baseline
+                // AND AppCache has processed at least up to that sequence
+                if (storedSeq > baselineSeq && Interlocked.Read(ref _lastProcessedSeq) >= storedSeq) {
+                    if (condition is null || condition()) {
+                        _logger.LogInformation(nameof(WaitForStorageSync) + ": synced to seq {Stored} (baseline was {Baseline}) after {ElapsedMs}ms", storedSeq, baselineSeq, elapsed);
+                        return true;
+                    }
+                    // A new seq arrived but condition not met — advance baseline and keep waiting
+                    // for the next BW write (e.g., waiting for Lock clear, not just UserActivity extend)
+                    baselineSeq = storedSeq;
+                }
+            }
+
+            _logger.LogWarning(nameof(WaitForStorageSync) + ": timed out (baseline={Baseline}, lastProcessed={Current}, maxWait={MaxWaitMs}ms)", baselineSeq, Interlocked.Read(ref _lastProcessedSeq), maxWaitMs);
+            return false;
+        }
+
+        /// <summary>
         /// Batch observer for all storage records. A single instance is registered for
         /// both Local and Session areas. Fires Changed exactly once per Chrome onChanged batch.
         /// </summary>
@@ -605,6 +651,11 @@
                         cache.MyPollingState = batch.GetNew<PollingState>() ?? new PollingState();
                         cache._logger.LogInformation(nameof(AppCache) + ": updated MyPollingState");
                         dirty = true;
+                    }
+                    if (batch.Contains<SessionSequence>()) {
+                        var seq = batch.GetNew<SessionSequence>();
+                        if (seq is not null) Interlocked.Exchange(ref cache._lastProcessedSeq, seq.Seq);
+                        // No dirty flag — sequence marker is infrastructure, not UI state
                     }
                 }
 
@@ -693,7 +744,8 @@
                 typeof(PendingBwAppRequests),
                 typeof(CachedNotifications),
                 typeof(CachedCredentials),
-                typeof(PollingState));
+                typeof(PollingState),
+                typeof(SessionSequence));
             await Task.WhenAll(localTask, sessionTask);
 
             var localRes = localTask.Result;
@@ -828,7 +880,16 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PollingState not found");
             }
 
-            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 5 keys, Session 7 keys)");
+            var sessionSeq = session?.Get<SessionSequence>();
+            if (sessionSeq is not null) {
+                _lastProcessedSeq = sessionSeq.Seq;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - SessionSequence loaded (Seq={Seq})", sessionSeq.Seq);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - SessionSequence not found");
+            }
+
+            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 5 keys, Session 8 keys)");
         }
 
         /// <summary>

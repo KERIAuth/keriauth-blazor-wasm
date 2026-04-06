@@ -122,6 +122,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly INotificationPollingService _notificationPollingService;
     private CancellationTokenSource? _notificationPollingCts;
 
+    // Monotonic counter for session storage writes. AppCache uses this to detect
+    // whether it has processed the latest BW write (WaitForStorageSync).
+    // Initialized from POSIX milliseconds so the counter is always higher than any
+    // value from a previous BW lifetime (Chrome can restart the service worker while
+    // session storage and App instances remain active).
+    private long _sessionSeq = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private SessionSequence NextSessionSequence() => new SessionSequence { Seq = Interlocked.Increment(ref _sessionSeq) };
+
     // Tracks a background connect started by unlock so HandleAppRequestConnectRpcAsync can
     // await it instead of starting a redundant (and destructive) second connect.
     private Task<Result>? _pendingConnectTask;
@@ -229,19 +237,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // The JS listener responds immediately via sendResponse, which is sufficient
             // since its presence in the BW context already proves the service worker is awake.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
         }
         catch (Exception ex) {
             logger.LogError(ex, nameof(OnMessageAsync) + ": Error handling message");
@@ -289,6 +284,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Extend session if unlocked (restores session timeout alarm)
             await _sessionManager.ExtendIfUnlockedAsync();
+            await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
 
             // If session is unlocked, try to reconnect signify-ts client
             // This handles the case where service worker was restarted but session is still valid
@@ -390,6 +386,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 case AppConfig.SessionManagerAlarmName:
                     // Delegate to SessionManager to lock the session
                     await _sessionManager.HandleAlarmAsync(alarm);
+                    await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
                     // Clean up any pending requests with inactivity message
                     await _portService.CleanupAllPendingRequestsAsync($"{AppConfig.ProductName} locked due to inactivity");
                     return;
@@ -736,7 +733,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 IsInitialized = true,
                 InitializedAtUtc = DateTime.UtcNow
             };
-            var result = await _storageGateway.SetItem<BwReadyState>(readyState, StorageArea.Session);
+            var result = await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(readyState);
+                tx.SetItem(NextSessionSequence());
+            });
             if (result.IsFailed) {
                 logger.LogError(nameof(SetBwReadyStateAsync) + ": Failed to set BwReadyState: {Error}",
                     string.Join("; ", result.Errors.Select(e => e.Message)));
@@ -993,6 +993,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Lock the session immediately for security
             await _sessionManager.LockSessionAsync();
+            await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
             logger.LogInformation(nameof(HandleSystemLockDetectedAsync) + ": Session locked due to system lock detection");
 
             // Broadcast lock event to all connected apps via ports
@@ -1405,6 +1406,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Extend session on App activity
             await _sessionManager.ExtendIfUnlockedAsync();
+            await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
 
             // Route based on method (which is the message type)
             switch (request.Method) {
@@ -2356,6 +2358,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Unlock session (validates hash, stores in memory, writes SessionStateModel)
             var unlockResult = await _sessionManager.UnlockSessionAsync(passcode);
+            if (unlockResult.IsSuccess) {
+                await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+            }
             if (unlockResult.IsFailed) {
                 var errorMsg = unlockResult.Errors.Count > 0 ? unlockResult.Errors[0].Message : "Unlock failed";
                 logger.LogWarning(nameof(HandleAppRequestUnlockSessionRpcAsync) + ": Unlock failed: {Error}", errorMsg);
@@ -2559,6 +2564,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
                             tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
                             tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                            tx.SetItem(NextSessionSequence());
                         });
                         logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
                     }
@@ -2586,6 +2592,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                                 tx.SetItem(newConnectionInfo);
                                 tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
                                 tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                                tx.SetItem(NextSessionSequence());
                             });
                             logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
                         }
@@ -2675,6 +2682,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
                     tx.SetItem(new CachedCredentials { Credentials = credentialsDict });
                     tx.SetItem(pollingState with { CredentialsLastFetchedUtc = DateTime.UtcNow });
+                    tx.SetItem(NextSessionSequence());
                 });
                 logger.LogInformation(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
             }
@@ -3921,7 +3929,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 ? new Dictionary<string, string>(existing.Value.Schemas)
                 : new Dictionary<string, string>();
             schemas[schemaSaid] = rawJson;
-            await _storageGateway.SetItem(new ResolvedSchemas { Schemas = schemas }, StorageArea.Session);
+            await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(new ResolvedSchemas { Schemas = schemas });
+                tx.SetItem(NextSessionSequence());
+            });
         }
         catch (Exception ex) {
             logger.LogDebug(ex, "AddToResolvedSchemaCacheAsync: Failed to update cache (non-critical)");
@@ -4522,6 +4533,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Extend session on user activity
                 logger.LogDebug(nameof(HandlePortEventAsync) + ": User activity event received, extending session");
                 await _sessionManager.ExtendIfUnlockedAsync();
+                await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
                 // Only start burst if not already active — avoid polling when signify client isn't connected (e.g., after SW restart)
                 if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
                     RestartNotificationBurst();
@@ -4553,6 +4565,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await _signifyClientService.Disconnect();
                     await CancelNotificationPollingAsync();
                     await _sessionManager.LockSessionAsync();
+                    // Write sequence marker after session clear so AppCache can detect
+                    // the lock completed via WaitForStorageSync
+                    await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
                 }
                 catch (Exception ex) {
                     logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestLockSession");
@@ -5001,6 +5016,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var setResult = await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
                 tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
                 tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                tx.SetItem(NextSessionSequence());
             });
             if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
@@ -5300,6 +5316,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
                     tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
                     tx.SetItem(ps2 with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                    tx.SetItem(NextSessionSequence());
                 });
                 logger.LogInformation(nameof(RefreshIdentifiersCache) + ": Updated CachedIdentifiers in session storage");
 
@@ -5322,7 +5339,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task UpdatePollingTimestampAsync(Func<PollingState, PollingState> update) {
         try {
             var current = await GetCurrentPollingStateAsync();
-            await _storageGateway.SetItem(update(current), StorageArea.Session);
+            await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(update(current));
+                tx.SetItem(NextSessionSequence());
+            });
         }
         catch (Exception ex) {
             logger.LogWarning(ex, nameof(UpdatePollingTimestampAsync) + ": Failed to update polling timestamp");
