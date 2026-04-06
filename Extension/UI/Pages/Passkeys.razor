@@ -218,7 +218,8 @@
         <div class="d-flex gap-3 bt-main">
             <div class="bt-main-inside-scroll">
                 <PageHeading Title="Passkeys" />
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">@MyStoredPasskeys.Count passkeys</MudText>
+                @* <MudText Typo="Typo.body2" Class="mud-text-secondary">@DisplayedPasskeys.Count</MudText>
+                *@
                 <MudStack Class="pt-4">
                     @if (DisplayedPasskeys.Any())
                     {
