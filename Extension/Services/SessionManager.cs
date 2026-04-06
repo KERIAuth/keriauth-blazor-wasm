@@ -32,6 +32,7 @@ namespace Extension.Services;
 public class SessionManager : IDisposable {
     private readonly ILogger<SessionManager> _logger;
     private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly WebExtensionsApi _webExtensionsApi;
     private const string unicodeLockIcon = "\U0001F512"; // Unicode lock icon 🔒
     public const string SessionKeepAliveAlarmName = "SessionKeepAliveAlarm";
@@ -51,10 +52,12 @@ public class SessionManager : IDisposable {
     public SessionManager(
         ILogger<SessionManager> logger,
         IStorageService storageService,
+        IStorageGateway storageGateway,
         IJsRuntimeAdapter jsRuntimeAdapter,
         bool isSessionOwner = true) {
         _logger = logger;
         _storageService = storageService;
+        _storageGateway = storageGateway;
         _webExtensionsApi = new WebExtensionsApi(jsRuntimeAdapter);
 
         _logger.LogInformation(nameof(SessionManager) + ": initializing (isSessionOwner={IsSessionOwner})...", isSessionOwner);
@@ -304,14 +307,14 @@ public class SessionManager : IDisposable {
     /// </summary>
     private void SubscribeToStorageChanges() {
         // SessionStateModel changes - reschedule alarm when SessionExpirationUtc changes
-        _sessionStateObserver = _storageService.Subscribe(
+        _sessionStateObserver = _storageGateway.Subscribe(
             new SessionStateObserver(this),
             StorageArea.Session
         );
         _logger.LogDebug(nameof(SubscribeToStorageChanges) + ": Subscribed to SessionStateModel changes");
 
         // Preferences changes - immediate SessionExpirationUtc update if unlocked
-        _preferencesObserver = _storageService.Subscribe(
+        _preferencesObserver = _storageGateway.Subscribe(
             new PreferencesObserver(this),
             StorageArea.Local
         );

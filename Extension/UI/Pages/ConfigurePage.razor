@@ -8,6 +8,7 @@
 @using Extension.Models.Messages.AppBw
 
 @inject IStorageService storageService
+@inject IStorageGateway storageGateway
 @inject ILogger<ConfigurePage> logger
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -160,7 +161,7 @@
         await this.SubscribeToAppCache(appCache);
 
         // Subscribe to ConfigureProgress updates from session storage
-        _configureProgressSubscription = storageService.Subscribe<ConfigureProgress>(
+        _configureProgressSubscription = storageGateway.Subscribe<ConfigureProgress>(
             new ConfigureProgressObserver(this), StorageArea.Session);
     }
 

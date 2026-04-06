@@ -104,6 +104,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<SessionManager>(sp => new(
                 sp.GetRequiredService<ILogger<SessionManager>>(),
                 sp.GetRequiredService<IStorageService>(),
+                sp.GetRequiredService<IStorageGateway>(),
                 sp.GetRequiredService<IJsRuntimeAdapter>(),
                 isSessionOwner: false));
             builder.Services.AddSingleton<IPendingBwAppRequestService, PendingBwAppRequestService>();

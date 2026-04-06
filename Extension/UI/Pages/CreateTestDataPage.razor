@@ -16,6 +16,7 @@
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
 @inject IStorageService storageService
+@inject IStorageGateway storageGateway
 
 @implements IDisposable
 
@@ -153,7 +154,7 @@
     protected override async Task OnInitializedAsync()
     {
         await this.SubscribeToAppCache(appCache);
-        _progressSubscription = storageService.Subscribe<PrimeDataProgress>(
+        _progressSubscription = storageGateway.Subscribe<PrimeDataProgress>(
             new ProgressObserver(this), StorageArea.Session);
         logger.LogInformation("OnInitializedAsync");
         ipexRole = GenerateRandomRole();

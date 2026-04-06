@@ -94,37 +94,24 @@
         return "(unknown)";
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await LoadMatchingCredentials();
+        LoadMatchingCredentials();
         isLoaded = true;
     }
 
-    async Task LoadMatchingCredentials()
+    void LoadMatchingCredentials()
     {
-        try
+        if (SchemaSaid is not null)
         {
-            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.Credentials is not null)
+            matchingCredentials = CredentialHelper.FilterCredentials(
+                appCache.MyCachedCredentials.ToList(), [("sad.s", SchemaSaid)]);
+
+            if (HolderPrefix is not null)
             {
-                var allCredentials = CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
-
-                if (SchemaSaid is not null)
-                {
-                    matchingCredentials = CredentialHelper.FilterCredentials(
-                        allCredentials, [("sad.s", SchemaSaid)]);
-
-                    if (HolderPrefix is not null)
-                    {
-                        matchingCredentials = CredentialHelper.FilterCredentials(
-                            matchingCredentials, [("sad.a.i", HolderPrefix)]);
-                    }
-                }
+                matchingCredentials = CredentialHelper.FilterCredentials(
+                    matchingCredentials, [("sad.a.i", HolderPrefix)]);
             }
-        }
-        catch (Exception)
-        {
-            matchingCredentials = [];
         }
     }
 

@@ -60,6 +60,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IJSRuntime _jsRuntime;
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
     private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly ISignifyClientService _signifyClientService;
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly IPendingBwAppRequestService _pendingBwAppRequestService;
@@ -131,6 +132,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IJSRuntime jsRuntime,
         IJsRuntimeAdapter jsRuntimeAdapter,
         IStorageService storageService,
+        IStorageGateway storageGateway,
         ISignifyClientService signifyService,
         ISignifyClientBinding signifyClientBinding,
         IWebsiteConfigService websiteConfigService,
@@ -146,6 +148,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _signifyClientBinding = signifyClientBinding;
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageService = storageService;
+        _storageGateway = storageGateway;
         _signifyClientService = signifyService;
         _websiteConfigService = websiteConfigService;
         _pendingBwAppRequestService = pendingBwAppRequestService;
@@ -762,7 +765,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        _bwReadyStateObserver = _storageService.Subscribe(
+        _bwReadyStateObserver = _storageGateway.Subscribe(
             new BwReadyStateObserver(this),
             StorageArea.Session
         );
@@ -815,7 +818,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        _sessionStateObserver = _storageService.Subscribe(
+        _sessionStateObserver = _storageGateway.Subscribe(
             new SessionStatePollingObserver(this),
             StorageArea.Session
         );
@@ -2554,11 +2557,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         connectionInfo.IsSuccess, connectionInfo.Value is not null);
 
                     if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
-                        // Update CachedIdentifiers with new identifiers
-                        await _storageService.SetItem(
-                            new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
-                            StorageArea.Session);
-                        await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                        // Update CachedIdentifiers + PollingState in one atomic write
+                        var ps = await GetCurrentPollingStateAsync();
+                        await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                            tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
+                            tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                        });
                         logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
                     }
                     else {
@@ -2580,11 +2584,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             var newConnectionInfo = new KeriaConnectionInfo {
                                 KeriaConnectionDigest = digestResult.Value
                             };
-                            await _storageService.SetItem(newConnectionInfo, StorageArea.Session);
-                            await _storageService.SetItem(
-                                new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
-                                StorageArea.Session);
-                            await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                            var ps = await GetCurrentPollingStateAsync();
+                            await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                                tx.SetItem(newConnectionInfo);
+                                tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
+                                tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                            });
                             logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
                         }
                     }
@@ -2669,8 +2674,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var rawJsonResult = await _signifyClientService.GetCredentialsRaw();
             if (rawJsonResult.IsSuccess) {
                 var credentialsDict = CredentialHelper.SplitCredentialsArrayToDict(rawJsonResult.Value);
-                await _storageService.SetItem(new CachedCredentials { Credentials = credentialsDict }, StorageArea.Session);
-                await UpdatePollingTimestampAsync(ps => ps with { CredentialsLastFetchedUtc = DateTime.UtcNow });
+                var pollingState = await GetCurrentPollingStateAsync();
+                await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                    tx.SetItem(new CachedCredentials { Credentials = credentialsDict });
+                    tx.SetItem(pollingState with { CredentialsLastFetchedUtc = DateTime.UtcNow });
+                });
                 logger.LogInformation(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
             }
             else {
@@ -4992,10 +5000,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var setResult = await _storageService.SetItem(
-                new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
-                StorageArea.Session);
-            await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+            var ps = await GetCurrentPollingStateAsync();
+            var setResult = await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
+                tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+            });
             if (setResult.IsFailed) {
                 var errorMsg = string.Join("; ", setResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to update storage: {Errors}", errorMsg);
@@ -5290,10 +5299,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             var identifiersResult = await _signifyClientService.GetIdentifiers();
             if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
-                await _storageService.SetItem(
-                    new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] },
-                    StorageArea.Session);
-                await UpdatePollingTimestampAsync(ps => ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                var ps2 = await GetCurrentPollingStateAsync();
+                await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                    tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
+                    tx.SetItem(ps2 with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                });
                 logger.LogInformation(nameof(RefreshIdentifiersCache) + ": Updated CachedIdentifiers in session storage");
 
                 // Auto-select the first AID if none is selected yet
@@ -5314,13 +5324,17 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task UpdatePollingTimestampAsync(Func<PollingState, PollingState> update) {
         try {
-            var result = await _storageService.GetItem<PollingState>(StorageArea.Session);
-            var current = result.IsSuccess && result.Value is not null ? result.Value : new PollingState();
-            await _storageService.SetItem(update(current), StorageArea.Session);
+            var current = await GetCurrentPollingStateAsync();
+            await _storageGateway.SetItem(update(current), StorageArea.Session);
         }
         catch (Exception ex) {
             logger.LogWarning(ex, nameof(UpdatePollingTimestampAsync) + ": Failed to update polling timestamp");
         }
+    }
+
+    private async Task<PollingState> GetCurrentPollingStateAsync() {
+        var result = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
+        return result.IsSuccess && result.Value is not null ? result.Value : new PollingState();
     }
 
     private async Task AutoSelectFirstPrefixIfNeeded(Identifiers identifiers) {

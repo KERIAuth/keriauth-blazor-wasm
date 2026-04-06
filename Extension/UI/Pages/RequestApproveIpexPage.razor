@@ -143,7 +143,7 @@
 
         if (IsPresentationApply)
         {
-            await LoadMatchingCredentials();
+            LoadMatchingCredentials();
         }
 
         await LoadActiveTabAsync();
@@ -284,32 +284,18 @@
         await CancelAndReturnAsync("User canceled IPEX request");
     }
 
-    async Task LoadMatchingCredentials()
+    void LoadMatchingCredentials()
     {
-        try
+        if (SchemaSaid is not null)
         {
-            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.Credentials is not null)
+            matchingCredentials = CredentialHelper.FilterCredentials(
+                appCache.MyCachedCredentials.ToList(), [("sad.s", SchemaSaid)]);
+
+            if (RequestRecipientPrefix is not null)
             {
-                var allCredentials = CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
-
-                if (SchemaSaid is not null)
-                {
-                    matchingCredentials = CredentialHelper.FilterCredentials(
-                        allCredentials, [("sad.s", SchemaSaid)]);
-
-                    if (RequestRecipientPrefix is not null)
-                    {
-                        matchingCredentials = CredentialHelper.FilterCredentials(
-                            matchingCredentials, [("sad.a.i", RequestRecipientPrefix)]);
-                    }
-                }
+                matchingCredentials = CredentialHelper.FilterCredentials(
+                    matchingCredentials, [("sad.a.i", RequestRecipientPrefix)]);
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error loading matching credentials");
-            matchingCredentials = [];
         }
     }
 

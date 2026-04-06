@@ -19,11 +19,13 @@ using Xunit;
 /// </summary>
 public class SessionManagerTests {
     private readonly Mock<IStorageService> _mockStorageService;
+    private readonly Mock<IStorageGateway> _mockStorageGateway;
     private readonly Mock<ILogger<SessionManager>> _mockLogger;
     private readonly MockJsRuntimeAdapter _mockJsRuntimeAdapter;
 
     public SessionManagerTests() {
         _mockStorageService = new Mock<IStorageService>();
+        _mockStorageGateway = new Mock<IStorageGateway>();
         _mockLogger = new Mock<ILogger<SessionManager>>();
         _mockJsRuntimeAdapter = new MockJsRuntimeAdapter();
 
@@ -69,6 +71,7 @@ public class SessionManagerTests {
         var sut = new SessionManager(
             _mockLogger.Object,
             _mockStorageService.Object,
+            _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
 
@@ -96,6 +99,7 @@ public class SessionManagerTests {
         var sut = new SessionManager(
             _mockLogger.Object,
             _mockStorageService.Object,
+            _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
 
@@ -120,6 +124,7 @@ public class SessionManagerTests {
         var sut = new SessionManager(
             _mockLogger.Object,
             _mockStorageService.Object,
+            _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
 
@@ -147,6 +152,7 @@ public class SessionManagerTests {
         var sut = new SessionManager(
             _mockLogger.Object,
             _mockStorageService.Object,
+            _mockStorageGateway.Object,
             _mockJsRuntimeAdapter
         );
 

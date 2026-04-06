@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 public class NotificationPollingService : INotificationPollingService {
     private readonly ISignifyClientService _signifyClient;
     private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly ILogger<NotificationPollingService> _logger;
 
     // Cache exchange prefix data (issuer/recipient) to avoid repeated KERIA fetches
@@ -29,9 +30,11 @@ public class NotificationPollingService : INotificationPollingService {
     public NotificationPollingService(
         ISignifyClientService signifyClient,
         IStorageService storageService,
+        IStorageGateway storageGateway,
         ILogger<NotificationPollingService> logger) {
         _signifyClient = signifyClient;
         _storageService = storageService;
+        _storageGateway = storageGateway;
         _logger = logger;
     }
 
@@ -124,8 +127,12 @@ public class NotificationPollingService : INotificationPollingService {
         _lastNotificationFingerprint = fingerprint;
 
         var stored = new CachedNotifications { Items = notifications };
-        await _storageService.SetItem(stored, StorageArea.Session);
-        await UpdateNotificationsLastFetchedAsync();
+        var psResult = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
+        var ps = psResult.IsSuccess && psResult.Value is not null ? psResult.Value : new PollingState();
+        await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+            tx.SetItem(stored);
+            tx.SetItem(ps with { NotificationsLastFetchedUtc = DateTime.UtcNow });
+        });
 
         if (OnCredentialNotificationsChanged is not null) {
             var credentialFingerprint = string.Join("|",

@@ -58,9 +58,9 @@
         appBwPortService.MessageReceived += OnPortMessageReceived;
 
         // Subscribe to AppCache changes so credentials refresh reactively when BackgroundWorker updates session storage
-        await this.SubscribeToAppCache(appCache, onChanged: async () => await getCredentials());
+        await this.SubscribeToAppCache(appCache, () => { getCredentials(); return Task.CompletedTask; });
 
-        await getCredentials();
+        getCredentials();
         // Load website config after credentials so auto-select has data to work with
         if (OriginUri is not null)
         {
@@ -97,7 +97,7 @@
         {
             await appCache.WaitForAppCache([() => appCache.IsBwReady]);
 
-            await getCredentials();
+            getCredentials();
             if (OriginUri is not null)
             {
                 await refreshFromWebsiteConfig(OriginUri);
@@ -306,28 +306,9 @@
         }
     }
 
-    async Task getCredentials()
+    void getCredentials()
     {
-        // Read credentials from session storage (cached by BackgroundWorker)
-        try
-        {
-            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.Credentials is not null)
-            {
-                CredentialsDict = Helper.CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
-                logger.LogInformation("Loaded {Count} credentials from session storage", CredentialsDict.Count);
-            }
-            else
-            {
-                CredentialsDict = [];
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error reading credentials from session storage");
-            CredentialsDict = [];
-        }
-        StateHasChanged();
+        CredentialsDict = appCache.MyCachedCredentials.ToList();
     }
 
     async Task updateIsAutoSign(bool isChecked)

@@ -13,19 +13,26 @@ namespace Extension.Services.PrimeDataService {
     public class PrimeDataService : IPrimeDataService {
         private readonly ISignifyClientService _signifyClient;
         private readonly IStorageService _storageService;
+        private readonly IStorageGateway _storageGateway;
         private readonly ISchemaService _schemaService;
         private readonly ILogger<PrimeDataService> _logger;
+        private DateTime _lastProgressWriteUtc = DateTime.MinValue;
+        private const int ProgressThrottleMs = 500;
 
-        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
+        public PrimeDataService(ISignifyClientService signifyClient, IStorageService storageService, IStorageGateway storageGateway, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
             _signifyClient = signifyClient;
             _storageService = storageService;
+            _storageGateway = storageGateway;
             _schemaService = schemaService;
             _logger = logger;
         }
 
         private async Task ReportProgress(int step, int totalSteps, string description) {
             _logger.LogInformation("Progress: Step {Step} of {Total}: {Description}", step, totalSteps, description);
-            await _storageService.SetItem(new PrimeDataProgress {
+            var now = DateTime.UtcNow;
+            if ((now - _lastProgressWriteUtc).TotalMilliseconds < ProgressThrottleMs) return;
+            _lastProgressWriteUtc = now;
+            await _storageGateway.SetItem(new PrimeDataProgress {
                 Step = step,
                 TotalSteps = totalSteps,
                 Description = description
@@ -33,11 +40,11 @@ namespace Extension.Services.PrimeDataService {
         }
 
         private async Task ReportComplete() {
-            await _storageService.SetItem(new PrimeDataProgress { IsComplete = true }, StorageArea.Session);
+            await _storageGateway.SetItem(new PrimeDataProgress { IsComplete = true }, StorageArea.Session);
         }
 
         private async Task ReportError(string description) {
-            await _storageService.SetItem(new PrimeDataProgress { IsError = true, Description = description }, StorageArea.Session);
+            await _storageGateway.SetItem(new PrimeDataProgress { IsError = true, Description = description }, StorageArea.Session);
         }
 
         public async Task<Result<PrimeDataGoResponse>> GoAsync(PrimeDataGoPayload? payload = null) {
@@ -73,6 +80,8 @@ namespace Extension.Services.PrimeDataService {
             var personResult = await CreateAidStep(personName, "Step 4");
             if (personResult.IsFailed) return await FailResponseWithProgress(personResult.Errors[0].Message);
             nameToPrefix[personName] = personResult.Value.Prefix;
+
+            await RefreshCachedIdentifiersAsync();
 
             // Step 5: Resolve OOBIs between roles
             await ReportProgress(5, goTotalSteps, "Resolving OOBIs between roles");
@@ -163,6 +172,7 @@ namespace Extension.Services.PrimeDataService {
             var verifierResult = await CreateAidStep(verifierName, "Step 15a");
             if (verifierResult.IsFailed) return await FailResponseWithProgress(verifierResult.Errors[0].Message);
             nameToPrefix[verifierName] = verifierResult.Value.Prefix;
+            await RefreshCachedIdentifiersAsync();
 
             // Step 15b: Resolve OOBIs between QVI and Verifier
             await ReportProgress(14, goTotalSteps, "Resolving OOBIs for Verifier");
@@ -858,6 +868,25 @@ namespace Extension.Services.PrimeDataService {
             var allErrors = string.Join("; ", errors);
             _logger.LogError("Failed to resolve schema '{SchemaName}' ({Said}) from any OOBI URL. Tried: {Errors}", schemaName, schemaSaid, allErrors);
             return Result.Fail($"Failed to resolve schema '{schemaName}' ({schemaSaid}): all OOBI URLs failed");
+        }
+
+        private async Task RefreshCachedIdentifiersAsync() {
+            try {
+                var identifiersResult = await _signifyClient.GetIdentifiers();
+                if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
+                    var psResult = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
+                    var ps = psResult.IsSuccess && psResult.Value is not null ? psResult.Value : new PollingState();
+                    await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                        tx.SetItem(new CachedIdentifiers { IdentifiersList = [identifiersResult.Value] });
+                        tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
+                    });
+                    _logger.LogInformation("RefreshCachedIdentifiersAsync: Updated CachedIdentifiers ({Count} aids)",
+                        identifiersResult.Value.Aids.Count);
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "RefreshCachedIdentifiersAsync: Failed to refresh identifiers");
+            }
         }
 
         private async Task<Result<AidWithOobi>> CreateAidStep(string name, string stepLabel) {

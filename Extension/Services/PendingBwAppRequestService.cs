@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 /// </summary>
 public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposable {
     private readonly IStorageService _storageService;
+    private readonly IStorageGateway _storageGateway;
     private readonly ILogger<PendingBwAppRequestService> _logger;
     private readonly List<IObserver<PendingBwAppRequests>> _observers = [];
     private IDisposable? _storageSubscription;
@@ -19,13 +20,15 @@ public class PendingBwAppRequestService : IPendingBwAppRequestService, IDisposab
 
     public PendingBwAppRequestService(
         IStorageService storageService,
+        IStorageGateway storageGateway,
         ILogger<PendingBwAppRequestService> logger
     ) {
         _storageService = storageService;
+        _storageGateway = storageGateway;
         _logger = logger;
 
         // Subscribe to storage changes to relay to our observers
-        _storageSubscription = _storageService.Subscribe<PendingBwAppRequests>(
+        _storageSubscription = _storageGateway.Subscribe<PendingBwAppRequests>(
             new StorageObserver(this),
             StorageArea.Session
         );

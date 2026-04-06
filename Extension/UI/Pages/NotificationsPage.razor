@@ -316,17 +316,8 @@
                 if (notification.Route == "/exn/ipex/grant") {
                     var credSaid = ExpandedExchangeData.Value.E?.GetValueByPath("acdc.d")?.Value?.ToString();
                     if (credSaid is not null) {
-                        try {
-                            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-                            if (cached.IsSuccess && cached.Value?.Credentials is not null) {
-                                var credentials = Helper.CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
-                                IsAlreadyAdmitted = credentials.Any(c =>
-                                    c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid);
-                            }
-                        }
-                        catch (Exception credEx) {
-                            logger.LogWarning(credEx, "Error checking credential existence");
-                        }
+                        IsAlreadyAdmitted = appCache.MyCachedCredentials.Any(c =>
+                            c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid);
                     }
 
                     if (IsAlreadyAdmitted && !notification.IsRead) {
