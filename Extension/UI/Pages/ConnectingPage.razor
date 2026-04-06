@@ -19,7 +19,8 @@
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
             <MudStack Row="true">
-                <MudText Class="bt-page-title">@(_connectionFailed ? "Connection failed" : "Connecting to KERIA service…")</MudText>
+                @* // TODO P2 Indicate which KERIA service connection may have failed *@
+                <MudText Class="bt-page-title">@(_connectionFailed ? "Could not connect to KERIA service" : "Connecting…")</MudText>
             </MudStack>
             @if (_connectionFailed)
             {

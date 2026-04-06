@@ -110,9 +110,8 @@
 
     async Task Lock()
     {
-        // Send fire-and-forget lock request to BackgroundWorker. BW clears its in-memory
-        // passcode, disconnects signify, and clears session storage. This is the
-        // authoritative lock — App-side state is updated reactively via storage observers.
+        // Send lock request to BW first so it stops maintaining the session (clears
+        // in-memory passcode, disconnects signify, cancels keep-alive, clears session storage).
         try
         {
             await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestLockSession);
@@ -122,8 +121,10 @@
             logger.LogWarning(ex, "Lock: Failed to send RequestLockSession event to BW");
         }
 
-        // Synchronously clear App-side in-memory state so IsAuthenticated flips immediately,
-        // rather than waiting for async storage.onChanged propagation.
+        // Clear App-side in-memory state immediately — no WaitForAppCache, which would
+        // leave a window where async storage.onChanged events create intermediate states
+        // (IsAuthenticated=true, IsIdentifierFetched=false) causing RouterPage to navigate
+        // to ConnectingPage instead of UnlockPage.
         appCache.ClearSessionState();
 
         navManager.NavigateTo(Routes.Paths.Unlock);
@@ -246,7 +247,7 @@
     </MudAppBar>
 
     <!-- Identifier Selector overlay, which covers entire page -->
-    <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:5; color:var(--mud-palette-primary);">
+    <MudOverlay DarkBackground LightBackground @bind-Visible="@IsProfilePanelOpen" @onclick="ToggleProfilePanel" Style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:calc(var(--mud-zindex-drawer) + 1); color:var(--mud-palette-primary);">
         <div @onclick:stopPropagation style="position:fixed; top:var(--bt-appbar-height); right:0; bottom:0; width:21.429rem; display:flex; flex-direction:column; background:var(--mud-palette-background); border-style:solid; border-top-style:none; border-width:1px; border-color:#CACACA;">
             <div style="flex:1; overflow-y:auto; min-height:0;">
                 <MudList SelectedValue="ActiveAidObject" Class="pa-0">
