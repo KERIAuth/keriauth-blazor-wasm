@@ -111,19 +111,22 @@
     async Task Lock()
     {
         // Send lock request to BW, then wait for BW's session clear to propagate
-        // to AppCache via storage.onChanged (tracked by session sequence marker).
+        // to AppCache via storage.onChanged before navigating.
+        var synced = false;
         try
         {
             await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestLockSession);
-            await appCache.WaitForStorageSync(() => !appCache.IsSessionUnlocked);
+            synced = await appCache.WaitForAppCache([() => !appCache.IsAuthenticated]);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Lock: Failed to send/sync RequestLockSession");
         }
 
-        // Fallback: clear local state in case sync timed out
-        appCache.ClearSessionState();
+        if (!synced)
+        {
+            throw new InvalidOperationException("Lock: BackgroundWorker did not clear session within timeout");
+        }
 
         navManager.NavigateTo(Routes.Paths.Unlock);
     }

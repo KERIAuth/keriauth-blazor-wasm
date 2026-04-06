@@ -55,16 +55,18 @@ public class SessionManagerTests {
         _mockStorageGateway
             .Setup(s => s.Subscribe(It.IsAny<IObserver<Preferences>>(), StorageArea.Local))
             .Returns(Mock.Of<IDisposable>());
+
+        // Mock bulk RemoveItems (used by ClearKeriaSessionRecordsAsync / ClearSessionForConfigChangeAsync)
+        _mockStorageGateway
+            .Setup(s => s.RemoveItems(StorageArea.Session, It.IsAny<Type[]>()))
+            .ReturnsAsync(Result.Ok());
     }
 
     #region ClearSessionForConfigChangeAsync Tests
 
     [Fact]
-    public async Task ClearSessionForConfigChangeAsync_CallsClearOnSessionStorage() {
-        // Arrange
-        _mockStorageGateway
-            .Setup(s => s.Clear(StorageArea.Session))
-            .ReturnsAsync(Result.Ok());
+    public async Task ClearSessionForConfigChangeAsync_RemovesSessionRecordsButPreservesBwReadyState() {
+        // Arrange — RemoveItem mocks are in SetupDefaultStorageMocks
 
         var sut = new SessionManager(
             _mockLogger.Object,
@@ -78,44 +80,23 @@ public class SessionManagerTests {
         // Act
         await sut.ClearSessionForConfigChangeAsync();
 
-        // Assert
+        // Assert — bulk RemoveItems called once with session record types but NOT BwReadyState
         _mockStorageGateway.Verify(
-            s => s.Clear(StorageArea.Session),
-            Times.Once,
-            "ClearSessionForConfigChangeAsync should call Clear on Session storage area"
-        );
-    }
+            s => s.RemoveItems(StorageArea.Session, It.Is<Type[]>(types =>
+                types.Contains(typeof(SessionStateModel)) &&
+                types.Contains(typeof(KeriaConnectionInfo)) &&
+                types.Contains(typeof(CachedIdentifiers)) &&
+                types.Contains(typeof(PendingBwAppRequests)) &&
+                !types.Contains(typeof(BwReadyState)))),
+            Times.Once);
 
-    [Fact]
-    public async Task ClearSessionForConfigChangeAsync_ThrowsOnStorageFailure() {
-        // Arrange
-        _mockStorageGateway
-            .Setup(s => s.Clear(StorageArea.Session))
-            .ReturnsAsync(Result.Fail("Storage error"));
-
-        var sut = new SessionManager(
-            _mockLogger.Object,
-            _mockStorageGateway.Object,
-            _mockJsRuntimeAdapter
-        );
-
-        // Allow time for async initialization to start
-        await Task.Delay(100);
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => sut.ClearSessionForConfigChangeAsync()
-        );
-
-        Assert.Contains("Failed to clear session storage", exception.Message);
+        // Assert — Clear is NOT called (selective removal instead)
+        _mockStorageGateway.Verify(s => s.Clear(StorageArea.Session), Times.Never);
     }
 
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_DoesNotClearLocalStorage() {
         // Arrange
-        _mockStorageGateway
-            .Setup(s => s.Clear(StorageArea.Session))
-            .ReturnsAsync(Result.Ok());
 
         var sut = new SessionManager(
             _mockLogger.Object,
@@ -140,9 +121,6 @@ public class SessionManagerTests {
     [Fact]
     public async Task ClearSessionForConfigChangeAsync_DoesNotClearSyncStorage() {
         // Arrange
-        _mockStorageGateway
-            .Setup(s => s.Clear(StorageArea.Session))
-            .ReturnsAsync(Result.Ok());
 
         var sut = new SessionManager(
             _mockLogger.Object,

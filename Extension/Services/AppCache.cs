@@ -268,18 +268,25 @@
         }
 
         /// <summary>
-        /// Synchronously clears session-related in-memory state so IsAuthenticated
-        /// becomes false immediately, rather than waiting for async storage.onChanged.
-        /// Call after ClearSessionForConfigChangeAsync or ClearKeriaSessionRecordsAsync.
+        /// Synchronously clears session-related in-memory cached properties so
+        /// IsAuthenticated becomes false immediately, rather than waiting for async
+        /// storage.onChanged. This is a local-only cache clear — it does not write to
+        /// storage. The authoritative session clear is in SessionManager.
+        ///
+        /// NOTE: This resets the same session properties that BatchObserver populates
+        /// from Session storage. It intentionally does NOT clear Local-storage properties
+        /// (MyPreferences, MyOnboardState, MyKeriaConnectConfigs, etc.) or BwReadyState.
         /// </summary>
+        [Obsolete("Prefer WaitForAppCache after BW-mediated session clear. This local-only cache clear can race with storage.onChanged re-hydration.")]
         public void ClearSessionState() {
-            MyKeriaConnectionInfo = new KeriaConnectionInfo() {
-                KeriaConnectionDigest = ""
-            };
-            MyCachedIdentifiers = new CachedIdentifiers { IdentifiersList = [] };
             MySessionState = new SessionStateModel { SessionExpirationUtc = DateTime.MinValue };
+            MyKeriaConnectionInfo = new KeriaConnectionInfo { KeriaConnectionDigest = "" };
+            MyCachedIdentifiers = new CachedIdentifiers { IdentifiersList = [] };
             MyPendingBwAppRequests = PendingBwAppRequests.Empty;
-            _logger.LogInformation(nameof(AppCache) + ": Cleared session state synchronously");
+            MyNotifications = new CachedNotifications();
+            MyCachedCredentials = [];
+            MyPollingState = new PollingState();
+            _logger.LogDebug(nameof(AppCache) + ": Cleared session state synchronously");
             Changed?.Invoke();
         }
 
@@ -522,7 +529,7 @@
             while (elapsedMs < maxWaitMs) {
                 // Check if all assertions pass
                 if (assertions.All(assertion => assertion())) {
-                    _logger.LogInformation(nameof(WaitForAppCache) + ": assertions all passed after {ElapsedMs}ms", elapsedMs);
+                    _logger.LogDebug(nameof(WaitForAppCache) + ": assertions all passed after {ElapsedMs}ms", elapsedMs);
                     return true;
                 }
 
@@ -560,7 +567,7 @@
                 // AND AppCache has processed at least up to that sequence
                 if (storedSeq > baselineSeq && Interlocked.Read(ref _lastProcessedSeq) >= storedSeq) {
                     if (condition is null || condition()) {
-                        _logger.LogInformation(nameof(WaitForStorageSync) + ": synced to seq {Stored} (baseline was {Baseline}) after {ElapsedMs}ms", storedSeq, baselineSeq, elapsed);
+                        _logger.LogDebug(nameof(WaitForStorageSync) + ": synced to seq {Stored} (baseline was {Baseline}) after {ElapsedMs}ms", storedSeq, baselineSeq, elapsed);
                         return true;
                     }
                     // A new seq arrived but condition not met — advance baseline and keep waiting
@@ -584,33 +591,33 @@
                 if (batchArea == StorageArea.Local) {
                     if (batch.Contains<Preferences>()) {
                         cache.MyPreferences = batch.GetNew<Preferences>() ?? AppConfig.DefaultPreferences;
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPreferences");
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyPreferences");
                         dirty = true;
                     }
                     if (batch.Contains<OnboardState>()) {
                         cache.MyOnboardState = batch.GetNew<OnboardState>() ?? new OnboardState();
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyOnboardState");
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyOnboardState");
                         dirty = true;
                     }
                     if (batch.Contains<KeriaConnectConfig>()) {
                         // Legacy single-config record — MyKeriaConnectConfig is computed from KeriaConnectConfigs.
                         // Still mark dirty so pages re-render if a writer updates the legacy record.
-                        cache._logger.LogInformation(nameof(AppCache) + ": observed legacy KeriaConnectConfig change");
+                        cache._logger.LogDebug(nameof(AppCache) + ": observed legacy KeriaConnectConfig change");
                         dirty = true;
                     }
                     if (batch.Contains<KeriaConnectConfigs>()) {
                         cache.MyKeriaConnectConfigs = batch.GetNew<KeriaConnectConfigs>() ?? new KeriaConnectConfigs();
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectConfigs (count={Count})", cache.MyKeriaConnectConfigs.Configs.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyKeriaConnectConfigs (count={Count})", cache.MyKeriaConnectConfigs.Configs.Count);
                         dirty = true;
                     }
                     if (batch.Contains<MigrationNotice>()) {
                         cache.MyMigrationNotice = batch.GetNew<MigrationNotice>();
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyMigrationNotice");
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyMigrationNotice");
                         dirty = true;
                     }
                     if (batch.Contains<WebsiteConfigList>()) {
                         cache.MyWebsiteConfigList = batch.GetNew<WebsiteConfigList>() ?? new WebsiteConfigList { WebsiteList = [] };
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyWebsiteConfigList (count={Count})", cache.MyWebsiteConfigList.WebsiteList.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyWebsiteConfigList (count={Count})", cache.MyWebsiteConfigList.WebsiteList.Count);
                         dirty = true;
                     }
                 }
@@ -618,38 +625,38 @@
                     if (batch.Contains<SessionStateModel>()) {
                         var value = batch.GetNew<SessionStateModel>() ?? new SessionStateModel { SessionExpirationUtc = DateTime.MinValue };
                         cache.MySessionState = value;
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MySessionState: SessionExpirationUtc={Expiration}", value.SessionExpirationUtc);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MySessionState: SessionExpirationUtc={Expiration}", value.SessionExpirationUtc);
                         dirty = true;
                     }
                     if (batch.Contains<KeriaConnectionInfo>()) {
                         cache.MyKeriaConnectionInfo = batch.GetNew<KeriaConnectionInfo>() ?? new KeriaConnectionInfo { KeriaConnectionDigest = "" };
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
                         dirty = true;
                     }
                     if (batch.Contains<CachedIdentifiers>()) {
                         cache.MyCachedIdentifiers = batch.GetNew<CachedIdentifiers>() ?? new CachedIdentifiers { IdentifiersList = [] };
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyCachedIdentifiers (count={Count})", cache.MyCachedIdentifiers.IdentifiersList.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyCachedIdentifiers (count={Count})", cache.MyCachedIdentifiers.IdentifiersList.Count);
                         cache.ValidateSelectedPrefixAmongIdentifiers();
                         dirty = true;
                     }
                     if (batch.Contains<PendingBwAppRequests>()) {
                         cache.MyPendingBwAppRequests = batch.GetNew<PendingBwAppRequests>() ?? PendingBwAppRequests.Empty;
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPendingBwAppRequests (count={Count})", cache.MyPendingBwAppRequests.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyPendingBwAppRequests (count={Count})", cache.MyPendingBwAppRequests.Count);
                         dirty = true;
                     }
                     if (batch.Contains<CachedNotifications>()) {
                         cache.MyNotifications = batch.GetNew<CachedNotifications>() ?? new CachedNotifications();
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyNotifications (count={Count})", cache.MyNotifications.Items.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyNotifications (count={Count})", cache.MyNotifications.Items.Count);
                         dirty = true;
                     }
                     if (batch.Contains<CachedCredentials>()) {
                         cache.UpdateCachedCredentialsFromBatch(batch);
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyCachedCredentials (count={Count})", cache.MyCachedCredentials.Count);
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyCachedCredentials (count={Count})", cache.MyCachedCredentials.Count);
                         dirty = true;
                     }
                     if (batch.Contains<PollingState>()) {
                         cache.MyPollingState = batch.GetNew<PollingState>() ?? new PollingState();
-                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPollingState");
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyPollingState");
                         dirty = true;
                     }
                     if (batch.Contains<SessionSequence>()) {
@@ -934,7 +941,7 @@
         /// </summary>
         /// <returns>True if BackgroundWorker became ready, false if timeout occurred.</returns>
         private async Task<bool> WaitForBwReadyAsync() {
-            _logger.LogInformation(nameof(AppCache) + ": Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", AppConfig.BwReadyTimeoutMs);
+            _logger.LogDebug(nameof(AppCache) + ": Waiting for BackgroundWorker initialization (timeout: {TimeoutMs}ms)", AppConfig.BwReadyTimeoutMs);
 
             var elapsedMs = 0;
 
@@ -942,7 +949,7 @@
                 var result = await storageGateway.GetItem<BwReadyState>(StorageArea.Session);
 
                 if (result.IsSuccess && result.Value?.IsInitialized == true) {
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         nameof(AppCache) + ": BackgroundWorker ready after {ElapsedMs}ms (initialized at {InitializedAt})",
                         elapsedMs,
                         result.Value.InitializedAtUtc);

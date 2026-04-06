@@ -49,6 +49,12 @@ public interface IStorageGateway {
         where T : class, IStorageModel;
 
     /// <summary>
+    /// Remove multiple records from the given storage area in a single chrome.storage.remove() call.
+    /// Fires a single storage.onChanged event for all removed keys.
+    /// </summary>
+    Task<Result> RemoveItems(StorageArea area, params Type[] types);
+
+    /// <summary>
     /// Clear all items in the specified storage area.
     /// </summary>
     Task<Result> Clear(StorageArea area = StorageArea.Local);

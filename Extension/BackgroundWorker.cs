@@ -283,8 +283,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await InitializeStorageDefaultsAsync();
 
             // Extend session if unlocked (restores session timeout alarm)
-            await _sessionManager.ExtendIfUnlockedAsync();
-            await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+            if (await _sessionManager.ExtendIfUnlockedAsync()) {
+                await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+            }
 
             // If session is unlocked, try to reconnect signify-ts client
             // This handles the case where service worker was restarted but session is still valid
@@ -1401,12 +1402,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var payload = paramsElement.TryGetProperty("payload", out var payloadProp) ? payloadProp : (JsonElement?)null;
             var error = paramsElement.TryGetProperty("error", out var errorProp) ? errorProp.GetString() : null;
 
-            logger.LogInformation(nameof(HandleAppRpcAsync) + ": Parsed params - tabId={TabId}, tabUrl={TabUrl}, requestId={RequestId}",
+            logger.LogDebug(nameof(HandleAppRpcAsync) + ": Parsed params - tabId={TabId}, tabUrl={TabUrl}, requestId={RequestId}",
                 tabId, tabUrl, requestId);
 
             // Extend session on App activity
-            await _sessionManager.ExtendIfUnlockedAsync();
-            await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+            if (await _sessionManager.ExtendIfUnlockedAsync()) {
+                await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+            }
 
             // Route based on method (which is the message type)
             switch (request.Method) {
@@ -4526,14 +4528,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Events don't require a response - they're used for notifications like user activity.
     /// </summary>
     private async Task HandlePortEventAsync(string portId, PortSession? portSession, Models.Messages.Port.EventMessage eventMessage) {
-        logger.LogInformation(nameof(HandlePortEventAsync) + ": name={Name}, portId={PortId}", eventMessage.Name, portId);
+        logger.LogDebug(nameof(HandlePortEventAsync) + ": name={Name}, portId={PortId}", eventMessage.Name, portId);
 
         switch (eventMessage.Name) {
             case AppBwMessageType.Values.UserActivity:
                 // Extend session on user activity
                 logger.LogDebug(nameof(HandlePortEventAsync) + ": User activity event received, extending session");
-                await _sessionManager.ExtendIfUnlockedAsync();
-                await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+                if (await _sessionManager.ExtendIfUnlockedAsync()) {
+                    await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+                }
                 // Only start burst if not already active — avoid polling when signify client isn't connected (e.g., after SW restart)
                 if (_notificationPollingCts is null || _notificationPollingCts.IsCancellationRequested) {
                     RestartNotificationBurst();
@@ -4557,17 +4560,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 break;
 
             case AppBwMessageType.Values.RequestLockSession:
-                // Fire-and-forget lock request from App. BW clears its in-memory passcode,
-                // disconnects the signify client, cancels polling, and clears session storage.
-                // Apps observe the session clear via storage.onChanged and update their UI.
+                // Lock request from App. Clear passcode and session storage FIRST to prevent
+                // any concurrent fire-and-forget observer (e.g., PreferencesObserver calling
+                // ExtendIfUnlockedAsync) from re-writing SessionStateModel during the lock.
                 logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestLockSession event received");
                 try {
+                    // 1. Clear session state first — this nulls _passcode, which guards
+                    //    ExtendIfUnlockedAsync from writing SessionStateModel
+                    await _sessionManager.LockSessionAsync();
+                    // 2. Write sequence marker so App's WaitForAppCache can detect the lock
+                    await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
+                    // 3. Slower cleanup after session is authoritatively locked
                     await _signifyClientService.Disconnect();
                     await CancelNotificationPollingAsync();
-                    await _sessionManager.LockSessionAsync();
-                    // Write sequence marker after session clear so AppCache can detect
-                    // the lock completed via WaitForStorageSync
-                    await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
                 }
                 catch (Exception ex) {
                     logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestLockSession");
@@ -4576,7 +4581,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             case AppBwMessageType.Values.AppClosed:
                 // App closed notification - handle cleanup if needed
-                logger.LogInformation(nameof(HandlePortEventAsync) + ": App closed event received from portId={PortId}", portId);
+                logger.LogDebug(nameof(HandlePortEventAsync) + ": App closed event received from portId={PortId}", portId);
                 // Port disconnect will handle cleanup
                 break;
 

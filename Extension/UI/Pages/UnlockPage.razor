@@ -370,6 +370,8 @@
         }
     }
 
+    // TODO P2 use SecureString or char[] with explicit zeroing in Dispose() to avoid
+    // passcode lingering in managed string memory after navigation away from UnlockPage
     class PasscodeFormModel
     {
         [Required]

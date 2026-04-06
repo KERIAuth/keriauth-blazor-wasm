@@ -346,35 +346,56 @@ public class SessionManager : IDisposable {
     /// Public API called by BackgroundWorker on user activity or preference change.
     /// Throws exception on storage operation failure (fail-fast).
     /// </summary>
-    public async Task ExtendIfUnlockedAsync() {
-        if (await IsUnlockedAsync()) {
-            var prefsRes = await _storageGateway.GetItem<Preferences>();
-            if (prefsRes.IsFailed) {
-                throw new InvalidOperationException(
-                    $"Failed to get Preferences: {prefsRes.Errors[0].Message}");
-            }
-
-            var timeoutMinutes = prefsRes.Value?.InactivityTimeoutMinutes
-                ?? AppConfig.DefaultInactivityTimeoutMins;
-
-            var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
-
-            // Update SessionStateModel with new expiration time
-            var setRes = await _storageGateway.SetItem<SessionStateModel>(
-                new SessionStateModel { SessionExpirationUtc = newExpirationUtc },
-                StorageArea.Session
-            );
-            if (setRes.IsFailed) {
-                throw new InvalidOperationException(
-                    $"Failed to update SessionStateModel: {setRes.Errors[0].Message}");
-            }
-
-            // Schedule one-shot alarm to fire at expiration time
-            await ScheduleExpirationAlarmAsync(newExpirationUtc);
-        }
-        else {
+    /// <returns>True if SessionStateModel was written, false if skipped (not unlocked or not material).</returns>
+    public async Task<bool> ExtendIfUnlockedAsync() {
+        if (!await IsUnlockedAsync()) {
             _logger.LogDebug(nameof(ExtendIfUnlockedAsync) + ": Session not unlocked — nothing to extend");
+            return false;
         }
+
+        var prefsRes = await _storageGateway.GetItem<Preferences>();
+        if (prefsRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to get Preferences: {prefsRes.Errors[0].Message}");
+        }
+
+        var timeoutMinutes = prefsRes.Value?.InactivityTimeoutMinutes
+            ?? AppConfig.DefaultInactivityTimeoutMins;
+
+        var newExpirationUtc = DateTime.UtcNow.AddMinutes(timeoutMinutes);
+
+        // Skip write if the existing expiration is close enough and has plenty of time remaining.
+        // This reduces storage churn, onChanged events, and AppCache re-renders during active use.
+        var sessionStateRes = await _storageGateway.GetItem<SessionStateModel>(StorageArea.Session);
+        if (sessionStateRes.IsSuccess && sessionStateRes.Value is { } existing) {
+            var remaining = (existing.SessionExpirationUtc - DateTime.UtcNow).TotalSeconds;
+            var delta = Math.Abs((newExpirationUtc - existing.SessionExpirationUtc).TotalSeconds);
+            if (remaining > 30 && delta < AppConfig.AlarmRescheduleThresholdSeconds) {
+                _logger.LogDebug(nameof(ExtendIfUnlockedAsync) + ": skipped write (remaining={Remaining:F0}s, delta={Delta:F1}s)", remaining, delta);
+                return false;
+            }
+        }
+
+        // Guard: passcode must still be in memory (could have been cleared between
+        // IsUnlockedAsync check and here if callers change in the future)
+        if (string.IsNullOrEmpty(_passcode)) {
+            _logger.LogWarning(nameof(ExtendIfUnlockedAsync) + ": Passcode cleared during extend — aborting write");
+            return false;
+        }
+
+        // Update SessionStateModel with new expiration time
+        var setRes = await _storageGateway.SetItem<SessionStateModel>(
+            new SessionStateModel { SessionExpirationUtc = newExpirationUtc },
+            StorageArea.Session
+        );
+        if (setRes.IsFailed) {
+            throw new InvalidOperationException(
+                $"Failed to update SessionStateModel: {setRes.Errors[0].Message}");
+        }
+
+        // Schedule one-shot alarm to fire at expiration time
+        await ScheduleExpirationAlarmAsync(newExpirationUtc);
+        return true;
     }
 
     /// <summary>
@@ -398,60 +419,83 @@ public class SessionManager : IDisposable {
     /// "credential" refers to ACDCs (Authentic Chained Data Containers), not authentication tokens.
     /// </summary>
     public async Task ClearKeriaSessionRecordsAsync() {
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Clearing all Session storage");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Clearing KERIA session records");
 
-        // Clear in-memory passcode
+        // Clear in-memory passcode first — this guards ExtendIfUnlockedAsync from
+        // writing SessionStateModel if called by a fire-and-forget observer during the lock.
         _passcode = null;
+
+        // Yield to let any already-queued fire-and-forget observer continuations
+        // (e.g., PreferencesObserver → ExtendIfUnlockedAsync) execute and fail the
+        // _passcode null guard before we remove session records from storage.
+        await Task.Yield();
 
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        // Clear ALL Session storage atomically. This is the authoritative "lock" operation:
-        // any new Session record introduced in the future is automatically cleared on lock,
-        // ensuring no stale state can survive across an unlock cycle.
-        // Session storage is ephemeral by design (cleared on browser close), so bulk clearing
-        // is always safe — BwReadyState will self-heal via BackgroundWorker's observer.
-        var clearResult = await _storageGateway.Clear(StorageArea.Session);
-        if (clearResult.IsFailed) {
+        // Remove all session records EXCEPT BwReadyState in a single bulk remove.
+        // Single chrome.storage.remove() call fires one onChanged event instead of 11.
+        var removeResult = await _storageGateway.RemoveItems(StorageArea.Session,
+            typeof(SessionStateModel),
+            typeof(KeriaConnectionInfo),
+            typeof(CachedIdentifiers),
+            typeof(PendingBwAppRequests),
+            typeof(CachedNotifications),
+            typeof(CachedCredentials),
+            typeof(PollingState),
+            typeof(SessionSequence),
+            typeof(ResolvedSchemas),
+            typeof(PrimeDataProgress),
+            typeof(ConfigureProgress));
+        if (removeResult.IsFailed) {
             throw new InvalidOperationException(
-                $"Failed to clear Session storage: {clearResult.Errors[0].Message}");
+                $"Failed to remove session records: {removeResult.Errors[0].Message}");
         }
 
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Session storage cleared");
+        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Session records cleared (BwReadyState preserved)");
     }
 
     /// <summary>
-    /// Clears ALL session storage when changing KERIA configuration.
+    /// Clears session storage (except BwReadyState) when changing KERIA configuration.
     /// This ensures a clean state for the new config.
     ///
     /// Use this when:
     /// - User changes KERIA config on UnlockPage (no-op effect since not authenticated)
     /// - User changes KERIA config on PreferencesPage (locks session)
     ///
-    /// Clears: SessionStateModel, KeriaConnectionInfo, BwReadyState, PendingBwAppRequests
-    ///
-    /// NOTE: BwReadyState is automatically re-established by BackgroundWorker via its
-    /// storage observer (BwReadyStateObserver). This self-healing behavior ensures
-    /// App initialization doesn't timeout waiting for BwReadyState.
-    ///
     /// AppCache will react to storage changes via its observers.
     /// </summary>
     public async Task ClearSessionForConfigChangeAsync() {
-        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Clearing ALL session storage for config change");
+        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Clearing session storage for config change");
 
-        // Clear in-memory passcode
+        // Clear in-memory passcode first — guards against concurrent observer writes.
         _passcode = null;
+
+        // Yield to drain any queued fire-and-forget observer continuations (see ClearKeriaSessionRecordsAsync).
+        await Task.Yield();
 
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        var clearResult = await _storageGateway.Clear(StorageArea.Session);
-        if (clearResult.IsFailed) {
+        // Remove all session records EXCEPT BwReadyState in a single bulk remove.
+        var removeResult = await _storageGateway.RemoveItems(StorageArea.Session,
+            typeof(SessionStateModel),
+            typeof(KeriaConnectionInfo),
+            typeof(CachedIdentifiers),
+            typeof(PendingBwAppRequests),
+            typeof(CachedNotifications),
+            typeof(CachedCredentials),
+            typeof(PollingState),
+            typeof(SessionSequence),
+            typeof(ResolvedSchemas),
+            typeof(PrimeDataProgress),
+            typeof(ConfigureProgress));
+        if (removeResult.IsFailed) {
             throw new InvalidOperationException(
-                $"Failed to clear session storage: {clearResult.Errors[0].Message}");
+                $"Failed to remove session records: {removeResult.Errors[0].Message}");
         }
 
-        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Session storage cleared (BwReadyState will self-heal)");
+        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Session records cleared (BwReadyState preserved)");
     }
 
     /// <summary>

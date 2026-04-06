@@ -88,14 +88,13 @@
         ]);
 
         // Clear session storage and in-memory state
+        // TODO P2 move session clear to BW via AppBw message (App should not directly clear session storage)
         if (appCache.IsAuthenticated) {
             await sessionManager.ClearSessionForConfigChangeAsync();
-            await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked]);
+            if (!await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked])) {
+                throw new InvalidOperationException("Config change: session clear did not propagate within timeout");
+            }
         }
-
-        // Synchronously clear AppCache so IsAuthenticated becomes false immediately,
-        // rather than waiting for async storage.onChanged notifications
-        appCache.ClearSessionState();
 
         snackbar.Add("Configuration changed. Please unlock.", Severity.Info);
         navManager.NavigateTo(Routes.Paths.Router);
@@ -192,9 +191,12 @@
                 var prefs = appCache.MyPreferences;
                 await storageGateway.SetItem<Preferences>(prefs with { SelectedKeriaConnectionDigest = otherDigest });
 
+                // TODO P2 move session clear to BW via AppBw message (App should not directly clear session storage)
                 if (appCache.IsAuthenticated) {
                     await sessionManager.ClearSessionForConfigChangeAsync();
-                    await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked]);
+                    if (!await appCache.WaitForAppCache([() => !appCache.IsSessionUnlocked])) {
+                        throw new InvalidOperationException("Config delete: session clear did not propagate within timeout");
+                    }
                 }
             }
 

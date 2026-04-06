@@ -142,6 +142,22 @@ public class StorageGateway : IStorageGateway, IDisposable {
         }
     }
 
+    public async Task<Result> RemoveItems(StorageArea area, params Type[] types) {
+        var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.RemoveItems), area);
+        if (validation.IsFailed) return validation;
+
+        var keys = types.Select(t => t.Name).ToArray();
+        try {
+            await RemoveManyFromStorageArea(area, keys);
+            _logger.LogDebug(nameof(RemoveItems) + ": Removed {Count} keys from {Area} storage: {Keys}", keys.Length, area, string.Join(", ", keys));
+            return Result.Ok();
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, nameof(RemoveItems) + ": Failed to remove keys from {Area} storage", area);
+            return Result.Fail(new StorageError($"RemoveItems from {area} failed", ex));
+        }
+    }
+
     public async Task<Result> Clear(StorageArea area = StorageArea.Local) {
         var validation = StorageGatewayValidation.ValidateOperation(nameof(IStorageGateway.Clear), area);
         if (validation.IsFailed) return validation;
@@ -648,6 +664,29 @@ public class StorageGateway : IStorageGateway, IDisposable {
             case StorageArea.Managed:
                 await _webExtensionsApi.Storage.Managed.Remove(
                     new WebExtensions.Net.Storage.StorageAreaRemoveKeys(key));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(area), area, "Unknown storage area");
+        }
+    }
+
+    private async ValueTask RemoveManyFromStorageArea(StorageArea area, IEnumerable<string> keys) {
+        switch (area) {
+            case StorageArea.Local:
+                await _webExtensionsApi.Storage.Local.Remove(
+                    new WebExtensions.Net.Storage.StorageAreaRemoveKeys(keys));
+                break;
+            case StorageArea.Session:
+                await _webExtensionsApi.Storage.Session.Remove(
+                    new WebExtensions.Net.Storage.StorageAreaWithUsageRemoveKeys(keys));
+                break;
+            case StorageArea.Sync:
+                await _webExtensionsApi.Storage.Sync.Remove(
+                    new WebExtensions.Net.Storage.StorageAreaWithUsageRemoveKeys(keys));
+                break;
+            case StorageArea.Managed:
+                await _webExtensionsApi.Storage.Managed.Remove(
+                    new WebExtensions.Net.Storage.StorageAreaRemoveKeys(keys));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(area), area, "Unknown storage area");
