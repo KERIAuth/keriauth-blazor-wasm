@@ -148,6 +148,14 @@
         // Detect if we're adding a new config while already connected
         _isAddingConfig = appCache.IsConnectedToKeria;
 
+        // Lock session when adding a new config to avoid state confusion
+        // (clears session storage so old KERIA connection info doesn't leak into the new config flow)
+        if (_isAddingConfig)
+        {
+            logger.LogInformation("Adding new config — locking current session");
+            await appBwPortService.SendEventAsync(AppBwMessageType.Values.RequestLockSession);
+        }
+
         // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
         await this.SubscribeToAppCache(appCache);
 
@@ -565,7 +573,7 @@
                         Use existing
                     </MudRadio>
                     <MudRadio Value="true">
-                        Create new random
+                        Create random new
                     </MudRadio>
                 </MudRadioGroup>
                 @if (IsUsingExistingPasscode)

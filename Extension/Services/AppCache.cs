@@ -95,16 +95,9 @@
         public bool IsBwReady { get; private set; }
 
 
-        private StorageObserver<Preferences>? preferencesStorageObserver;
-        private StorageObserver<OnboardState>? onboardStateStorageObserver;
-        private StorageObserver<SessionStateModel>? sessionStateObserver;
-        private StorageObserver<KeriaConnectConfig>? keriaConnectConfigObserver;
-        private StorageObserver<KeriaConnectConfigs>? keriaConnectConfigsObserver;
-        private StorageObserver<KeriaConnectionInfo>? keriaConnectionInfoObserver;
-        private StorageObserver<PendingBwAppRequests>? pendingBwAppRequestsObserver;
-        private StorageObserver<CachedIdentifiers>? cachedIdentifiersObserver;
-        private StorageObserver<CachedNotifications>? notificationsObserver;
-        private StorageObserver<CachedCredentials>? cachedCredentialsObserver;
+        // Batch observer subscriptions — single BatchObserver instance registered for both areas.
+        private IDisposable? _localBatchSubscription;
+        private IDisposable? _sessionBatchSubscription;
 
         // Base properties with default values
         public Preferences MyPreferences { get; private set; } = AppConfig.DefaultPreferences;
@@ -536,17 +529,101 @@
             return false;
         }
 
+        /// <summary>
+        /// Batch observer for all storage records. A single instance is registered for
+        /// both Local and Session areas. Fires Changed exactly once per Chrome onChanged batch.
+        /// </summary>
+        private sealed class BatchObserver(AppCache cache) : IStorageBatchObserver {
+            public void OnBatch(StorageArea batchArea, StorageChangeBatch batch) {
+                bool dirty = false;
+
+                if (batchArea == StorageArea.Local) {
+                    if (batch.Contains<Preferences>()) {
+                        cache.MyPreferences = batch.GetNew<Preferences>() ?? AppConfig.DefaultPreferences;
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPreferences");
+                        dirty = true;
+                    }
+                    if (batch.Contains<OnboardState>()) {
+                        cache.MyOnboardState = batch.GetNew<OnboardState>() ?? new OnboardState();
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyOnboardState");
+                        dirty = true;
+                    }
+                    if (batch.Contains<KeriaConnectConfig>()) {
+                        // Legacy single-config record — MyKeriaConnectConfig is computed from KeriaConnectConfigs.
+                        // Still mark dirty so pages re-render if a writer updates the legacy record.
+                        cache._logger.LogInformation(nameof(AppCache) + ": observed legacy KeriaConnectConfig change");
+                        dirty = true;
+                    }
+                    if (batch.Contains<KeriaConnectConfigs>()) {
+                        cache.MyKeriaConnectConfigs = batch.GetNew<KeriaConnectConfigs>() ?? new KeriaConnectConfigs();
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectConfigs (count={Count})", cache.MyKeriaConnectConfigs.Configs.Count);
+                        dirty = true;
+                    }
+                    if (batch.Contains<MigrationNotice>()) {
+                        cache.MyMigrationNotice = batch.GetNew<MigrationNotice>();
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyMigrationNotice");
+                        dirty = true;
+                    }
+                    if (batch.Contains<WebsiteConfigList>()) {
+                        cache.MyWebsiteConfigList = batch.GetNew<WebsiteConfigList>() ?? new WebsiteConfigList { WebsiteList = [] };
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyWebsiteConfigList (count={Count})", cache.MyWebsiteConfigList.WebsiteList.Count);
+                        dirty = true;
+                    }
+                }
+                else if (batchArea == StorageArea.Session) {
+                    if (batch.Contains<SessionStateModel>()) {
+                        var value = batch.GetNew<SessionStateModel>() ?? new SessionStateModel { SessionExpirationUtc = DateTime.MinValue };
+                        cache.MySessionState = value;
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MySessionState: SessionExpirationUtc={Expiration}", value.SessionExpirationUtc);
+                        dirty = true;
+                    }
+                    if (batch.Contains<KeriaConnectionInfo>()) {
+                        cache.MyKeriaConnectionInfo = batch.GetNew<KeriaConnectionInfo>() ?? new KeriaConnectionInfo { KeriaConnectionDigest = "" };
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
+                        dirty = true;
+                    }
+                    if (batch.Contains<CachedIdentifiers>()) {
+                        cache.MyCachedIdentifiers = batch.GetNew<CachedIdentifiers>() ?? new CachedIdentifiers { IdentifiersList = [] };
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyCachedIdentifiers (count={Count})", cache.MyCachedIdentifiers.IdentifiersList.Count);
+                        cache.ValidateSelectedPrefixAmongIdentifiers();
+                        dirty = true;
+                    }
+                    if (batch.Contains<PendingBwAppRequests>()) {
+                        cache.MyPendingBwAppRequests = batch.GetNew<PendingBwAppRequests>() ?? PendingBwAppRequests.Empty;
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPendingBwAppRequests (count={Count})", cache.MyPendingBwAppRequests.Count);
+                        dirty = true;
+                    }
+                    if (batch.Contains<CachedNotifications>()) {
+                        cache.MyNotifications = batch.GetNew<CachedNotifications>() ?? new CachedNotifications();
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyNotifications (count={Count})", cache.MyNotifications.Items.Count);
+                        dirty = true;
+                    }
+                    if (batch.Contains<CachedCredentials>()) {
+                        cache.UpdateCachedCredentialsFromBatch(batch);
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyCachedCredentials (count={Count})", cache.MyCachedCredentials.Count);
+                        dirty = true;
+                    }
+                    if (batch.Contains<PollingState>()) {
+                        cache.MyPollingState = batch.GetNew<PollingState>() ?? new PollingState();
+                        cache._logger.LogInformation(nameof(AppCache) + ": updated MyPollingState");
+                        dirty = true;
+                    }
+                }
+
+                if (dirty) cache.Changed?.Invoke();
+            }
+        }
+
+        private void UpdateCachedCredentialsFromBatch(StorageChangeBatch batch) {
+            var raw = batch.GetNew<CachedCredentials>();
+            MyCachedCredentials = raw?.Credentials is { Count: > 0 } dict
+                ? CredentialHelper.DeserializeCredentialsDict(dict)
+                : [];
+        }
+
         public void Dispose() {
-            preferencesStorageObserver?.Dispose();
-            onboardStateStorageObserver?.Dispose();
-            sessionStateObserver?.Dispose();
-            keriaConnectConfigObserver?.Dispose();
-            keriaConnectConfigsObserver?.Dispose();
-            keriaConnectionInfoObserver?.Dispose();
-            pendingBwAppRequestsObserver?.Dispose();
-            cachedIdentifiersObserver?.Dispose();
-            notificationsObserver?.Dispose();
-            cachedCredentialsObserver?.Dispose();
+            _localBatchSubscription?.Dispose();
+            _sessionBatchSubscription?.Dispose();
             _initLock?.Dispose();
             GC.SuppressFinalize(this);
         }
@@ -566,134 +643,7 @@
                     return;
                 }
 
-                _logger.LogInformation(nameof(Initialize) + ": Initializing AppCache storage observers");
-
-                preferencesStorageObserver = new StorageObserver<Preferences>(
-                    storageService,
-                    StorageArea.Local,
-                    onNext: (value) => {
-                        MyPreferences = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyPreferences");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing preferences storage"),
-                    null,
-                    _logger
-                );
-                onboardStateStorageObserver = new StorageObserver<OnboardState>(
-                    storageService,
-                    StorageArea.Local,
-                    onNext: (value) => {
-                        MyOnboardState = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyOnboardState");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing onboard state storage"),
-                    null,
-                    _logger
-                );
-                sessionStateObserver = new StorageObserver<SessionStateModel>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MySessionState = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MySessionState: SessionExpirationUtc={Expiration}", value.SessionExpirationUtc);
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing session state storage"),
-                    null,
-                    _logger
-                );
-                // Legacy observer for single KeriaConnectConfig - kept for transition period
-                // MyKeriaConnectConfig is now a computed property from KeriaConnectConfigs
-                keriaConnectConfigObserver = new StorageObserver<KeriaConnectConfig>(
-                    storageService,
-                    StorageArea.Local,
-                    onNext: (value) => {
-                        // Note: MyKeriaConnectConfig is now computed from KeriaConnectConfigs
-                        // This observer is kept for backward compatibility during transition
-                        _logger.LogInformation(nameof(AppCache) + ": observed legacy KeriaConnectConfig change");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing legacy Keria connect config storage"),
-                    null,
-                    _logger
-                );
-                keriaConnectConfigsObserver = new StorageObserver<KeriaConnectConfigs>(
-                    storageService,
-                    StorageArea.Local,
-                    onNext: (value) => {
-                        MyKeriaConnectConfigs = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectConfigs: count={Count}", value.Configs.Count);
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing KeriaConnectConfigs storage"),
-                    null,
-                    _logger
-                );
-                keriaConnectionInfoObserver = new StorageObserver<KeriaConnectionInfo>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MyKeriaConnectionInfo = value ?? new KeriaConnectionInfo() {
-                            KeriaConnectionDigest = ""
-                        };
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyKeriaConnectionInfo");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing Keria connection info storage"),
-                    null,
-                    _logger
-                );
-                cachedIdentifiersObserver = new StorageObserver<CachedIdentifiers>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MyCachedIdentifiers = value ?? new CachedIdentifiers { IdentifiersList = [] };
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyCachedIdentifiers: count={Count}", value?.IdentifiersList?.Count ?? 0);
-                        ValidateSelectedPrefixAmongIdentifiers();
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing CachedIdentifiers storage"),
-                    null,
-                    _logger
-                );
-                pendingBwAppRequestsObserver = new StorageObserver<PendingBwAppRequests>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MyPendingBwAppRequests = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyPendingBwAppRequests: count={Count}", value.Count);
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing pending BW→App requests storage"),
-                    null,
-                    _logger
-                );
-                notificationsObserver = new StorageObserver<CachedNotifications>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (value) => {
-                        MyNotifications = value;
-                        _logger.LogInformation(nameof(AppCache) + ": updated MyNotifications: count={Count}", value.Items.Count);
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing notifications storage"),
-                    null,
-                    _logger
-                );
-                cachedCredentialsObserver = new StorageObserver<CachedCredentials>(
-                    storageService,
-                    StorageArea.Session,
-                    onNext: (_) => {
-                        // Notification relay only — credential data is read directly from session storage by components
-                        _logger.LogInformation(nameof(AppCache) + ": CachedCredentials changed in session storage");
-                        Changed?.Invoke();
-                    },
-                    onError: ex => _logger.LogError(ex, nameof(AppCache) + ": Error observing CachedCredentials storage"),
-                    null,
-                    _logger
-                );
+                _logger.LogInformation(nameof(Initialize) + ": Initializing AppCache");
 
                 _isInitialized = true;
 
@@ -701,6 +651,12 @@
                 // This ensures My* properties have current values before IsReady is set
                 _logger.LogInformation(nameof(AppCache) + ": Fetching initial storage values");
                 await FetchInitialStorageValuesAsync();
+
+                // Register batch observer for all storage records.
+                // Single observer instance handles both areas via the batchArea parameter.
+                var batchObserver = new BatchObserver(this);
+                _localBatchSubscription   = storageGateway.SubscribeBatch(batchObserver, StorageArea.Local);
+                _sessionBatchSubscription = storageGateway.SubscribeBatch(batchObserver, StorageArea.Session);
 
                 IsReady = true;
                 _logger.LogInformation(nameof(AppCache) + ": initialization complete, IsReady=true");

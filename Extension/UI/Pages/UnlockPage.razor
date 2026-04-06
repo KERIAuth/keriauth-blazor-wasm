@@ -142,7 +142,15 @@
         // Capture initial URI for restart after config change
         _initialUri = new Uri(navManager.Uri);
 
-        await this.SubscribeToAppCache(appCache);
+        await this.SubscribeToAppCache(appCache, () => {
+            // If another app instance unlocked the session, navigate to Router
+            if (appCache.IsSessionUnlocked && !_isUnlocking)
+            {
+                logger.LogInformation("Session unlocked by another instance — navigating to Router");
+                navManager.NavigateTo(Routes.Paths.Router);
+            }
+            return Task.CompletedTask;
+        });
 
         // Wait for required appCache data to be loaded from storage before proceeding
         var dataLoaded = await appCache.WaitForAppCache([

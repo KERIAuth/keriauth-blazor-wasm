@@ -60,8 +60,8 @@
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged when state updates
-        await this.SubscribeToAppCache(appCache);
+        // Subscribe to AppCache changes - will trigger StateHasChanged then refresh website list
+        await this.SubscribeToAppCache(appCache, () => { RefreshFromAppCache(); return Task.CompletedTask; });
 
     }
 
@@ -74,13 +74,19 @@
         await storageService.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
     }
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync()
     {
         logger.LogInformation($"OnParametersSetAsync");
-        var websitesRes = await websiteConfigService.GetList();
-        if (websitesRes is not null && websitesRes.IsSuccess && websitesRes.Value is not null && websitesRes.Value.WebsiteList.Any())
+        RefreshFromAppCache();
+        return Task.CompletedTask;
+    }
+
+    private void RefreshFromAppCache()
+    {
+        var websites = appCache.MyWebsiteConfigList.WebsiteList;
+        if (websites.Count > 0)
         {
-            allWebsites = websitesRes.Value.WebsiteList;
+            allWebsites = websites;
             SelectedWebsiteOrigin = allWebsites.First().Origin.OriginalString;
         }
         else

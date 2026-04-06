@@ -1,12 +1,10 @@
-﻿@page "/Dashboard.html"
+@page "/Dashboard.html"
 @using Extension.Models
 @using Extension.Services.Storage
 @inherits AuthenticatedPageBase
 @inject NavigationManager navManager
-@inject IStorageService storageService
 @inject IJSRuntime js
 @inject ILogger<DashboardPage> logger
-@inject IWebsiteConfigService websiteConfigService
 @inject AppCache appCache
 
 @implements IDisposable
@@ -14,30 +12,32 @@
 @using Extension.Services.SignifyService.Models
 
 @code {
-    // fields
-    bool _credentialsLoading = true;
-    bool _websitesLoading = true;
-
-    // properties
-
-
-    int NumWebsites { get; set; } = 0;
-    List<RecursiveDictionary> Credentials = [];
-
-    // reactive properties
+    // reactive properties — all read from AppCache sub-caches, updated automatically via Changed
     int IdentifiersCount => appCache.Aids.Count;
-    // TODO P3 FilteredCredentials should also include what a verifier might see.  What's the filter expression for that?
-    // TODO P3 confirm what we want to show
+    int NumWebsites => appCache.MyWebsiteConfigList.WebsiteList.Count;
+    int NumCredentialsTotal => appCache.MyCachedCredentials.Count;
+    int NumNotificationsTotal => appCache.MyNotifications.Items.Count;
+
+    List<RecursiveDictionary> FilteredCredentials => CredentialHelper.FilterCredentials(
+        appCache.MyCachedCredentials.ToList(),
+        [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
+    int NumCredentialsThisProfile => FilteredCredentials.Count;
+
+    int NumNotificationsThisProfile => appCache.MyNotifications.Items
+        .Count(n => n.TargetPrefix == SelectedPrefix || n.SenderPrefix == SelectedPrefix);
+
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected to" : appCache.IsAuthenticated ? "Not Connected with" : "Locked. Configured to";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
-    List<RecursiveDictionary> FilteredCredentials => CredentialHelper.FilterCredentials(Credentials, [("sad.a.i", SelectedPrefix), ("sad.i", SelectedPrefix)]);
-    int NumCredentialsThisIdentifier => FilteredCredentials.Count();
     string SelectedPrefix => appCache.SelectedPrefix ?? "";
 
-    // Pluralized labels (count is shown separately, so just singular/plural here)
+    // Pluralized labels
     string ProfilesLabel => IdentifiersCount == 1 ? "Profile" : "Profiles";
     string WebsitesLabel => NumWebsites == 1 ? "Website" : "Websites";
-    string CredentialsLabel => NumCredentialsThisIdentifier == 1 ? "Credential" : "Credentials";
+    string CredentialsTotalLabel => NumCredentialsTotal == 1 ? "Credential" : "Credentials";
+    string NotificationsTotalLabel => NumNotificationsTotal == 1 ? "Notification" : "Notifications";
+    string CredentialsProfileLabel => NumCredentialsThisProfile == 1 ? "Credential" : "Credentials";
+    string NotificationsProfileLabel => NumNotificationsThisProfile == 1 ? "Notification" : "Notifications";
+
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? (string.IsNullOrEmpty(SelectedPrefix) ? "none" : "");
 
@@ -52,54 +52,9 @@
         // Initialize base class for authentication-based render suppression
         InitializeAppCache(appCache);
 
-        // Subscribe to AppCache changes - will trigger StateHasChanged for reactive properties
-        // (identifiers count, connection status, etc.). Credentials are fetched once in OnParametersSetAsync.
+        // Subscribe to AppCache changes — all counts are reactive computed properties,
+        // so StateHasChanged is sufficient (no callback needed).
         await this.SubscribeToAppCache(appCache);
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        logger.LogInformation("OnParemetersSetAsync");
-        _websitesLoading = true;
-        var x = await websiteConfigService.GetList();
-        if (x.IsSuccess && x.Value is not null)
-        {
-            NumWebsites = x.Value.WebsiteList.Count();
-        }
-        else
-        {
-            NumWebsites = 0;
-        }
-        _websitesLoading = false;
-
-        await FetchCredentialsAsync();
-    }
-
-    private async Task FetchCredentialsAsync()
-    {
-        _credentialsLoading = true;
-        try
-        {
-            var cached = await storageService.GetItem<CachedCredentials>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.Credentials is not null)
-            {
-                Credentials = Helper.CredentialHelper.DeserializeCredentialsDict(cached.Value.Credentials);
-                logger.LogInformation("Loaded {Count} credentials from session storage", Credentials.Count);
-            }
-            else
-            {
-                Credentials = [];
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error reading credentials from session storage");
-            Credentials = [];
-        }
-        finally
-        {
-            _credentialsLoading = false;
-        }
     }
 
     public void Dispose()
@@ -136,11 +91,23 @@
                     </MudStack>
                     <!-- Websites -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">
-                            <LoadingCount Count="@(_websitesLoading ? null : NumWebsites.ToString())" HideParentheses="true" />
-                        </MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumWebsites</MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Websites)">@WebsitesLabel</MudLink>
+                        </MudText>
+                    </MudStack>
+                    <!-- Credentials (all) -->
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumCredentialsTotal</MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Credentials)">@CredentialsTotalLabel</MudLink>
+                        </MudText>
+                    </MudStack>
+                    <!-- Notifications (all) -->
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumNotificationsTotal</MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Notifications)">@NotificationsTotalLabel</MudLink>
                         </MudText>
                     </MudStack>
                 </MudStack>
@@ -153,13 +120,18 @@
                             <MudLink OnClick='() => navManager.NavigateTo(Routes.Paths.Profile + "?prefix=" + SelectedPrefix)'>Selected profile</MudLink>
                         </MudText>
                     </MudStack>
-                    <!-- Credentials -->
+                    <!-- Credentials (selected profile) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">
-                            <LoadingCount Count="@(_credentialsLoading ? null : NumCredentialsThisIdentifier.ToString())" HideParentheses="true" />
-                        </MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumCredentialsThisProfile</MudText>
                         <MudText Class="mudtext-half-width-right">
-                            <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Credentials)">@CredentialsLabel</MudLink>
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Credentials)">@CredentialsProfileLabel</MudLink>
+                        </MudText>
+                    </MudStack>
+                    <!-- Notifications (selected profile) -->
+                    <MudStack Row>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumNotificationsThisProfile</MudText>
+                        <MudText Class="mudtext-half-width-right">
+                            <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Notifications)">@NotificationsProfileLabel</MudLink>
                         </MudText>
                     </MudStack>
                 </MudStack>

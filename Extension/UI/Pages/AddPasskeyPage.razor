@@ -163,17 +163,9 @@
 
         snackbar.Add("Passkey successfully created.", Severity.Success);
 
-        // If we came from the passkey offer flow during onboarding, go to Index (which routes to GettingStarted/Dashboard)
-        if (!appCache.ShowedGettingStarted)
-        {
-            navManager.NavigateTo(Routes.Paths.Router);
-        }
-        // TODO P3 what if the user got here by adding a new Config. How do we detect that and route to the appropriate page, probably KeriaConfigsPage?  Pass a parameter in on navigation?
-        else
-        {
-            // Normal flow - go to Passkeys page
-            navManager.NavigateTo(Routes.Paths.Passkeys);
-        }
+        // Always go through Router — it handles first-time onboarding (GettingStarted),
+        // new config flows, and normal sessions correctly by routing to Dashboard.
+        navManager.NavigateTo(Routes.Paths.Router);
     }
 
     // Hint management for Custom mode
@@ -300,7 +292,7 @@
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.GooglePasswordManager" Color="Color.Primary">
                         Platform
-                        <MudText Typo="Typo.caption">(convenient security via Google Password Manager, Windows Hello, iCloud Keychain)</MudText>
+                        <MudText Typo="Typo.caption">(convenient but possibly less secure unlock via Google Password Manager, Windows Hello, or iCloud Keychain)</MudText>
                     </MudRadio>
                     <MudRadio Value="TargetPasskeyType.Custom" Color="Color.Primary">
                         Custom
