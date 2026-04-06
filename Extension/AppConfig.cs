@@ -247,7 +247,7 @@ namespace Extension {
                 DrawerIcon = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Appbar
-                AppbarBackground = new MudColor(300, 0.18, 0.10, 1.0), // hint of DIGN magenta — #27272F
+                AppbarBackground = new MudColor(300, 0.06, 0.08, 1.0), // hint of DIGN magenta — #27272F
                 AppbarText = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Lines & borders
