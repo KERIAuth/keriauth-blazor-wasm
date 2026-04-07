@@ -296,21 +296,38 @@
         IsLoadingExchange = true;
 
         try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = notification.ExchangeSaid } });
-
-            if (!response.Ok) {
-                ExchangeLoadError = response.Error ?? "Failed to load exchange details";
-                return;
+            // Cache-first: check AppCache for previously fetched exchange
+            RecursiveDictionary? exchange = null;
+            if (appCache.MyCachedExns.TryGetValue(notification.ExchangeSaid, out var cachedRawJson)) {
+                exchange = JsonSerializer.Deserialize<RecursiveDictionary>(cachedRawJson, JsonOptions.RecursiveDictionary);
             }
 
-            var exchangeResult = response.Result is JsonElement jsonEl
-                ? JsonSerializer.Deserialize<GetExchangeResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
+            if (exchange is null) {
+                // Cache miss: fetch via RPC (BackgroundWorker will cache it)
+                var response = await appBwPortService.SendRpcRequestAsync(
+                    AppBwMessageType.Values.RequestGetExchange,
+                    new { payload = new { said = notification.ExchangeSaid } });
 
-            if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
-                ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
+                if (!response.Ok) {
+                    ExchangeLoadError = response.Error ?? "Failed to load exchange details";
+                    return;
+                }
+
+                var exchangeResult = response.Result is JsonElement jsonEl
+                    ? JsonSerializer.Deserialize<GetExchangeResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
+                    : null;
+
+                if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
+                    exchange = exchangeResult.Exchange;
+                }
+                else {
+                    ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
+                    return;
+                }
+            }
+
+            if (exchange is not null) {
+                ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchange);
 
                 // For grant notifications, check if credential has already been admitted
                 if (notification.Route == "/exn/ipex/grant") {
@@ -325,9 +342,6 @@
                     }
                 }
 
-            }
-            else {
-                ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
             }
         }
         catch (Exception ex) {

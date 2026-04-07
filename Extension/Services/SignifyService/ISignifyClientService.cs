@@ -118,6 +118,7 @@ namespace Extension.Services.SignifyService {
 
         // ===================== Exchanges Operations =====================
         Task<Result<RecursiveDictionary>> GetExchange(string said);
+        Task<Result<string>> GetExchangeRaw(string said);
         Task<Result<RecursiveDictionary>> SendExchange(string name, string topic, RecursiveDictionary sender, string route, RecursiveDictionary payload, RecursiveDictionary embeds, List<string> recipients);
         Task<Result<RecursiveDictionary>> SendExchangeFromEvents(string name, string topic, RecursiveDictionary exn, List<string> sigs, string atc, List<string> recipients);
 

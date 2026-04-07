@@ -195,6 +195,8 @@
 
         public PollingState MyPollingState { get; private set; } = new PollingState();
 
+        public Dictionary<string, string> MyCachedExns { get; private set; } = [];
+
         public List<WebsiteConfig> MyWebsiteConfigs => MyKeriaConnectConfig.WebsiteConfigs;
 
         /// <summary>
@@ -286,6 +288,7 @@
             MyNotifications = new CachedNotifications();
             MyCachedCredentials = [];
             MyPollingState = new PollingState();
+            MyCachedExns = [];
             _logger.LogDebug(nameof(AppCache) + ": Cleared session state synchronously");
             Changed?.Invoke();
         }
@@ -654,6 +657,12 @@
                         cache._logger.LogDebug(nameof(AppCache) + ": updated MyPollingState");
                         dirty = true;
                     }
+                    if (batch.Contains<CachedExns>()) {
+                        var raw = batch.GetNew<CachedExns>();
+                        cache.MyCachedExns = raw?.Exchanges ?? [];
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyCachedExns (count={Count})", cache.MyCachedExns.Count);
+                        dirty = true;
+                    }
                     if (batch.Contains<SessionSequence>()) {
                         var seq = batch.GetNew<SessionSequence>();
                         if (seq is not null) Interlocked.Exchange(ref cache._lastProcessedSeq, seq.Seq);
@@ -746,6 +755,7 @@
                 typeof(CachedNotifications),
                 typeof(CachedCredentials),
                 typeof(PollingState),
+                typeof(CachedExns),
                 typeof(SessionSequence));
             await Task.WhenAll(localTask, sessionTask);
 
@@ -870,6 +880,15 @@
             }
             else {
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - PollingState not found");
+            }
+
+            var cachedExns = session?.Get<CachedExns>();
+            if (cachedExns?.Exchanges is { Count: > 0 } exnsDict) {
+                MyCachedExns = exnsDict;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedExns loaded (count={Count})", MyCachedExns.Count);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedExns not found or empty");
             }
 
             var sessionSeq = session?.Get<SessionSequence>();

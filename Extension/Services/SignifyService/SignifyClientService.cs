@@ -1076,6 +1076,23 @@ namespace Extension.Services.SignifyService {
             }
         }
 
+        public async Task<Result<string>> GetExchangeRaw(string said) {
+            try {
+                var timeoutResult = await TimeoutHelper.WithTimeout<string>(
+                    ct => _binding.ExchangesGetAsync(said, ct),
+                    AppConfig.SignifyTimeout
+                );
+                if (timeoutResult.IsFailed) return Result.Fail<string>(timeoutResult.Errors);
+                var unwrapped = UnwrapJsResult(timeoutResult.Value);
+                if (unwrapped.IsFailed) return Result.Fail<string>(unwrapped.Errors);
+                return Result.Ok(unwrapped.Value);
+            }
+            catch (JSException e) {
+                logger.LogError(e, "{Op}: Unexpected JSException", nameof(GetExchangeRaw));
+                return Result.Fail<string>(new JavaScriptInteropError(nameof(GetExchangeRaw), e.Message, e));
+            }
+        }
+
         public async Task<Result<RecursiveDictionary>> SendExchange(string name, string topic, RecursiveDictionary sender, string route, RecursiveDictionary payload, RecursiveDictionary embeds, List<string> recipients) {
             try {
                 var senderJson = JsonSerializer.Serialize(sender.ToDictionary(), jsonSerializerOptions);

@@ -1,7 +1,9 @@
 namespace Extension.Services.NotificationPollingService;
 
+using System.Text.Json;
 using Extension.Helper;
 using Extension.Models.Storage;
+using FluentResults;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
@@ -162,6 +164,41 @@ public class NotificationPollingService : INotificationPollingService {
         }
     }
 
+    private async Task<Result<RecursiveDictionary>> GetExchangeCachedAsync(string said) {
+        try {
+            var cached = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.Exchanges.TryGetValue(said, out var rawJson) == true) {
+                var rd = JsonSerializer.Deserialize<RecursiveDictionary>(rawJson, JsonOptions.RecursiveDictionary);
+                if (rd is not null) {
+                    _logger.LogDebug("GetExchangeCachedAsync: Cache hit for {Said}", said);
+                    return Result.Ok(rd);
+                }
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache read failed for {Said}, falling through to network", said);
+        }
+
+        var rawResult = await _signifyClient.GetExchangeRaw(said);
+        if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
+
+        try {
+            var existing = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+            var exchanges = existing.IsSuccess && existing.Value is not null
+                ? new Dictionary<string, string>(existing.Value.Exchanges)
+                : new Dictionary<string, string>();
+            exchanges[said] = rawResult.Value;
+            await _storageGateway.SetItem(new CachedExns { Exchanges = exchanges });
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache write failed for {Said} (non-critical)", said);
+        }
+
+        var resultDict = JsonSerializer.Deserialize<RecursiveDictionary>(rawResult.Value, JsonOptions.RecursiveDictionary);
+        if (resultDict is null) return Result.Fail<RecursiveDictionary>("Failed to deserialize exchange from raw JSON");
+        return Result.Ok(resultDict);
+    }
+
     /// <summary>
     /// Fetches exchange data and caches the issuer/recipient prefixes, once per exchangeSaid.
     /// </summary>
@@ -170,7 +207,7 @@ public class NotificationPollingService : INotificationPollingService {
             return;
         }
         try {
-            var exnResult = await _signifyClient.GetExchange(notification.ExchangeSaid);
+            var exnResult = await GetExchangeCachedAsync(notification.ExchangeSaid);
             if (exnResult.IsFailed) {
                 _logger.LogWarning(nameof(FetchAndCacheExchangePrefixesAsync) + ": GetExchange failed for {Said}: {Error}",
                     notification.ExchangeSaid, exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");

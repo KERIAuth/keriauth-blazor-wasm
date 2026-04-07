@@ -3155,7 +3155,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var exchangeResult = await _signifyClientService.GetExchange(exchangeRequest.Said);
+            var exchangeResult = await GetExchangeCachedAsync(exchangeRequest.Said);
 
             if (exchangeResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -3606,7 +3606,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             senderPrefix, senderName, recipientPrefix, grantRequest.AgreeSaid);
 
         // Get the agree exchange to find the prior offer SAID
-        var agreeExchangeResult = await _signifyClientService.GetExchange(grantRequest.AgreeSaid!);
+        var agreeExchangeResult = await GetExchangeCachedAsync(grantRequest.AgreeSaid!);
         if (agreeExchangeResult.IsFailed) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(false, Error: $"Failed to get agree exchange: {agreeExchangeResult.Errors[0].Message}"));
@@ -3622,7 +3622,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         // Get the prior offer exchange to find the credential SAID
-        var offerExchangeResult = await _signifyClientService.GetExchange(offerSaid);
+        var offerExchangeResult = await GetExchangeCachedAsync(offerSaid);
         if (offerExchangeResult.IsFailed) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexGrantResponsePayload(false, Error: $"Failed to get prior offer exchange: {offerExchangeResult.Errors[0].Message}"));
@@ -3920,6 +3920,48 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    private async Task AddToExchangeCacheAsync(string said, string rawJson) {
+        try {
+            var existing = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+            var exchanges = existing.IsSuccess && existing.Value is not null
+                ? new Dictionary<string, string>(existing.Value.Exchanges)
+                : new Dictionary<string, string>();
+            exchanges[said] = rawJson;
+            await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(new CachedExns { Exchanges = exchanges });
+                tx.SetItem(NextSessionSequence());
+            });
+        }
+        catch (Exception ex) {
+            logger.LogDebug(ex, "AddToExchangeCacheAsync: Failed to update cache (non-critical)");
+        }
+    }
+
+    private async Task<Result<RecursiveDictionary>> GetExchangeCachedAsync(string said) {
+        try {
+            var cached = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+            if (cached.IsSuccess && cached.Value?.Exchanges.TryGetValue(said, out var rawJson) == true) {
+                var rd = JsonSerializer.Deserialize<RecursiveDictionary>(rawJson, JsonOptions.RecursiveDictionary);
+                if (rd is not null) {
+                    logger.LogDebug("GetExchangeCachedAsync: Cache hit for {Said}", said);
+                    return Result.Ok(rd);
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogDebug(ex, "GetExchangeCachedAsync: Cache read failed for {Said}, falling through to network", said);
+        }
+
+        var rawResult = await _signifyClientService.GetExchangeRaw(said);
+        if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
+
+        await AddToExchangeCacheAsync(said, rawResult.Value);
+
+        var resultDict = JsonSerializer.Deserialize<RecursiveDictionary>(rawResult.Value, JsonOptions.RecursiveDictionary);
+        if (resultDict is null) return Result.Fail<RecursiveDictionary>("Failed to deserialize exchange from raw JSON");
+        return Result.Ok(resultDict);
+    }
+
     private async Task AddToResolvedSchemaCacheAsync(string schemaSaid, string rawJson) {
         try {
             var existing = await _storageGateway.GetItem<ResolvedSchemas>(StorageArea.Session);
@@ -3944,7 +3986,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private async Task<List<string>> GetSchemaSaidsFromExchangeAsync(string exchangeSaid, string callerName) {
         var schemaSaids = new List<string>();
         try {
-            var exnResult = await _signifyClientService.GetExchange(exchangeSaid);
+            var exnResult = await GetExchangeCachedAsync(exchangeSaid);
             if (exnResult.IsFailed) {
                 logger.LogWarning("{Caller}: GetExchange failed for {Said}: {Error}",
                     callerName, exchangeSaid, exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");
