@@ -15,7 +15,6 @@ public class StorageModelVersionTests {
         Assert.NotNull(StorageModelRegistry.GetExpectedVersion(nameof(Preferences)));
         Assert.NotNull(StorageModelRegistry.GetExpectedVersion(nameof(KeriaConnectConfigs)));
         Assert.NotNull(StorageModelRegistry.GetExpectedVersion(nameof(OnboardState)));
-        Assert.NotNull(StorageModelRegistry.GetExpectedVersion(nameof(WebsiteConfigList)));
     }
 
     [Fact]
@@ -55,13 +54,6 @@ public class StorageModelVersionTests {
         var state = new OnboardState();
         var expected = StorageModelRegistry.GetExpectedVersion(nameof(OnboardState));
         Assert.Equal(expected, state.SchemaVersion);
-    }
-
-    [Fact]
-    public void WebsiteConfigList_SchemaVersion_MatchesRegistry() {
-        var list = new WebsiteConfigList();
-        var expected = StorageModelRegistry.GetExpectedVersion(nameof(WebsiteConfigList));
-        Assert.Equal(expected, list.SchemaVersion);
     }
 
     [Fact]

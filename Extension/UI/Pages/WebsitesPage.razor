@@ -22,7 +22,7 @@
 
 @code {
     // reactive properties — read directly from AppCache on every render
-    List<WebsiteConfig> allWebsites => appCache.MyWebsiteConfigList.WebsiteList;
+    List<WebsiteConfig> allWebsites => appCache.MyWebsiteConfigs;
     string selectedViewDefId =>
         appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(WebsitesPage), out var savedId) && WebsiteViewDefs.Any(v => v.Id == savedId)
             ? savedId
@@ -58,7 +58,7 @@
         InitializeAppCache(appCache);
 
         // Subscribe to AppCache changes - will trigger StateHasChanged which re-evaluates
-        // the computed allWebsites property from appCache.MyWebsiteConfigList
+        // the computed allWebsites property from appCache.MyWebsiteConfigs
         await this.SubscribeToAppCache(appCache);
 
     }

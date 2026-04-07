@@ -61,8 +61,7 @@
     private static readonly string[] _migrationSimulationTypes = [
         nameof(KeriaConnectConfigs),
         nameof(Preferences),
-        nameof(OnboardState),
-        nameof(WebsiteConfigList)
+        nameof(OnboardState)
     ];
 
     // Which types the developer selected to include in the simulated MigrationNotice
@@ -324,7 +323,7 @@
     async Task NavigateToWebsite()
     {
         var listResult = await websiteConfigService.GetList();
-        var origin = listResult.IsSuccess ? listResult.Value?.WebsiteList.FirstOrDefault()?.Origin : null;
+        var origin = listResult.IsSuccess ? listResult.Value?.FirstOrDefault()?.Origin : null;
         if (origin is null)
         {
             snackbar.Add("No websites found in storage");

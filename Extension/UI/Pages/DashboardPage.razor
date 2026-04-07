@@ -14,7 +14,7 @@
 @code {
     // reactive properties — all read from AppCache sub-caches, updated automatically via Changed
     int IdentifiersCount => appCache.Aids.Count;
-    int NumWebsites => appCache.MyWebsiteConfigList.WebsiteList.Count;
+    int NumWebsites => appCache.MyWebsiteConfigs.Count;
     int NumCredentialsTotal => appCache.MyCachedCredentials.Count;
     int NumNotificationsTotal => appCache.MyNotifications.Items.Count;
 

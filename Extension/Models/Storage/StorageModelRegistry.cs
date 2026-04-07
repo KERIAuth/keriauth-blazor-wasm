@@ -11,7 +11,6 @@ public static class StorageModelRegistry {
         [nameof(Preferences)] = 2,
         [nameof(KeriaConnectConfigs)] = 2,
         [nameof(OnboardState)] = 1,
-        [nameof(WebsiteConfigList)] = 1,
     };
 
     /// <summary>

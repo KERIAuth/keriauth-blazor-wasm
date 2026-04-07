@@ -1,154 +1,123 @@
-﻿using FluentResults;
+using FluentResults;
 using Extension.Models;
 using Extension.Services.Storage;
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace Extension.Services;
 
 public class WebsiteConfigService(IStorageGateway storageGateway, ILogger<WebsiteConfigService> logger) : IWebsiteConfigService {
-    public async Task<Result<WebsiteConfigList?>> GetList() {
-        // logger.LogInformation("Getting websites from storage");
-        return await storageGateway.GetItem<WebsiteConfigList>();
+
+    private async Task<Result<(KeriaConnectConfigs configs, string digest, KeriaConnectConfig config)>> GetCurrentConfigContext() {
+        var prefsResult = await storageGateway.GetItem<Preferences>();
+        if (prefsResult.IsFailed || prefsResult.Value is null) {
+            return Result.Fail("Could not fetch preferences from storage");
+        }
+
+        var digest = prefsResult.Value.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(digest)) {
+            return Result.Fail("No KERIA connection selected");
+        }
+
+        var configsResult = await storageGateway.GetItem<KeriaConnectConfigs>();
+        if (configsResult.IsFailed || configsResult.Value is null) {
+            return Result.Fail("Could not fetch KERIA configs from storage");
+        }
+
+        if (!configsResult.Value.Configs.TryGetValue(digest, out var config)) {
+            return Result.Fail($"No KERIA config found for digest {digest}");
+        }
+
+        return Result.Ok((configsResult.Value, digest, config));
     }
 
-    private async Task<Result<WebsiteConfig?>> Get(Uri originUri) {
-        var res = await GetList();
-        if (res.IsFailed) {
-            // logger.LogError("Get: could not fetch websites from storage {websites}", res);
-            return Result.Fail("Get: could not fetch websites from storage");
+    private async Task<Result> SaveWebsiteConfigs(KeriaConnectConfigs configs, string digest, KeriaConnectConfig config, List<WebsiteConfig> updatedWebsiteConfigs) {
+        var updatedConfig = config with { WebsiteConfigs = updatedWebsiteConfigs };
+        var updatedDict = new Dictionary<string, KeriaConnectConfig>(configs.Configs) {
+            [digest] = updatedConfig
+        };
+        var updatedConfigs = configs with { Configs = updatedDict };
+        var saveResult = await storageGateway.SetItem(updatedConfigs);
+        if (saveResult.IsFailed) {
+            return Result.Fail("Could not save updated KERIA configs to storage");
         }
-        if (res.Value is null) {
-            // logger.LogError("Get: websites is null");
-            return Result.Fail("Get: websites is null");
+        return Result.Ok();
+    }
+
+    public async Task<Result<List<WebsiteConfig>>> GetList() {
+        var ctxResult = await GetCurrentConfigContext();
+        if (ctxResult.IsFailed) {
+            return Result.Fail(ctxResult.Errors);
         }
-        var website = res.Value.WebsiteList.Find(w => w.Origin == originUri);
-        return Result.Ok(website);
+        return Result.Ok(ctxResult.Value.config.WebsiteConfigs);
     }
 
     public async Task<Result> Add(WebsiteConfig website) {
-        var existingWebsiteResult = await Get(website.Origin);
-        if (existingWebsiteResult.IsSuccess) {
+        var ctxResult = await GetCurrentConfigContext();
+        if (ctxResult.IsFailed) {
+            return Result.Fail(ctxResult.Errors);
+        }
+
+        var (configs, digest, config) = ctxResult.Value;
+
+        if (config.WebsiteConfigs.Any(w => w.Origin == website.Origin)) {
             return Result.Fail("website already exists");
         }
 
-        var websitesResult = await GetList();
-        if (websitesResult.IsFailed) {
-            // logger.LogError("Add: could not fetch websites from storage {res}", websitesResult);
-            return Result.Fail("Add: could not fetch websites from storage");
-        }
-
-        Debug.Assert(websitesResult.Value is not null, "websitesResult.Value != null");
-        // Since Websites is a record, create a new list with the existing websites plus the new one
-        var updatedWebsiteList = websitesResult.Value.WebsiteList.Append(website).ToList();
-
-        // Create a new Websites record with the updated list
-        var updatedWebsites = new WebsiteConfigList { WebsiteList = updatedWebsiteList };
-
-        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(updatedWebsites);
-        if (saveResult.IsFailed) {
-            return Result.Fail("could not save website to storage");
-        }
-
-        return Result.Ok();
+        var updatedList = config.WebsiteConfigs.Append(website).ToList();
+        return await SaveWebsiteConfigs(configs, digest, config, updatedList);
     }
 
     public async Task<Result> Delete(Uri originUri) {
-        var websitesResult = await GetList();
-        if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null) {
-            Debug.Assert(websitesResult is not null, "websitesResult != null");
-            // logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
-            return Result.Fail("Update: could not fetch websites from storage");
+        var ctxResult = await GetCurrentConfigContext();
+        if (ctxResult.IsFailed) {
+            return Result.Fail(ctxResult.Errors);
         }
 
-        var newWebsites = websitesResult.Value.WebsiteList
-            .Where((ww) => ww.Origin != originUri);
-
-        var wcl = new WebsiteConfigList { WebsiteList = [.. newWebsites] };
-
-        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(wcl);
-        if (saveResult.IsFailed) {
-            return Result.Fail("could not save updated websites to storage");
-        }
-
-        // logger.LogInformation("Updated websiteConfig {website}", JsonSerializer.Serialize(wcl));
-        return Result.Ok();
+        var (configs, digest, config) = ctxResult.Value;
+        var updatedList = config.WebsiteConfigs.Where(w => w.Origin != originUri).ToList();
+        return await SaveWebsiteConfigs(configs, digest, config, updatedList);
     }
 
     public async Task<Result> Update(WebsiteConfig websiteConfig) {
-        var websitesResult = await GetList();
-        if (websitesResult.IsFailed || websitesResult is null || websitesResult.Value is null) {
-            Debug.Assert(websitesResult is not null, "websitesResult != null");
-            // logger.LogError("Update: could not fetch websites from storage res: {res}  value: {val}", websitesResult, websitesResult.Value);
-            return Result.Fail("Update: could not fetch websites from storage");
+        var ctxResult = await GetCurrentConfigContext();
+        if (ctxResult.IsFailed) {
+            return Result.Fail(ctxResult.Errors);
         }
 
-        var newList = new WebsiteConfigList {
-            WebsiteList = websitesResult.Value.WebsiteList
-                .Select(config => config.Origin == websiteConfig.Origin ? websiteConfig : config)
-                .ToList()
-        };
+        var (configs, digest, config) = ctxResult.Value;
+        var updatedList = config.WebsiteConfigs
+            .Select(w => w.Origin == websiteConfig.Origin ? websiteConfig : w)
+            .ToList();
 
-        var saveResult = await storageGateway.SetItem<WebsiteConfigList>(newList);
-        if (saveResult.IsFailed) {
-            return Result.Fail("could not save updated website to storage");
+        var saveResult = await SaveWebsiteConfigs(configs, digest, config, updatedList);
+        if (saveResult.IsSuccess) {
+            logger.LogInformation(nameof(Update) + ": Updated websiteConfig {website}", JsonSerializer.Serialize(websiteConfig));
         }
-
-        logger.LogInformation(nameof(Update) + ": Updated websiteConfig {website}", JsonSerializer.Serialize(websiteConfig));
-        return Result.Ok();
+        return saveResult;
     }
 
     public async Task<Result<(WebsiteConfig websiteConfig1, bool isConfigNew)>> GetOrCreateWebsiteConfig(Uri originUri) {
-        // logger.LogInformation("GetOrCreateWebsiteConfig Uri {uri}", originUri);
-        WebsiteConfigList websiteConfigList;
-        var getWebsitesRes = await GetList();
-        if (getWebsitesRes is null || getWebsitesRes.IsFailed) {
-            // logger.LogError("Error in websiteService {err}", getWebsitesRes?.Errors);
-            return Result.Fail(error: getWebsitesRes?.Errors[0]);
+        var ctxResult = await GetCurrentConfigContext();
+        if (ctxResult.IsFailed) {
+            return Result.Fail(ctxResult.Errors);
         }
-        else {
-            // logger.LogInformation("getOrCreateWebsiteConfig: from storage: {res}", JsonSerializer.Serialize(getWebsitesRes));
 
-            if (getWebsitesRes.Value is null) {
-                // This is the first website configured. Need to first add the Websites collection
-                // var websiteConfig = (new WebsiteConfig(originUri, [], null, null, false, false, false)).Validate();
-                websiteConfigList = new WebsiteConfigList { WebsiteList = [new WebsiteConfig(originUri, [], null, null, false, false, false)] };
-                var setItemRes = await storageGateway.SetItem<WebsiteConfigList>(websiteConfigList);
-                if (setItemRes.IsFailed) {
-                    // logger.LogError("getOrCreateWebsite: Error adding websites to database: {err}", setItemRes.Errors);
-                    return Result.Fail(error: setItemRes.Errors[0]);
-                }
-                else {
-                    // logger.LogInformation("Added websites to database");
-                }
-            }
-            else {
-                websiteConfigList = getWebsitesRes.Value;
-            }
-
-            // Find the website in the collection
-            var websiteConfigOrNothing = websiteConfigList.WebsiteList.FirstOrDefault<WebsiteConfig>(a => a.Origin == originUri);
-            // logger.LogInformation("getOrCreateWebsite: websiteConfig for {origin}: {websiteConfig}", originUri, websiteConfigOrNothing);
-            if (websiteConfigOrNothing is null) {
-                logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Adding websiteConfig for {originUri}", originUri);
-                WebsiteConfig newWebsiteConfig = new(originUri, [], null, null, false, false, false);
-                // newWebsiteConfig.Validate();
-                websiteConfigList.WebsiteList.Add(newWebsiteConfig);
-                var setItemRes = await storageGateway.SetItem<WebsiteConfigList>(websiteConfigList);
-                if (setItemRes.IsFailed) {
-                    // logger.LogError("getOrCreateWebsite: Error adding website to database: {err}", setItemRes.Errors);
-                    return Result.Fail(error: setItemRes.Errors[0]);
-                }
-                else {
-                    logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Added website to database");
-                }
-                return Result.Ok((newWebsiteConfig, true));
-            }
-            else {
-                WebsiteConfig website = websiteConfigOrNothing;
-                return Result.Ok((website, false));
-            }
+        var (configs, digest, config) = ctxResult.Value;
+        var existing = config.WebsiteConfigs.FirstOrDefault(w => w.Origin == originUri);
+        if (existing is not null) {
+            return Result.Ok((existing, false));
         }
+
+        logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Adding websiteConfig for {originUri}", originUri);
+        var newWebsiteConfig = new WebsiteConfig(originUri, [], null, null, false, false, false);
+        var updatedList = config.WebsiteConfigs.Append(newWebsiteConfig).ToList();
+
+        var saveResult = await SaveWebsiteConfigs(configs, digest, config, updatedList);
+        if (saveResult.IsFailed) {
+            return Result.Fail(saveResult.Errors);
+        }
+
+        logger.LogInformation(nameof(GetOrCreateWebsiteConfig) + ": Added website to database");
+        return Result.Ok((newWebsiteConfig, true));
     }
 }
-

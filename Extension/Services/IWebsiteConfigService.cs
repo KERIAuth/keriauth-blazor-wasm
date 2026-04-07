@@ -3,7 +3,7 @@ using Extension.Models;
 
 namespace Extension.Services {
     public interface IWebsiteConfigService {
-        Task<Result<WebsiteConfigList?>> GetList();
+        Task<Result<List<WebsiteConfig>>> GetList();
 
         Task<Result> Add(WebsiteConfig website);
 

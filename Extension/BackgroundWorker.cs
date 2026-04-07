@@ -601,7 +601,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await ProbeAndRecordMismatchAsync<Preferences>(discardedTypes);
             await ProbeAndRecordMismatchAsync<OnboardState>(discardedTypes);
             await ProbeAndRecordMismatchAsync<KeriaConnectConfigs>(discardedTypes);
-            await ProbeAndRecordMismatchAsync<WebsiteConfigList>(discardedTypes);
 
             if (discardedTypes.Count > 0) {
                 logger.LogWarning(nameof(InitializeStorageDefaultsAsync) +
@@ -713,9 +712,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 break;
             case nameof(KeriaConnectConfigs):
                 await _storageGateway.RemoveItem<KeriaConnectConfigs>();
-                break;
-            case nameof(WebsiteConfigList):
-                await _storageGateway.RemoveItem<WebsiteConfigList>();
                 break;
             default:
                 logger.LogWarning(nameof(RemoveStaleRecordAsync) + ": Unknown stale record type {Type} — skipping", typeName);

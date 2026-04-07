@@ -74,6 +74,9 @@ namespace Extension.Models {
         [JsonPropertyName("Passkeys")]
         public List<StoredPasskey> Passkeys { get; init; } = [];
 
+        [JsonPropertyName("WebsiteConfigs")]
+        public List<WebsiteConfig> WebsiteConfigs { get; init; } = [];
+
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();
 

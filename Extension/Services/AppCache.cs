@@ -195,7 +195,7 @@
 
         public PollingState MyPollingState { get; private set; } = new PollingState();
 
-        public WebsiteConfigList MyWebsiteConfigList { get; private set; } = new WebsiteConfigList { WebsiteList = [] };
+        public List<WebsiteConfig> MyWebsiteConfigs => MyKeriaConnectConfig.WebsiteConfigs;
 
         /// <summary>
         /// In-memory menu open/collapse state, not persisted to storage.
@@ -615,11 +615,6 @@
                         cache._logger.LogDebug(nameof(AppCache) + ": updated MyMigrationNotice");
                         dirty = true;
                     }
-                    if (batch.Contains<WebsiteConfigList>()) {
-                        cache.MyWebsiteConfigList = batch.GetNew<WebsiteConfigList>() ?? new WebsiteConfigList { WebsiteList = [] };
-                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyWebsiteConfigList (count={Count})", cache.MyWebsiteConfigList.WebsiteList.Count);
-                        dirty = true;
-                    }
                 }
                 else if (batchArea == StorageArea.Session) {
                     if (batch.Contains<SessionStateModel>()) {
@@ -741,8 +736,7 @@
                 typeof(Preferences),
                 typeof(OnboardState),
                 typeof(KeriaConnectConfigs),
-                typeof(MigrationNotice),
-                typeof(WebsiteConfigList));
+                typeof(MigrationNotice));
             var sessionTask = storageGateway.GetItems(
                 StorageArea.Session,
                 typeof(SessionStateModel),
@@ -858,15 +852,6 @@
             }
 
             // Apply results — New sub-cache records (Phase group 2)
-            var websiteConfigs = local?.Get<WebsiteConfigList>();
-            if (websiteConfigs is not null) {
-                MyWebsiteConfigList = websiteConfigs;
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - WebsiteConfigList loaded (count={Count})",
-                    websiteConfigs.WebsiteList.Count);
-            }
-            else {
-                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - WebsiteConfigList not found (none configured)");
-            }
 
             var cachedCreds = session?.Get<CachedCredentials>();
             if (cachedCreds?.Credentials is { Count: > 0 } credsDict) {

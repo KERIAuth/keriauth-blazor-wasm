@@ -18,7 +18,7 @@ using Xunit;
 /// <summary>
 /// Tests for AppCache initial fetch and sub-cache population.
 /// Phase group 2, Phase 1: verifies that the three new sub-cache properties
-/// (MyCachedCredentials, MyPollingState, MyWebsiteConfigList) are populated
+/// (MyCachedCredentials, MyPollingState, MyWebsiteConfigs) are populated
 /// from the bulk read during Initialize().
 /// </summary>
 public class AppCacheTests : IDisposable {
@@ -112,26 +112,6 @@ public class AppCacheTests : IDisposable {
     }
 
     [Fact]
-    public async Task Initialize_PopulatesMyWebsiteConfigList_FromBulkRead() {
-        var wcl = new WebsiteConfigList {
-            WebsiteList = [
-                new WebsiteConfig(new Uri("https://example.com"), [], null, null, false, false, false)
-            ]
-        };
-
-        SetupBulkReads(
-            local: BuildReadResult(
-                (nameof(WebsiteConfigList), wcl)
-            )
-        );
-
-        await _sut.EnsureInitializedAsync();
-
-        Assert.Single(_sut.MyWebsiteConfigList.WebsiteList);
-        Assert.Equal(new Uri("https://example.com"), _sut.MyWebsiteConfigList.WebsiteList[0].Origin);
-    }
-
-    [Fact]
     public async Task Initialize_DefaultValues_WhenRecordsAbsent() {
         SetupBulkReads(); // empty results
 
@@ -139,7 +119,7 @@ public class AppCacheTests : IDisposable {
 
         Assert.Empty(_sut.MyCachedCredentials);
         Assert.Null(_sut.MyPollingState.IdentifiersLastFetchedUtc);
-        Assert.Empty(_sut.MyWebsiteConfigList.WebsiteList);
+        Assert.Empty(_sut.MyWebsiteConfigs);
     }
 }
 
@@ -212,20 +192,6 @@ public class AppCacheBatchTests : IAsyncLifetime, IDisposable {
         TriggerStorageChange("session", nameof(PollingState), ps, default(PollingState));
 
         Assert.Equal(ps.IdentifiersLastFetchedUtc, _sut.MyPollingState.IdentifiersLastFetchedUtc);
-        Assert.Equal(1, _changedCount);
-    }
-
-    [Fact]
-    public void BatchChange_WebsiteConfigList_UpdatesMyWebsiteConfigList() {
-        var wcl = new WebsiteConfigList {
-            WebsiteList = [
-                new WebsiteConfig(new Uri("https://example.com"), [], null, null, false, false, false)
-            ]
-        };
-
-        TriggerStorageChange("local", nameof(WebsiteConfigList), wcl, default(WebsiteConfigList));
-
-        Assert.Single(_sut.MyWebsiteConfigList.WebsiteList);
         Assert.Equal(1, _changedCount);
     }
 
