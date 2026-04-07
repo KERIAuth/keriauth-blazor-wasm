@@ -433,27 +433,7 @@ public class SessionManager : IDisposable {
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        // Remove all session records EXCEPT BwReadyState in a single bulk remove.
-        // Single chrome.storage.remove() call fires one onChanged event instead of 11.
-        var removeResult = await _storageGateway.RemoveItems(StorageArea.Session,
-            typeof(SessionStateModel),
-            typeof(KeriaConnectionInfo),
-            typeof(CachedIdentifiers),
-            typeof(PendingBwAppRequests),
-            typeof(CachedNotifications),
-            typeof(CachedCredentials),
-            typeof(CachedExns),
-            typeof(PollingState),
-            typeof(SessionSequence),
-            typeof(ResolvedSchemas),
-            typeof(PrimeDataProgress),
-            typeof(ConfigureProgress));
-        if (removeResult.IsFailed) {
-            throw new InvalidOperationException(
-                $"Failed to remove session records: {removeResult.Errors[0].Message}");
-        }
-
-        _logger.LogInformation(nameof(ClearKeriaSessionRecordsAsync) + ": Session records cleared (BwReadyState preserved)");
+        await RemoveAllSessionRecordsAsync(nameof(ClearKeriaSessionRecordsAsync));
     }
 
     /// <summary>
@@ -478,26 +458,33 @@ public class SessionManager : IDisposable {
         // Cancel keep-alive alarm
         await CancelKeepAliveAlarmAsync();
 
-        // Remove all session records EXCEPT BwReadyState in a single bulk remove.
-        var removeResult = await _storageGateway.RemoveItems(StorageArea.Session,
-            typeof(SessionStateModel),
-            typeof(KeriaConnectionInfo),
-            typeof(CachedIdentifiers),
-            typeof(PendingBwAppRequests),
-            typeof(CachedNotifications),
-            typeof(CachedCredentials),
-            typeof(CachedExns),
-            typeof(PollingState),
-            typeof(SessionSequence),
-            typeof(ResolvedSchemas),
-            typeof(PrimeDataProgress),
-            typeof(ConfigureProgress));
+        await RemoveAllSessionRecordsAsync(nameof(ClearSessionForConfigChangeAsync));
+    }
+
+    // All session record types removed on session clear (BwReadyState is intentionally excluded).
+    // Single chrome.storage.remove() call fires one onChanged event instead of many.
+    private static readonly Type[] SessionRecordTypes = [
+        typeof(SessionStateModel),
+        typeof(KeriaConnectionInfo),
+        typeof(CachedIdentifiers),
+        typeof(PendingBwAppRequests),
+        typeof(CachedNotifications),
+        typeof(CachedCredentials),
+        typeof(CachedExns),
+        typeof(PollingState),
+        typeof(SessionSequence),
+        typeof(ResolvedSchemas),
+        typeof(PrimeDataProgress),
+        typeof(ConfigureProgress)
+    ];
+
+    private async Task RemoveAllSessionRecordsAsync(string callerName) {
+        var removeResult = await _storageGateway.RemoveItems(StorageArea.Session, SessionRecordTypes);
         if (removeResult.IsFailed) {
             throw new InvalidOperationException(
                 $"Failed to remove session records: {removeResult.Errors[0].Message}");
         }
-
-        _logger.LogInformation(nameof(ClearSessionForConfigChangeAsync) + ": Session records cleared (BwReadyState preserved)");
+        _logger.LogInformation("{Caller}: Session records cleared (BwReadyState preserved)", callerName);
     }
 
     /// <summary>
