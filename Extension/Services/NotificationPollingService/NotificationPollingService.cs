@@ -188,7 +188,7 @@ public class NotificationPollingService : INotificationPollingService {
                 ? new Dictionary<string, string>(existing.Value.Exchanges)
                 : new Dictionary<string, string>();
             exchanges[said] = rawResult.Value;
-            await _storageGateway.SetItem(new CachedExns { Exchanges = exchanges });
+            await _storageGateway.SetItem(new CachedExns { Exchanges = exchanges }, StorageArea.Session);
         }
         catch (Exception ex) {
             _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache write failed for {Said} (non-critical)", said);
