@@ -27,6 +27,8 @@
     bool IsAddingAid { get; set; }
    
     // computed properties
+    bool IsIdentifiersLoading => appCache.MyPollingState.IdentifiersLastFetchedUtc is null;
+
     List<Aid> AllIdentifiers => appCache?.MyCachedIdentifiers?.IdentifiersList is { Count: > 0 } list && list[0].Aids is not null
         ? list[0].Aids
         : [];
@@ -175,8 +177,8 @@
                           ViewDefs="@ViewDefs"
                           SelectedViewDefId="@selectedViewDefId"
                           SelectedViewDefIdChanged="@OnViewDefChanged"
-                          FilteredCount="@DisplayedIdentifiers.Count"
-                          TotalCount="@AllIdentifiers.Count" />
+                          FilteredCount="@(IsIdentifiersLoading ? null : DisplayedIdentifiers.Count)"
+                          TotalCount="@(IsIdentifiersLoading ? null : AllIdentifiers.Count)" />
 
             @foreach (Aid aid in DisplayedIdentifiers)
             {

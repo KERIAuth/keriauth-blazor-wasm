@@ -38,6 +38,10 @@
     string CredentialsProfileLabel => NumCredentialsThisProfile == 1 ? "Credential" : "Credentials";
     string NotificationsProfileLabel => NumNotificationsThisProfile == 1 ? "Notification" : "Notifications";
 
+    bool IsIdentifiersLoading => appCache.MyPollingState.IdentifiersLastFetchedUtc is null;
+    bool IsCredentialsLoading => appCache.MyPollingState.CredentialsLastFetchedUtc is null;
+    bool IsNotificationsLoading => appCache.MyPollingState.NotificationsLastFetchedUtc is null;
+
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? (string.IsNullOrEmpty(SelectedPrefix) ? "none" : "");
 
@@ -84,7 +88,7 @@
                     </MudStack>
                     <!-- Profiles -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@IdentifiersCount</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsIdentifiersLoading">@IdentifiersCount</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Profiles)">@ProfilesLabel</MudLink>
                         </MudText>
@@ -98,14 +102,14 @@
                     </MudStack>
                     <!-- Credentials (all) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumCredentialsTotal</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsCredentialsLoading">@NumCredentialsTotal</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Credentials)">@CredentialsTotalLabel</MudLink>
                         </MudText>
                     </MudStack>
                     <!-- Notifications (all) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumNotificationsTotal</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsNotificationsLoading">@NumNotificationsTotal</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Notifications)">@NotificationsTotalLabel</MudLink>
                         </MudText>
@@ -122,14 +126,14 @@
                     </MudStack>
                     <!-- Credentials (selected profile) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumCredentialsThisProfile</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsCredentialsLoading">@NumCredentialsThisProfile</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Credentials)">@CredentialsProfileLabel</MudLink>
                         </MudText>
                     </MudStack>
                     <!-- Notifications (selected profile) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number">@NumNotificationsThisProfile</MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsNotificationsLoading">@NumNotificationsThisProfile</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Notifications)">@NotificationsProfileLabel</MudLink>
                         </MudText>

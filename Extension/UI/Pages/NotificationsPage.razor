@@ -18,6 +18,7 @@
 
 @code {
     bool IsProcessing { get; set; }
+    bool IsNotificationsLoading => appCache.MyPollingState.NotificationsLastFetchedUtc is null;
     string selectedViewDefId =>
         appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(NotificationsPage), out var savedId) && NotificationViewDefs.Any(v => v.Id == savedId)
             ? savedId
@@ -863,9 +864,9 @@
                               ViewDefs="@NotificationViewDefs"
                               SelectedViewDefId="@selectedViewDefId"
                               SelectedViewDefIdChanged="@OnViewDefChanged"
-                              FilteredCount="@ViewDefFilteredNotifications.Count"
-                              SubtotalCount="@SubtotalCount"
-                              TotalCount="@AllNotifications.Count" />
+                              FilteredCount="@(IsNotificationsLoading ? null : ViewDefFilteredNotifications.Count)"
+                              SubtotalCount="@(IsNotificationsLoading ? null : SubtotalCount)"
+                              TotalCount="@(IsNotificationsLoading ? null : AllNotifications.Count)" />
                 <MudSpacer />
                 @if (UnreadCount > 0 && !IsMarkingAll)
                 {
