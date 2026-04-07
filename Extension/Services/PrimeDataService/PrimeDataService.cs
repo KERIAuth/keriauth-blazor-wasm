@@ -7,7 +7,6 @@ using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
 using FluentResults;
-using Microsoft.Extensions.Logging;
 
 namespace Extension.Services.PrimeDataService {
     // TODO P2 move PrimeDataService so it is not a direct dependency of App program.cs;
@@ -41,6 +40,7 @@ namespace Extension.Services.PrimeDataService {
 
         private async Task ReportComplete() {
             await _storageGateway.SetItem(new PrimeDataProgress { IsComplete = true }, StorageArea.Session);
+            await Task.Yield(); // Allow time for BW to process any other background work
         }
 
         private async Task ReportError(string description) {
