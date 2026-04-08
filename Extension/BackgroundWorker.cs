@@ -2587,8 +2587,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // Proactively cache credentials in session storage for App components to read directly
                 await RefreshCachedCredentialsAsync();
 
-                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}, hasValue={HasValue}",
-                    identifiersResult.IsSuccess, identifiersResult.Value is not null);
+                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}",
+                    identifiersResult.IsSuccess);
 
                 if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                     var connectionInfo = await _storageGateway.GetItem<KeriaConnectionInfo>(StorageArea.Session);
@@ -2636,6 +2636,19 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     }
                 }
                 else {
+                    // Check if the failure is a 401 Unauthorized — indicates KERIA version mismatch
+                    var errorMsg = identifiersResult.Errors.Count > 0 ? identifiersResult.Errors[0].Message : "";
+                    if (errorMsg.Contains("401")) {
+                        logger.LogError(nameof(HandleAppRequestConnectRpcAsync) + ": KERIA returned 401 after successful connect — likely version mismatch with {Url}", connectRequest.AdminUrl);
+                        _notificationPollingCts?.Cancel();
+                        await _storageGateway.RemoveItems(StorageArea.Session,
+                            typeof(CachedIdentifiers), typeof(CachedCredentials), typeof(PollingState));
+                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                            result: new ConnectResponsePayload(false,
+                                Error: $"The KERIA service at {connectRequest.AdminUrl} returned 401 Unauthorized after authentication succeeded. This is usually caused by a version mismatch between this wallet and the KERIA deployment.",
+                                ErrorCode: "keria_version_mismatch"));
+                        return;
+                    }
                     logger.LogWarning(nameof(HandleAppRequestConnectRpcAsync) + ": GetIdentifiers failed or returned null after connect");
                 }
 

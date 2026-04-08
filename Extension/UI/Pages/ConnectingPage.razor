@@ -25,6 +25,10 @@
             @if (_connectionFailed)
             {
                 <MudAlert Severity="Severity.Error" Class="mt-4">@_errorMessage</MudAlert>
+                @if (_isVersionMismatch)
+                {
+                    <MudText Class="mt-4">You may attempt to reconnect via Restart @ProductName. Or, via the menu you can Reset all, or change your selected configuration via the KERIA menu.</MudText>
+                }
             }
             else
             {
@@ -38,13 +42,21 @@
         <MudSpacer></MudSpacer>
         @if (_connectionFailed)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@RetryConnection" Class="justify-end" data-testid="retry">Retry</MudButton>
+            @if (_isVersionMismatch)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ForceReload" Class="justify-end">Restart @ProductName</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@RetryConnection" Class="justify-end" data-testid="retry">Retry</MudButton>
+            }
         }
     </MudStack>
 </div>
 
 @code {
     private bool _connectionFailed;
+    private bool _isVersionMismatch;
     private string _errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -56,6 +68,7 @@
     private async Task AttemptConnection()
     {
         _connectionFailed = false;
+        _isVersionMismatch = false;
         _errorMessage = string.Empty;
         StateHasChanged();
 
@@ -80,6 +93,11 @@
     private async Task RetryConnection()
     {
         await AttemptConnection();
+    }
+
+    private async Task ForceReload()
+    {
+        await js.InvokeVoidAsync("location.reload", true);
     }
 
     private async Task<Result> ConnectAndFetchIdentifiers()
@@ -110,6 +128,10 @@
         {
             var openWalletError = connectRes?.Error ?? "Could not connect to KERIA Service";
             logger.LogWarning(openWalletError);
+            if (connectRes?.ErrorCode == "keria_version_mismatch")
+            {
+                _isVersionMismatch = true;
+            }
             return Result.Fail(openWalletError);
         }
 

@@ -591,7 +591,8 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("clientAidPrefix")] string? ClientAidPrefix = null,
         [property: JsonPropertyName("agentAidPrefix")] string? AgentAidPrefix = null,
-        [property: JsonPropertyName("error")] string? Error = null
+        [property: JsonPropertyName("error")] string? Error = null,
+        [property: JsonPropertyName("errorCode")] string? ErrorCode = null
     );
 
     /// <summary>

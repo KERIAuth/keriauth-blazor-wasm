@@ -1,10 +1,9 @@
 ﻿namespace Extension.Services {
     using System.Text.Json;
+    using Extension.Helper;
     using Extension.Models;
     using Extension.Models.Storage;
     using Extension.Services.SignifyService.Models;
-
-    using Extension.Helper;
     using Extension.Services.Storage;
     using WebExtensions.Net;
 
@@ -732,7 +731,7 @@
                 // Register batch observer for all storage records.
                 // Single observer instance handles both areas via the batchArea parameter.
                 var batchObserver = new BatchObserver(this);
-                _localBatchSubscription   = storageGateway.SubscribeBatch(batchObserver, StorageArea.Local);
+                _localBatchSubscription = storageGateway.SubscribeBatch(batchObserver, StorageArea.Local);
                 _sessionBatchSubscription = storageGateway.SubscribeBatch(batchObserver, StorageArea.Session);
 
                 IsReady = true;
