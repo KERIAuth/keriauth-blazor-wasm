@@ -8,6 +8,7 @@
 @using Extension.Services.SignifyService.Models
 @using static Extension.AppConfig;
 @using Extension.Services.Storage
+@using Extension.Utilities
 @using static Extension.Helper.PreviousPage
 @inject NavigationManager navManager
 @inject IJSRuntime js
@@ -348,11 +349,11 @@
             </MudText>
             <MudStack Class="ml-5">
                 <MudTextField T="string" Label="Prepend to profile names (optional)" @bind-Value="prepend" Variant="Variant.Outlined"
-                              Validation="@((string v) => !string.IsNullOrEmpty(v) && v.Any(char.IsWhiteSpace) ? "Must not contain whitespace" : null)" />
+                              Validation="@((string v) => AidNameValidator.ValidateOptional(v))" />
             </MudStack>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="ml-5">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running || (!string.IsNullOrEmpty(prepend) && prepend.Any(char.IsWhiteSpace)))">
+                           OnClick="OnGo" Disabled="@(goStatus == StepStatus.Running || AidNameValidator.ValidateOptional(prepend) is not null)">
                     Go
                 </MudButton>
                 @if (goStatus == StepStatus.Running)

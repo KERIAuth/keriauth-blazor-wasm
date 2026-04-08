@@ -5,6 +5,7 @@ using Extension.Helper;
 using Extension.Models;
 using Extension.Services.JsBindings;
 using Extension.Services.SignifyService.Models;
+using Extension.Utilities;
 using FluentResults;
 using Group = Extension.Services.SignifyService.Models.Group;
 using State = Extension.Services.SignifyService.Models.State;
@@ -237,6 +238,9 @@ namespace Extension.Services.SignifyService {
         }
 
         public async Task<Result<RecursiveDictionary>> RenameAid(string currentName, string newName, TimeSpan? timeout = null) {
+            var nameWarning = AidNameValidator.Validate(newName);
+            if (nameWarning is not null)
+                return Result.Fail<RecursiveDictionary>(nameWarning);
             var timeout2 = timeout ?? AppConfig.SignifyTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(ct => _binding.RenameAIDAsync(currentName, newName, ct), timeout2);
@@ -1423,6 +1427,9 @@ namespace Extension.Services.SignifyService {
         // ===================== Composite vLEI Operations =====================
 
         public async Task<Result<AidWithOobi>> CreateAidWithEndRole(string name, TimeSpan? timeout = null) {
+            var nameWarning = AidNameValidator.Validate(name);
+            if (nameWarning is not null)
+                return Result.Fail<AidWithOobi>(nameWarning);
             var timeout2 = timeout ?? AppConfig.SignifyLongOperationTimeout;
             try {
                 var timeoutResult = await TimeoutHelper.WithTimeout<string>(

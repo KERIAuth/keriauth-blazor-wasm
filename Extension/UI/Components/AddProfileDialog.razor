@@ -1,13 +1,14 @@
 ﻿@page "/add-profile-dialog"
-
+@using Extension.Utilities
 
 @code {
     [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
     private string? InputText { get; set; }
-    private static string prompt = @"Enter a unique alias, without spaces";
+    private static string prompt = @"Enter a unique name for this profile";
     private MudTextField<string>? _textField;
 
-    private bool IsValid => !string.IsNullOrEmpty(InputText) && !InputText.Any(char.IsWhiteSpace);
+    private string? ValidationWarning => AidNameValidator.Validate(InputText);
+    private bool IsValid => ValidationWarning is null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -49,7 +50,7 @@
                       Immediate="true"
                       OnKeyDown="OnKeyDown"
                       Error="@(InputText is not null && !IsValid)"
-                      ErrorText="Alias must not be empty or contain whitespace" />
+                      ErrorText="@ValidationWarning" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Color="Color.Primary" Variant="Variant.Outlined">Cancel</MudButton>

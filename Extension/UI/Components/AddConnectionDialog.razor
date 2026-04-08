@@ -2,6 +2,7 @@
 @using Extension.Services.Storage
 @using Extension.Services
 @using Extension.Helper
+@using Extension.Utilities
 @inject IJSRuntime js
 @inject IStorageGateway storageGateway
 @inject AppCache appCache
@@ -50,9 +51,11 @@
         }
     }
 
+    private string? NameValidationWarning => AidNameValidator.Validate(ConnectionName);
+
     private bool IsValid => Mode switch {
-        "invite" => !string.IsNullOrWhiteSpace(ConnectionName),
-        "receive" => !string.IsNullOrWhiteSpace(ConnectionName) && !string.IsNullOrWhiteSpace(OobiInput),
+        "invite" => NameValidationWarning is null,
+        "receive" => NameValidationWarning is null && !string.IsNullOrWhiteSpace(OobiInput),
         _ => false
     };
 
@@ -153,7 +156,9 @@
                           Label="Connection name"
                           Variant="Variant.Outlined"
                           Immediate="true"
-                          OnKeyDown="OnKeyDown" />
+                          OnKeyDown="OnKeyDown"
+                          Error="@(ConnectionName is not null && NameValidationWarning is not null)"
+                          ErrorText="@NameValidationWarning" />
             @if (!string.IsNullOrEmpty(DisplayOobi))
             {
                 <MudField Label="Your introduction URL" Variant="Variant.Outlined" Class="mt-3">
@@ -197,6 +202,8 @@
                           Variant="Variant.Outlined"
                           Immediate="true"
                           OnKeyDown="OnKeyDown"
+                          Error="@(ConnectionName is not null && NameValidationWarning is not null)"
+                          ErrorText="@NameValidationWarning"
                           Class="mt-3" />
             <QrScanOverlay @bind-IsVisible="_isScannerVisible"
                            OnScanned="OnQrScanned"

@@ -17,6 +17,7 @@
 @inject AppCache appCache
 
 @using Extension.Services.SignifyService.Models
+@using Extension.Utilities
 
 @code {
     // "Prefix" here is the Prefix under inspection, not necessarily the one in MyPreferences.Prefix
@@ -75,6 +76,8 @@
     Aid? currentAid;
     bool isEditingAlias = false;
     string? editedAliasValue;
+    private string? RenameValidationWarning => AidNameValidator.Validate(editedAliasValue);
+    private bool IsRenameValid => RenameValidationWarning is null;
 
     // properties
     bool IsWaiting { get; set; }
@@ -437,7 +440,7 @@
 
     async Task SaveAlias()
     {
-        if (currentAid == null || string.IsNullOrWhiteSpace(editedAliasValue)) return;
+        if (currentAid == null || !IsRenameValid) return;
 
         try
         {
@@ -446,7 +449,7 @@
 
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestRenameAid,
-                new { payload = new RenameAidRequestPayload(currentAid.Name, editedAliasValue) });
+                new { payload = new RenameAidRequestPayload(currentAid.Name, editedAliasValue!) });
 
             if (!response.Ok)
             {
@@ -566,12 +569,14 @@ else
                                               Variant="Variant.Outlined"
                                               Margin="Margin.Dense"
                                               Immediate="true"
-                                              Style="max-width: 21.429rem;" />
+                                              Style="max-width: 21.429rem;"
+                                              Error="@(editedAliasValue is not null && !IsRenameValid)"
+                                              ErrorText="@RenameValidationWarning" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Check"
                                                Color="Color.Success"
                                                Size="Size.Small"
                                                OnClick="SaveAlias"
-                                               Disabled="@IsWaiting" />
+                                               Disabled="@(IsWaiting || !IsRenameValid)" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Close"
                                                Color="Color.Default"
                                                Size="Size.Small"
