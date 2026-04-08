@@ -9,7 +9,6 @@ interface DotNetObjectReference {
 
 // Module state
 let dotNetRef: DotNetObjectReference | null = null;
-let isListening = false;
 
 function handleOnline(): void {
     if (!dotNetRef) return;
@@ -25,30 +24,19 @@ function handleOffline(): void {
     });
 }
 
+// Register event listeners at module top level so Chrome service worker
+// sees them during initial script evaluation (required by Chrome SW spec).
+self.addEventListener('online', handleOnline);
+self.addEventListener('offline', handleOffline);
+
 /**
  * Starts listening for online/offline events.
- * Uses `self` (globalThis) to work in both window and service worker contexts.
- * Immediately reports the current navigator.onLine state on startup.
+ * Provides the .NET callback reference and immediately reports current state.
  *
  * @param dotNetObjectRef - Reference to .NET object with [JSInvokable] OnNetworkStateChanged method
  */
 export function startListening(dotNetObjectRef: DotNetObjectReference): void {
-    if (isListening) {
-        // Already listening — but still report current state (handles SW wake scenarios)
-        dotNetObjectRef.invokeMethodAsync('OnNetworkStateChanged', navigator.onLine).catch((error: unknown) => {
-            console.warn('networkConnectivityListener: Failed to report initial state on re-start:', error);
-        });
-        // Update ref in case it changed (new DotNetObjectReference after SW restart)
-        dotNetRef = dotNetObjectRef;
-        return;
-    }
-
     dotNetRef = dotNetObjectRef;
-
-    self.addEventListener('online', handleOnline);
-    self.addEventListener('offline', handleOffline);
-
-    isListening = true;
 
     // Report current state immediately
     dotNetRef.invokeMethodAsync('OnNetworkStateChanged', navigator.onLine).catch((error: unknown) => {
@@ -57,23 +45,18 @@ export function startListening(dotNetObjectRef: DotNetObjectReference): void {
 }
 
 /**
- * Stops listening for online/offline events and cleans up resources.
+ * Stops forwarding online/offline events to .NET.
+ * The underlying event listeners remain registered (required by Chrome SW spec)
+ * but become no-ops since dotNetRef is cleared.
  */
 export function stopListening(): void {
-    if (!isListening) return;
-
-    self.removeEventListener('online', handleOnline);
-    self.removeEventListener('offline', handleOffline);
-
     dotNetRef = null;
-    isListening = false;
-
     console.debug('networkConnectivityListener: Stopped listening');
 }
 
 /**
- * Returns whether the listener is currently active.
+ * Returns whether the listener is currently forwarding events to .NET.
  */
 export function isActive(): boolean {
-    return isListening;
+    return dotNetRef !== null;
 }
