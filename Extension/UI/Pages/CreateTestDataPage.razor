@@ -1,5 +1,4 @@
 @page "/PrimeData.html"
-@using System.Text.Json
 @using Extension.Helper
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
@@ -28,7 +27,7 @@
     string? goError;
     string prepend = "";
 
-    // Progress tracking
+    // Progress tracking — drives Running→Success/Error transitions
     PrimeDataProgress? currentProgress;
     IDisposable? _progressSubscription;
 
@@ -159,11 +158,52 @@
         ipexRole = GenerateRandomRole();
         selectedWorkflow = IpexWorkflow.Apply;
         SelectDefaults();
+
+        // Restore state from any in-progress or recently-completed operation
+        var existing = await storageGateway.GetItem<PrimeDataProgress>(StorageArea.Session);
+        if (existing.IsSuccess && existing.Value is { } progress)
+            ApplyProgress(progress);
     }
+
+    void ApplyProgress(PrimeDataProgress value) {
+        currentProgress = value;
+        var op = value.Operation;
+        if (value.IsComplete || value.IsError) {
+            var status = value.IsComplete ? StepStatus.Success : StepStatus.Error;
+            var error = value.IsError ? value.Description : null;
+            SetOperationStatus(op, status, error);
+        }
+        else {
+            // Still running — show spinner for the correct section
+            SetOperationStatus(op, StepStatus.Running, null);
+            _activeOp = op;
+        }
+    }
+
+    void SetOperationStatus(PrimeDataOperation op, StepStatus status, string? error) {
+        switch (op) {
+            case PrimeDataOperation.Go:
+                goStatus = status;
+                goError = error;
+                break;
+            case PrimeDataOperation.Ipex:
+                ipexStatus = status;
+                ipexError = error;
+                break;
+        }
+    }
+
+    PrimeDataOperation _activeOp = PrimeDataOperation.None;
 
     class ProgressObserver(CreateTestDataPage page) : IObserver<PrimeDataProgress> {
         public void OnNext(PrimeDataProgress value) {
             page.currentProgress = value;
+            var op = value.Operation;
+            if (value.IsComplete || value.IsError) {
+                page.SetOperationStatus(op, value.IsComplete ? StepStatus.Success : StepStatus.Error,
+                    value.IsError ? value.Description : null);
+                page._activeOp = PrimeDataOperation.None;
+            }
             page.InvokeAsync(page.StateHasChanged);
         }
         public void OnError(Exception error) { }
@@ -209,6 +249,7 @@
         goStatus = StepStatus.Running;
         goError = null;
         currentProgress = null;
+        _activeOp = PrimeDataOperation.Go;
         StateHasChanged();
 
         try
@@ -216,34 +257,21 @@
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestPrimeDataGo,
                 new { payload = new PrimeDataGoPayload(prepend) },
-                TimeSpan.FromMinutes(5));
+                TimeSpan.FromSeconds(10));
 
             if (!response.Ok)
             {
                 goStatus = StepStatus.Error;
-                goError = response.Error ?? "RPC failed";
+                goError = response.Error ?? "Failed to start operation";
+                _activeOp = PrimeDataOperation.None;
             }
-            else
-            {
-                var result = response.Result is JsonElement jsonEl
-                    ? JsonSerializer.Deserialize<PrimeDataGoResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging)
-                    : null;
-
-                if (result is not null && result.Success)
-                {
-                    goStatus = StepStatus.Success;
-                }
-                else
-                {
-                    goStatus = StepStatus.Error;
-                    goError = result?.Error ?? "Unknown error";
-                }
-            }
+            // On success, BW acknowledged — progress observer will drive status from here
         }
         catch (Exception ex)
         {
             goStatus = StepStatus.Error;
             goError = ex.Message;
+            _activeOp = PrimeDataOperation.None;
         }
 
         StateHasChanged();
@@ -256,6 +284,7 @@
         ipexStatus = StepStatus.Running;
         ipexError = null;
         currentProgress = null;
+        _activeOp = PrimeDataOperation.Ipex;
         StateHasChanged();
 
         try
@@ -270,34 +299,21 @@
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestPrimeDataIpex,
                 new { payload },
-                TimeSpan.FromMinutes(5));
+                TimeSpan.FromSeconds(10));
 
             if (!response.Ok)
             {
                 ipexStatus = StepStatus.Error;
-                ipexError = response.Error ?? "RPC failed";
+                ipexError = response.Error ?? "Failed to start operation";
+                _activeOp = PrimeDataOperation.None;
             }
-            else
-            {
-                var result = response.Result is JsonElement jsonEl
-                    ? JsonSerializer.Deserialize<PrimeDataIpexResponse>(jsonEl.GetRawText(), JsonOptions.PortMessaging)
-                    : null;
-
-                if (result is not null && result.Success)
-                {
-                    ipexStatus = StepStatus.Success;
-                }
-                else
-                {
-                    ipexStatus = StepStatus.Error;
-                    ipexError = result?.Error ?? "Unknown error";
-                }
-            }
+            // On success, BW acknowledged — progress observer will drive status from here
         }
         catch (Exception ex)
         {
             ipexStatus = StepStatus.Error;
             ipexError = ex.Message;
+            _activeOp = PrimeDataOperation.None;
         }
 
         StateHasChanged();
@@ -310,6 +326,7 @@
         ipexStatus = StepStatus.Blank;
         ipexError = null;
         currentProgress = null;
+        _activeOp = PrimeDataOperation.None;
         StateHasChanged();
     }
 

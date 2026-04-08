@@ -2981,31 +2981,27 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        try {
-            var goPayload = payload.HasValue
-                ? JsonSerializer.Deserialize<PrimeDataGoPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase)
-                : null;
+        // Acknowledge immediately — progress and completion are reported via session storage
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            result: new { acknowledged = true });
 
-            var goResult = await _primeDataService.GoAsync(goPayload);
+        // Run the long operation in the background (not tied to RPC timeout)
+        _ = Task.Run(async () => {
+            try {
+                var goPayload = payload.HasValue
+                    ? JsonSerializer.Deserialize<PrimeDataGoPayload>(payload.Value.GetRawText(), JsonOptions.CamelCase)
+                    : null;
 
-            // Refresh identifiers cache since AIDs may have been created (even on partial failure)
-            await RefreshIdentifiersCache();
-
-            if (goResult.IsSuccess) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: goResult.Value);
+                await _primeDataService.GoAsync(goPayload);
             }
-            else {
-                var errorMsg = goResult.Errors.Count > 0 ? goResult.Errors[0].Message : "PrimeData Go failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataGoResponse(false, Error: errorMsg));
+            catch (Exception ex) {
+                logger.LogError(ex, nameof(HandleAppRequestPrimeDataGoRpcAsync) + ": Unhandled error during PrimeData Go");
             }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestPrimeDataGoRpcAsync) + ": Error during PrimeData Go");
-            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                result: new PrimeDataGoResponse(false, Error: ex.Message));
-        }
+            finally {
+                // Refresh identifiers cache since AIDs may have been created (even on partial failure)
+                await RefreshIdentifiersCache();
+            }
+        });
     }
 
     private async Task HandleAppRequestPrimeDataIpexRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
@@ -3015,41 +3011,38 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        try {
-            if (!payload.HasValue) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataIpexResponse(false, Error: "Missing payload"));
-                return;
-            }
-
-            var ipexPayload = JsonSerializer.Deserialize<PrimeDataIpexPayload>(
-                payload.Value.GetRawText(), JsonOptions.CamelCase);
-
-            if (ipexPayload is null || string.IsNullOrEmpty(ipexPayload.DiscloserPrefix) || string.IsNullOrEmpty(ipexPayload.DiscloseePrefix)) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataIpexResponse(false, Error: "Invalid or missing payload fields"));
-                return;
-            }
-
-            var ipexResult = await _primeDataService.GoIpexAsync(ipexPayload);
-
-            await RefreshIdentifiersCache();
-
-            if (ipexResult.IsSuccess) {
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: ipexResult.Value);
-            }
-            else {
-                var errorMsg = ipexResult.Errors.Count > 0 ? ipexResult.Errors[0].Message : "PrimeData IPEX failed";
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new PrimeDataIpexResponse(false, Error: errorMsg));
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, nameof(HandleAppRequestPrimeDataIpexRpcAsync) + ": Error during PrimeData IPEX");
+        // Validate payload synchronously before acknowledging
+        if (!payload.HasValue) {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                result: new PrimeDataIpexResponse(false, Error: ex.Message));
+                errorMessage: "Missing payload");
+            return;
         }
+
+        var ipexPayload = JsonSerializer.Deserialize<PrimeDataIpexPayload>(
+            payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+        if (ipexPayload is null || string.IsNullOrEmpty(ipexPayload.DiscloserPrefix) || string.IsNullOrEmpty(ipexPayload.DiscloseePrefix)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid or missing payload fields");
+            return;
+        }
+
+        // Acknowledge immediately — progress and completion are reported via session storage
+        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+            result: new { acknowledged = true });
+
+        // Run the long operation in the background (not tied to RPC timeout)
+        _ = Task.Run(async () => {
+            try {
+                await _primeDataService.GoIpexAsync(ipexPayload);
+            }
+            catch (Exception ex) {
+                logger.LogError(ex, nameof(HandleAppRequestPrimeDataIpexRpcAsync) + ": Unhandled error during PrimeData IPEX");
+            }
+            finally {
+                await RefreshIdentifiersCache();
+            }
+        });
     }
 
     private async Task HandleAppRequestIpexEligibleDisclosersRpcAsync(string portId, RpcRequest request, JsonElement? payload) {

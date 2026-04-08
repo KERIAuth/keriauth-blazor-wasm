@@ -18,6 +18,7 @@ namespace Extension.Services.PrimeDataService {
         private readonly ILogger<PrimeDataService> _logger;
         private DateTime _lastProgressWriteUtc = DateTime.MinValue;
         private const int ProgressThrottleMs = 500;
+        private PrimeDataOperation _currentOperation;
 
         public PrimeDataService(ISignifyClientService signifyClient, IStorageGateway storageGateway, ISchemaService schemaService, ILogger<PrimeDataService> logger) {
             _signifyClient = signifyClient;
@@ -32,6 +33,7 @@ namespace Extension.Services.PrimeDataService {
             if ((now - _lastProgressWriteUtc).TotalMilliseconds < ProgressThrottleMs) return;
             _lastProgressWriteUtc = now;
             await _storageGateway.SetItem(new PrimeDataProgress {
+                Operation = _currentOperation,
                 Step = step,
                 TotalSteps = totalSteps,
                 Description = description
@@ -39,15 +41,16 @@ namespace Extension.Services.PrimeDataService {
         }
 
         private async Task ReportComplete() {
-            await _storageGateway.SetItem(new PrimeDataProgress { IsComplete = true }, StorageArea.Session);
+            await _storageGateway.SetItem(new PrimeDataProgress { Operation = _currentOperation, IsComplete = true }, StorageArea.Session);
             await Task.Yield(); // Allow time for BW to process any other background work
         }
 
         private async Task ReportError(string description) {
-            await _storageGateway.SetItem(new PrimeDataProgress { IsError = true, Description = description }, StorageArea.Session);
+            await _storageGateway.SetItem(new PrimeDataProgress { Operation = _currentOperation, IsError = true, Description = description }, StorageArea.Session);
         }
 
         public async Task<Result<PrimeDataGoResponse>> GoAsync(PrimeDataGoPayload? payload = null) {
+            _currentOperation = PrimeDataOperation.Go;
             var prepend = payload?.Prepend ?? string.Empty;
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
@@ -554,6 +557,7 @@ namespace Extension.Services.PrimeDataService {
         }
 
         public async Task<Result<PrimeDataIpexResponse>> GoIpexAsync(PrimeDataIpexPayload payload) {
+            _currentOperation = PrimeDataOperation.Ipex;
             _logger.LogInformation("PrimeData IPEX starting: workflow={Workflow}, isPresentation={IsPresentation}, discloser={Discloser}, disclosee={Disclosee}, role={Role}",
                 payload.Workflow, payload.IsPresentation, payload.DiscloserPrefix, payload.DiscloseePrefix, payload.EcrRole);
 

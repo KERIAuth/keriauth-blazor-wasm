@@ -8,7 +8,13 @@ using System.Text.Json.Serialization;
 /// Storage key: "PrimeDataProgress" (derived from type name)
 /// Storage area: Session
 /// </summary>
+public enum PrimeDataOperation { None, Go, Ipex }
+
 public record PrimeDataProgress : IStorageModel {
+    [JsonPropertyName("operation")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public PrimeDataOperation Operation { get; init; }
+
     [JsonPropertyName("step")]
     public int Step { get; init; }
 
