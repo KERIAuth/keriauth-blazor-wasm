@@ -462,6 +462,8 @@ public class SessionManager : IDisposable {
     }
 
     // All session record types removed on session clear (BwReadyState is intentionally excluded).
+    // NetworkState is excluded: IsOnline reflects browser state (not session-scoped), and
+    // IsKeriaReachable is reset to true via SignifyClientService.Disconnect() on lock/config change.
     // Single chrome.storage.remove() call fires one onChanged event instead of many.
     private static readonly Type[] SessionRecordTypes = [
         typeof(SessionStateModel),

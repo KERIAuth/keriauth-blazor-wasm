@@ -113,6 +113,9 @@ namespace Extension.Services.SignifyService {
 
         public async Task Disconnect() {
             IsConnected = false;
+            // Reset KERIA reachability to optimistic default — the previous endpoint's
+            // state is meaningless after disconnect (config change or session lock).
+            SignalKeriaReachability(true);
             try {
                 await _binding.DisconnectAsync();
             }
