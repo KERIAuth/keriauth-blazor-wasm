@@ -42,7 +42,7 @@ namespace Extension.Services.PrimeDataService {
 
         private async Task ReportComplete() {
             await _storageGateway.SetItem(new PrimeDataProgress { Operation = _currentOperation, IsComplete = true }, StorageArea.Session);
-            await Task.Yield(); // Allow time for BW to process any other background work
+            // await Task.Yield(); // Allow time for BW to process any other background work
         }
 
         private async Task ReportError(string description) {
