@@ -49,7 +49,7 @@ public class ConfigureService : IConfigureService {
                 clientAidPrefix: null,
                 agentAidPrefix: null,
                 isStored: true
-            ) { Alias = "Configured at " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + "UTC" };
+            ) { Alias = $"{payload.ProviderName} (configured {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC)" };
 
             var storePartialResult = await StoreConfigAsync(partialConfig, setAsSelected: false);
             if (storePartialResult.IsFailed) {
@@ -119,7 +119,8 @@ public class ConfigureService : IConfigureService {
                 if (storeResult.IsFailed) {
                     return await FailAndCleanupAsync(4, "Failed to finalize configuration", storeResult.Errors);
                 }
-            } else {
+            }
+            else {
                 return await FailAndCleanupAsync(4, "Configuration not found for computed digest");
             }
 
@@ -167,10 +168,12 @@ public class ConfigureService : IConfigureService {
             if (digestResult.IsFailed) {
                 _logger.LogWarning("Could not compute digest: {Errors}", string.Join(", ", digestResult.Errors));
                 digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
-            } else {
+            }
+            else {
                 digest = digestResult.Value;
             }
-        } else {
+        }
+        else {
             digest = $"partial_{config.AdminUrl}_{config.PasscodeHash}";
         }
 
