@@ -35,6 +35,7 @@ public class JsModuleLoader(IJSRuntime jsRuntime, ILogger<JsModuleLoader> logger
     // Each module specifies which BrowserExtensionMode(s) require it
     private static readonly (string Name, string Path, BrowserExtensionMode[] Contexts)[] ModuleDefinitions = [
         ("signifyClient", "./scripts/esbuild/signifyClient.js", [BrowserExtensionMode.Background]),
+        ("networkConnectivityListener", "./scripts/es6/networkConnectivityListener.js", [BrowserExtensionMode.Background]),
         ("navigatorCredentialsShim", "./scripts/es6/navigatorCredentialsShim.js", [BrowserExtensionMode.Standard, BrowserExtensionMode.Debug]),
         ("aesGcmCrypto", "./scripts/es6/aesGcmCrypto.js", [BrowserExtensionMode.Standard, BrowserExtensionMode.Debug]),
     ];

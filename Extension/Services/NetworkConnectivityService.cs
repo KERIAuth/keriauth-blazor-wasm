@@ -1,28 +1,30 @@
+using Extension.Services.JsBindings;
 using Microsoft.JSInterop;
 
 namespace Extension.Services;
 
 /// <summary>
 /// Monitors browser network connectivity (navigator.onLine) in the service worker context.
-/// Loads a TypeScript module that listens for online/offline events on `self`
-/// and calls back into C# via DotNetObjectReference.
+/// Uses a pre-loaded TypeScript module (via JsModuleLoader) that listens for online/offline
+/// events on `self` and calls back into C# via DotNetObjectReference.
 ///
 /// This service runs in the BackgroundWorker DI container only.
 /// BackgroundWorker subscribes to OnlineStateChanged and writes NetworkState to session storage.
 /// </summary>
 public class NetworkConnectivityService : INetworkConnectivityService {
-    private readonly IJSRuntime _jsRuntime;
+    private readonly IJsModuleLoader _moduleLoader;
     private readonly ILogger<NetworkConnectivityService> _logger;
 
-    private IJSObjectReference? _module;
     private DotNetObjectReference<NetworkConnectivityService>? _dotNetRef;
     private bool _isListening;
     private bool _isDisposed;
 
+    private IJSObjectReference Module => _moduleLoader.GetModule("networkConnectivityListener");
+
     public NetworkConnectivityService(
-        IJSRuntime jsRuntime,
+        IJsModuleLoader moduleLoader,
         ILogger<NetworkConnectivityService> logger) {
-        _jsRuntime = jsRuntime;
+        _moduleLoader = moduleLoader;
         _logger = logger;
     }
 
@@ -34,15 +36,10 @@ public class NetworkConnectivityService : INetworkConnectivityService {
         if (_isDisposed) return;
 
         try {
-            _module ??= await _jsRuntime.InvokeAsync<IJSObjectReference>(
-                "import",
-                "./scripts/es6/networkConnectivityListener.js"
-            );
-
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
             // Always call startListening — idempotent, re-reports current state on re-call
-            await _module.InvokeVoidAsync("startListening", _dotNetRef);
+            await Module.InvokeVoidAsync("startListening", _dotNetRef);
 
             _isListening = true;
         }
@@ -55,9 +52,7 @@ public class NetworkConnectivityService : INetworkConnectivityService {
         if (!_isListening) return;
 
         try {
-            if (_module is not null) {
-                _ = StopListeningInternalAsync();
-            }
+            _ = StopListeningInternalAsync();
             _isListening = false;
         }
         catch (Exception ex) {
@@ -67,9 +62,7 @@ public class NetworkConnectivityService : INetworkConnectivityService {
 
     private async Task StopListeningInternalAsync() {
         try {
-            if (_module is not null) {
-                await _module.InvokeVoidAsync("stopListening");
-            }
+            await Module.InvokeVoidAsync("stopListening");
         }
         catch (JSDisconnectedException) {
             // Expected during shutdown
@@ -102,19 +95,6 @@ public class NetworkConnectivityService : INetworkConnectivityService {
 
         _dotNetRef?.Dispose();
         _dotNetRef = null;
-
-        if (_module is not null) {
-            try {
-                await _module.DisposeAsync();
-            }
-            catch (JSDisconnectedException) {
-                // Expected during shutdown
-            }
-            catch (Exception ex) {
-                _logger.LogWarning(ex, nameof(NetworkConnectivityService) + ": Error disposing JS module");
-            }
-            _module = null;
-        }
 
         GC.SuppressFinalize(this);
     }

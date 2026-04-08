@@ -1,4 +1,5 @@
 using Extension.Services;
+using Extension.Services.JsBindings;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using Moq;
@@ -7,7 +8,7 @@ using Xunit;
 namespace Extension.Tests.Services;
 
 public class NetworkConnectivityServiceTests : IAsyncDisposable {
-    private readonly Mock<IJSRuntime> _mockJsRuntime = new();
+    private readonly Mock<IJsModuleLoader> _mockModuleLoader = new();
     private readonly Mock<IJSObjectReference> _mockModule = new();
     private readonly NetworkConnectivityService _sut;
     private readonly List<bool> _stateChanges = [];
@@ -15,13 +16,11 @@ public class NetworkConnectivityServiceTests : IAsyncDisposable {
     public NetworkConnectivityServiceTests() {
         var logger = new Mock<ILogger<NetworkConnectivityService>>();
 
-        _mockJsRuntime
-            .Setup(x => x.InvokeAsync<IJSObjectReference>(
-                "import",
-                It.IsAny<object[]>()))
-            .ReturnsAsync(_mockModule.Object);
+        _mockModuleLoader
+            .Setup(x => x.GetModule("networkConnectivityListener"))
+            .Returns(_mockModule.Object);
 
-        _sut = new NetworkConnectivityService(_mockJsRuntime.Object, logger.Object);
+        _sut = new NetworkConnectivityService(_mockModuleLoader.Object, logger.Object);
         _sut.OnlineStateChanged += (isOnline) => _stateChanges.Add(isOnline);
     }
 
@@ -33,16 +32,6 @@ public class NetworkConnectivityServiceTests : IAsyncDisposable {
     [Fact]
     public void IsOnline_DefaultsToTrue() {
         Assert.True(_sut.IsOnline);
-    }
-
-    [Fact]
-    public async Task StartListeningAsync_LoadsModule() {
-        await _sut.StartListeningAsync();
-
-        _mockJsRuntime.Verify(x => x.InvokeAsync<IJSObjectReference>(
-            "import",
-            It.Is<object[]>(args => args.Length == 1 && ((string)args[0]).Contains("networkConnectivityListener"))),
-            Times.Once);
     }
 
     [Fact]
