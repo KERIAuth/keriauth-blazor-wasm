@@ -5296,14 +5296,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
             else {
-                // Fallback: serialize and re-deserialize to get dictionary
-                var credDataJson = JsonSerializer.Serialize(approvalPayload.CredData, JsonOptions.RecursiveDictionary);
-                var credDataDict = JsonSerializer.Deserialize<Dictionary<string, object>>(credDataJson, JsonOptions.RecursiveDictionary);
-                if (credDataDict != null) {
-                    foreach (var kvp in credDataDict) {
-                        credDataOrdered.Add(kvp.Key, kvp.Value);
-                    }
-                }
+                logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": CredData has unexpected type: {Type}", approvalPayload.CredData?.GetType().Name);
+                await SendResponseAsync(null, "Unexpected credential data format");
+                return;
             }
 
             // Build credential data structure
