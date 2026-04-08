@@ -231,4 +231,65 @@ public class UnwrapJsResultTests {
         var error = Assert.Single(result.Errors);
         Assert.IsType<JavaScriptInteropError>(error);
     }
+
+    [Fact]
+    public async Task GetState_Success_FiresKeriaReachabilityTrue() {
+        // Arrange
+        var reachabilityChanges = new List<bool>();
+        _service.KeriaReachabilityChanged += (val) => reachabilityChanges.Add(val);
+
+        // First make it unreachable
+        _mockBinding
+            .Setup(b => b.GetStateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ErrEnvelope("network_error", "Failed to fetch"));
+        await _service.GetState();
+
+        // Now make it reachable
+        _mockBinding
+            .Setup(b => b.GetStateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OkEnvelope(ValidStateJson));
+
+        // Act
+        await _service.GetState();
+
+        // Assert: should have fired false then true
+        Assert.Equal(2, reachabilityChanges.Count);
+        Assert.False(reachabilityChanges[0]);
+        Assert.True(reachabilityChanges[1]);
+    }
+
+    [Fact]
+    public async Task GetState_NetworkError_FiresKeriaReachabilityFalse() {
+        var reachabilityChanges = new List<bool>();
+        _service.KeriaReachabilityChanged += (val) => reachabilityChanges.Add(val);
+
+        // Arrange
+        _mockBinding
+            .Setup(b => b.GetStateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ErrEnvelope("network_error", "Failed to fetch"));
+
+        // Act
+        await _service.GetState();
+
+        // Assert
+        Assert.Single(reachabilityChanges);
+        Assert.False(reachabilityChanges[0]);
+    }
+
+    [Fact]
+    public async Task GetState_RepeatedNetworkError_FiresOnlyOnce() {
+        var reachabilityChanges = new List<bool>();
+        _service.KeriaReachabilityChanged += (val) => reachabilityChanges.Add(val);
+
+        _mockBinding
+            .Setup(b => b.GetStateAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ErrEnvelope("network_error", "Failed to fetch"));
+
+        // Act - two consecutive failures
+        await _service.GetState();
+        await _service.GetState();
+
+        // Assert - only one transition event
+        Assert.Single(reachabilityChanges);
+    }
 }

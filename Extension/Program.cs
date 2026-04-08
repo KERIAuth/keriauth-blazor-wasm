@@ -93,6 +93,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IConfigureService, Extension.Services.ConfigureService.ConfigureService>();
             builder.Services.AddSingleton<ISchemaService, SchemaService>();
             builder.Services.AddSingleton<INotificationPollingService, NotificationPollingService>();
+            builder.Services.AddSingleton<INetworkConnectivityService, NetworkConnectivityService>();
             break;
         case BrowserExtensionMode.Standard:
         case BrowserExtensionMode.Debug:

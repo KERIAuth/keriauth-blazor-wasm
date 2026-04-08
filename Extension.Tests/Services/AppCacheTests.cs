@@ -121,6 +121,32 @@ public class AppCacheTests : IDisposable {
         Assert.Null(_sut.MyPollingState.IdentifiersLastFetchedUtc);
         Assert.Empty(_sut.MyWebsiteConfigs);
     }
+
+    [Fact]
+    public async Task Initialize_PopulatesMyNetworkState_FromBulkRead() {
+        var ns = new NetworkState { IsOnline = false, IsKeriaReachable = false };
+
+        SetupBulkReads(
+            session: BuildReadResult(
+                (nameof(NetworkState), ns)
+            )
+        );
+
+        await _sut.EnsureInitializedAsync();
+
+        Assert.False(_sut.IsNetworkOnline);
+        Assert.False(_sut.IsKeriaReachable);
+    }
+
+    [Fact]
+    public async Task Initialize_NetworkStateDefaults_WhenAbsent() {
+        SetupBulkReads(); // empty results
+
+        await _sut.EnsureInitializedAsync();
+
+        Assert.True(_sut.IsNetworkOnline);
+        Assert.True(_sut.IsKeriaReachable);
+    }
 }
 
 /// <summary>
@@ -294,6 +320,34 @@ public class AppCacheBatchTests : IAsyncLifetime, IDisposable {
         TriggerDeletionEvent("session", nameof(SessionStateModel), ssm);
 
         Assert.Equal(DateTime.MinValue, _sut.MySessionState.SessionExpirationUtc);
+        Assert.Equal(1, _changedCount);
+    }
+
+    [Fact]
+    public void BatchChange_NetworkState_UpdatesMyNetworkState() {
+        var ns = new NetworkState { IsOnline = false, IsKeriaReachable = false };
+
+        TriggerStorageChange("session", nameof(NetworkState), ns, default(NetworkState));
+
+        Assert.False(_sut.IsNetworkOnline);
+        Assert.False(_sut.IsKeriaReachable);
+        Assert.Equal(1, _changedCount);
+    }
+
+    [Fact]
+    public void BatchChange_NetworkState_DefaultsWhenNull() {
+        // First set offline
+        TriggerStorageChange("session", nameof(NetworkState),
+            new NetworkState { IsOnline = false }, default(NetworkState));
+        _changedCount = 0;
+
+        // Delete (simulates session clear)
+        TriggerDeletionEvent("session", nameof(NetworkState),
+            new NetworkState { IsOnline = false });
+
+        // Should fall back to defaults (online=true, reachable=true)
+        Assert.True(_sut.IsNetworkOnline);
+        Assert.True(_sut.IsKeriaReachable);
         Assert.Equal(1, _changedCount);
     }
 

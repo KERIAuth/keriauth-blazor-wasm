@@ -85,6 +85,12 @@
   - [E. Fallback to Passcode Authentication](#e-fallback-to-passcode-authentication)
   - [F. Multiple Webauthn Authenticators](#f-multiple-webauthn-authenticators)
   - [G. Webauthn Authenticator on Different Browsers/Devices](#g-webauthn-authenticator-on-different-browsersdevices)
+- [Network Resilience Tests](#network-resilience-tests)
+  - [A. Browser Offline Detection](#a-browser-offline-detection)
+  - [B. KERIA Server Unreachable](#b-keria-server-unreachable)
+  - [C. Retry on Transient Network Failure](#c-retry-on-transient-network-failure)
+  - [D. Service Worker Dormancy and Network State Recovery](#d-service-worker-dormancy-and-network-state-recovery)
+  - [E. Developer State Page Accuracy](#e-developer-state-page-accuracy)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -740,5 +746,84 @@ Tests are ordered by causality - earlier test failures help identify root causes
 ## F. Multiple Webauthn Authenticators
 
 ## G. Webauthn Authenticator on Different Browsers/Devices
+
+# Network Resilience Tests
+
+These tests verify the extension's behavior when network connectivity is unstable or KERIA is unreachable.
+
+**Logging**: Set these namespaces to `"Debug"` in `Extension/wwwroot/appsettings.json` before testing:
+- `Extension.BackgroundWorker`
+- `Extension.Services.AppCache`
+- `Extension.Services.NotificationPollingService`
+- `Extension.Services.SignifyService.SignifyClientService`
+- `Extension.Services.NetworkConnectivityService`
+
+## A. Browser Offline Detection
+1. Prerequisite: Onboard, unlock, connected to KERIA
+2. Open Developer > State page
+3. Toggle network off in Chrome DevTools (Network tab > Offline checkbox)
+
+    Expected:
+    - [ ] AppBar shows WifiOff icon (warning color) with tooltip "No internet connection"
+    - [ ] Developer State page shows `IsNetworkOnline = false`
+    - [ ] Service worker logs: `NetworkConnectivityService: Network state changed — IsOnline=False`
+    - [ ] Service worker logs: `NetworkState written: IsOnline=False`
+    - [ ] Notification polling logs: `PollOnDemandAsync: Skipped — browser is offline`
+
+4. Toggle network back on
+
+    Expected:
+    - [ ] AppBar returns to green link icon (or CloudOff if KERIA still unreachable)
+    - [ ] Developer State page shows `IsNetworkOnline = true`
+    - [ ] Service worker logs: `NetworkState written: IsOnline=True`
+
+## B. KERIA Server Unreachable
+1. Prerequisite: Onboard, unlock, connected to KERIA
+2. Stop the KERIA server (or block its port)
+3. Trigger a KERIA operation (e.g., navigate to a page that fetches credentials, or wait for notification poll)
+
+    Expected:
+    - [ ] AppBar shows CloudOff icon (warning color) with tooltip "Cannot reach KERIA server — retrying..."
+    - [ ] Developer State page shows `IsKeriaReachable = false`
+    - [ ] Service worker logs show `network_error` classification and retry attempts for read-only operations
+    - [ ] Console shows retry attempts: signifyClient errors followed by delays (1s, 2s)
+
+4. Restart the KERIA server
+5. Wait for the next notification poll or trigger a manual operation
+
+    Expected:
+    - [ ] AppBar returns to green link icon
+    - [ ] Developer State page shows `IsKeriaReachable = true`
+
+## C. Retry on Transient Network Failure
+1. Prerequisite: Connected to KERIA
+2. In Chrome DevTools Network tab, enable throttling or briefly toggle offline during a credential fetch
+3. Watch the service worker console
+
+    Expected:
+    - [ ] Read-only operations (notificationsList, getCredentialsList, etc.) retry up to 2 times with exponential backoff (1s, 2s)
+    - [ ] Console shows: `signifyClient: <operationName> error` followed by retry attempts
+    - [ ] If the network recovers during retries, the operation succeeds without user intervention
+    - [ ] Non-idempotent operations (createAID, ipexAdmit, etc.) do NOT retry — they fail immediately
+
+## D. Service Worker Dormancy and Network State Recovery
+1. Prerequisite: Connected to KERIA
+2. Close all DevTools panels
+3. Wait for service worker to go inactive (~30s)
+4. Toggle network off, wait 5 seconds, toggle back on
+5. Wait for the next alarm-triggered poll (or manually wake the SW)
+
+    Expected:
+    - [ ] On wake, service worker re-checks `navigator.onLine` and writes correct `NetworkState`
+    - [ ] AppBar shows correct connectivity state after SW wake
+
+## E. Developer State Page Accuracy
+1. Prerequisite: Onboard and unlock
+2. Navigate to Developer > State
+
+    Expected:
+    - [ ] `IsNetworkOnline` shows at top of state tree with label "Browser reports network available"
+    - [ ] `IsKeriaReachable` shows with label "KERIA endpoint reachable"
+    - [ ] Both update reactively when connectivity changes (no page refresh needed)
 
 

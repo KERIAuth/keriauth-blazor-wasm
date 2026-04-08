@@ -27,6 +27,7 @@ public class NotificationPollingService : INotificationPollingService {
     public Func<Task>? OnSchemasNeeded { get; set; }
     public Func<bool>? IsClientReady { get; set; }
     public Func<bool>? IsLongOperationActive { get; set; }
+    public Func<bool>? IsNetworkOnline { get; set; }
 
     public NotificationPollingService(
         ISignifyClientService signifyClient,
@@ -62,6 +63,11 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task PollOnDemandAsync() {
+        if (IsNetworkOnline is not null && !IsNetworkOnline()) {
+            _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — browser is offline");
+            return;
+        }
+
         if (IsClientReady is not null && !IsClientReady()) {
             _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — signify client not ready (no passcode)");
             return;

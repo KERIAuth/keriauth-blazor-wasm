@@ -40,6 +40,22 @@
                 <MudText Typo="Typo.body2">@TimeoutTooltip</MudText>
             </div>
         }
+        else if (!IsNetworkOnline)
+        {
+            <MudTooltip Text="@NetworkOfflineTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
+                <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
+                    <MudIcon Icon="@Icons.Material.Filled.WifiOff" />
+                </MudPaper>
+            </MudTooltip>
+        }
+        else if (!IsKeriaReachable)
+        {
+            <MudTooltip Text="@KeriaUnreachableTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
+                <MudPaper Style="width: 2.5rem; height: inherit; border-radius: 50%; display: flex; box-shadow:none; align-items: center; justify-content: center; background-color: transparent; color:var(--mud-palette-warning)">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudOff" />
+                </MudPaper>
+            </MudTooltip>
+        }
         else if (!IsPortConnected)// && !Compact)
         {
             <MudTooltip Text="@PortDisconnectedTooltipText" Arrow="true" Placement="Placement.Left" Delay="500" Style="height:inherit;" RootStyle="height:inherit;">
@@ -143,6 +159,12 @@
     [Parameter]
     public bool IsMultiKeriaConfigEnabled { get; set; }
 
+    [Parameter]
+    public bool IsNetworkOnline { get; set; } = true;
+
+    [Parameter]
+    public bool IsKeriaReachable { get; set; } = true;
+
     private string ConnectedTooltipText => IsMultiKeriaConfigEnabled && !string.IsNullOrEmpty(KeriaAlias)
         ? $"Connected to KERIA Service ({KeriaAlias})"
         : "Connected to KERIA Service";
@@ -156,4 +178,6 @@
         : "Locked";
 
     private const string PortDisconnectedTooltipText = "Disconnected from extension. Reload to reconnect.";
+    private const string NetworkOfflineTooltipText = "No internet connection";
+    private const string KeriaUnreachableTooltipText = "Cannot reach KERIA server — retrying...";
 }

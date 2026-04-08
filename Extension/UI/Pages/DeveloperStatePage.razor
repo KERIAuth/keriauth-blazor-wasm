@@ -47,6 +47,10 @@
         // NOTE: This list reflects actual AppCache property definitions
         Conditions = new()
         {
+            // Network connectivity
+            new BoolItem(() => appCache.IsNetworkOnline, "Browser reports network available", 1),
+            new BoolItem(() => appCache.IsKeriaReachable, "KERIA endpoint reachable", 1),
+
             // Root-level prerequisites
             new BoolItem(() => appCache.IsBwReady, "BW initialized, storage trustworthy", 1),
             new BoolItem(() => appBwPortService.IsConnected, "App↔BW port connected", 1),

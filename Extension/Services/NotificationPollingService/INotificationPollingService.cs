@@ -28,4 +28,10 @@ public interface INotificationPollingService {
     /// Polling is silently skipped when this returns true to avoid blocking the operation.
     /// </summary>
     Func<bool>? IsLongOperationActive { get; set; }
+
+    /// <summary>
+    /// Gate that returns true when the browser reports network connectivity.
+    /// Polling is silently skipped when this returns false to avoid wasting fetch attempts.
+    /// </summary>
+    Func<bool>? IsNetworkOnline { get; set; }
 }

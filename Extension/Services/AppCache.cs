@@ -195,6 +195,18 @@
 
         public PollingState MyPollingState { get; private set; } = new PollingState();
 
+        public NetworkState MyNetworkState { get; private set; } = new NetworkState();
+
+        /// <summary>
+        /// Whether the browser reports network connectivity (from BackgroundWorker via session storage).
+        /// </summary>
+        public bool IsNetworkOnline => MyNetworkState.IsOnline;
+
+        /// <summary>
+        /// Whether the KERIA agent endpoint is reachable (from BackgroundWorker via session storage).
+        /// </summary>
+        public bool IsKeriaReachable => MyNetworkState.IsKeriaReachable;
+
         public Dictionary<string, string> MyCachedExns { get; private set; } = [];
 
         public List<WebsiteConfig> MyWebsiteConfigs => MyKeriaConnectConfig.WebsiteConfigs;
@@ -663,6 +675,11 @@
                         cache._logger.LogDebug(nameof(AppCache) + ": updated MyCachedExns (count={Count})", cache.MyCachedExns.Count);
                         dirty = true;
                     }
+                    if (batch.Contains<NetworkState>()) {
+                        cache.MyNetworkState = batch.GetNew<NetworkState>() ?? new NetworkState();
+                        cache._logger.LogDebug(nameof(AppCache) + ": updated MyNetworkState: IsOnline={IsOnline}, IsKeriaReachable={IsKeriaReachable}", cache.MyNetworkState.IsOnline, cache.MyNetworkState.IsKeriaReachable);
+                        dirty = true;
+                    }
                     if (batch.Contains<SessionSequence>()) {
                         var seq = batch.GetNew<SessionSequence>();
                         if (seq is not null) Interlocked.Exchange(ref cache._lastProcessedSeq, seq.Seq);
@@ -756,6 +773,7 @@
                 typeof(CachedCredentials),
                 typeof(PollingState),
                 typeof(CachedExns),
+                typeof(NetworkState),
                 typeof(SessionSequence));
             await Task.WhenAll(localTask, sessionTask);
 
@@ -891,6 +909,15 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedExns not found or empty");
             }
 
+            var networkState = session?.Get<NetworkState>();
+            if (networkState is not null) {
+                MyNetworkState = networkState;
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - NetworkState loaded (IsOnline={IsOnline}, IsKeriaReachable={IsKeriaReachable})", networkState.IsOnline, networkState.IsKeriaReachable);
+            }
+            else {
+                _logger.LogDebug(nameof(AppCache) + ": Initial fetch - NetworkState not found (assuming online)");
+            }
+
             var sessionSeq = session?.Get<SessionSequence>();
             if (sessionSeq is not null) {
                 _lastProcessedSeq = sessionSeq.Seq;
@@ -900,7 +927,7 @@
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - SessionSequence not found");
             }
 
-            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 5 keys, Session 8 keys)");
+            _logger.LogInformation(nameof(AppCache) + ": Initial fetch complete (2 bulk reads: Local 5 keys, Session 10 keys)");
         }
 
         /// <summary>

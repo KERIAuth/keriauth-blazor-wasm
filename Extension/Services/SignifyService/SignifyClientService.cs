@@ -52,6 +52,7 @@ namespace Extension.Services.SignifyService {
             }
 
             if (envelope.Ok) {
+                SignalKeriaReachability(true);
                 var rawValue = envelope.Value?.GetRawText();
                 if (string.IsNullOrEmpty(rawValue)) {
                     return Result.Fail<string>(new JavaScriptInteropError(operationName, "Success result with null/empty value"));
@@ -60,6 +61,9 @@ namespace Extension.Services.SignifyService {
             }
 
             // Map error codes to typed FluentResults errors
+            // TODO P2: For non-idempotent operations that fail with network_error,
+            // implement recovery logic (check-then-retry) rather than blind retry.
+            // Idempotent operations already retry automatically in signifyClient.ts.
             IError error = envelope.Code switch {
                 "not_connected" => new NotConnectedError(envelope.Message ?? "Unknown"),
                 "network_error" => new ConnectionError("KERIA", envelope.Message ?? "Network error"),
@@ -68,11 +72,25 @@ namespace Extension.Services.SignifyService {
                 _ => new JavaScriptInteropError(operationName, envelope.Message ?? "Unknown error"),
             };
 
+            if (envelope.Code is "network_error" or "not_connected") {
+                SignalKeriaReachability(false);
+            }
+
             logger.LogWarning("{Op}: JS error [{Code}]: {Message}", operationName, envelope.Code, envelope.Message);
             return Result.Fail<string>(error);
         }
 
         public bool IsConnected { get; private set; }
+
+        public event Action<bool>? KeriaReachabilityChanged;
+        private bool _lastKeriaReachable = true;
+
+        private void SignalKeriaReachability(bool reachable) {
+            if (_lastKeriaReachable != reachable) {
+                _lastKeriaReachable = reachable;
+                KeriaReachabilityChanged?.Invoke(reachable);
+            }
+        }
 
         private int _longOperationCount;
         public bool IsLongOperationActive => _longOperationCount > 0;

@@ -120,6 +120,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IPrimeDataService _primeDataService;
     private readonly IConfigureService _configureService;
     private readonly INotificationPollingService _notificationPollingService;
+    private readonly INetworkConnectivityService _networkConnectivityService;
     private CancellationTokenSource? _notificationPollingCts;
 
     // Monotonic counter for session storage writes. AppCache uses this to detect
@@ -148,7 +149,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IBwPortService portService,
         IPrimeDataService primeDataService,
         IConfigureService configureService,
-        INotificationPollingService notificationPollingService) {
+        INotificationPollingService notificationPollingService,
+        INetworkConnectivityService networkConnectivityService) {
         this.logger = logger;
         _jsRuntime = jsRuntime;
         _signifyClientBinding = signifyClientBinding;
@@ -165,17 +167,51 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _primeDataService = primeDataService;
         _configureService = configureService;
         _notificationPollingService = notificationPollingService;
+        _networkConnectivityService = networkConnectivityService;
+        _networkConnectivityService.OnlineStateChanged += OnNetworkOnlineStateChanged;
+        _signifyClientService.KeriaReachabilityChanged += OnKeriaReachabilityChanged;
         _notificationPollingService.OnCredentialNotificationsChanged = () => RefreshCachedCredentialsAsync();
         _notificationPollingService.OnSchemasNeeded = async () => {
             await EnsureAllManifestSchemasResolvedAsync("NotificationPolling");
         };
         _notificationPollingService.IsClientReady = () => _signifyClientService.IsConnected;
         _notificationPollingService.IsLongOperationActive = () => _signifyClientService.IsLongOperationActive;
+        _notificationPollingService.IsNetworkOnline = () => _networkConnectivityService.IsOnline;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);
         _portService.RegisterAppRpcHandler(HandleAppRpcAsync);
         _portService.RegisterEventHandler(HandlePortEventAsync);
+    }
+
+    private void OnNetworkOnlineStateChanged(bool isOnline) {
+        _ = WriteNetworkStateAsync(isOnline: isOnline);
+    }
+
+    private void OnKeriaReachabilityChanged(bool isReachable) {
+        _ = WriteNetworkStateAsync(isKeriaReachable: isReachable);
+    }
+
+    private async Task WriteNetworkStateAsync(bool? isOnline = null, bool? isKeriaReachable = null) {
+        try {
+            var currentResult = await _storageGateway.GetItem<NetworkState>(StorageArea.Session);
+            var current = currentResult.IsSuccess ? currentResult.Value : null;
+            var baseline = current ?? new NetworkState();
+            var updated = baseline with {
+                IsOnline = isOnline ?? baseline.IsOnline,
+                IsKeriaReachable = isKeriaReachable ?? baseline.IsKeriaReachable
+            };
+            // Skip write if nothing changed
+            if (updated == baseline && current is not null) return;
+            await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
+                tx.SetItem(updated);
+                tx.SetItem(NextSessionSequence());
+            });
+            logger.LogInformation("NetworkState written: IsOnline={IsOnline}, IsKeriaReachable={IsKeriaReachable}", updated.IsOnline, updated.IsKeriaReachable);
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "Failed to write NetworkState to session storage");
+        }
     }
 
     // onInstalled fires when the extension is first installed, updated, or Chrome is updated. Good for setup tasks (e.g., initialize storage, create default rules).
@@ -290,6 +326,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // If session is unlocked, try to reconnect signify-ts client
             // This handles the case where service worker was restarted but session is still valid
             await TryReconnectSignifyClientIfSessionUnlockedAsync();
+
+            // Start (or re-start) network connectivity listener — reports current navigator.onLine state
+            await _networkConnectivityService.StartListeningAsync();
 
             // Notify any already-running App, which may have lost their port connection if BW was inactive, so they can reconnect
             try {

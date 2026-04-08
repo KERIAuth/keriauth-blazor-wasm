@@ -24,6 +24,12 @@ namespace Extension.Services.SignifyService {
         IDisposable BeginLongOperation();
 
         /// <summary>
+        /// Fired when KERIA reachability changes based on operation results.
+        /// True = successful operation, False = network_error or not_connected.
+        /// </summary>
+        event Action<bool>? KeriaReachabilityChanged;
+
+        /// <summary>
         /// Clears connection state and resets the signify-ts client.
         /// Called when session locks or passcode is cleared.
         /// </summary>

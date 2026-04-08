@@ -37,7 +37,9 @@
                                         OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
                                         OnLockClick="@(() => navManager.NavigateTo(Routes.Paths.Unlock))"
                                         KeriaAlias="@KeriaAlias"
-                                        IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
+                                        IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled"
+                                        IsNetworkOnline="@appCache.IsNetworkOnline"
+                                        IsKeriaReachable="@appCache.IsKeriaReachable" />
 
             </MudStack>
         </MudAppBar>

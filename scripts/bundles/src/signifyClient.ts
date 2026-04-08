@@ -100,6 +100,29 @@ class BootAuthRequiredError extends Error {
     }
 }
 
+/**
+ * Retry wrapper for transient network errors (Failed to fetch).
+ * Only used for idempotent/read-only operations.
+ */
+const withRetry = async <T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 2,
+    baseDelayMs: number = 1000
+): Promise<T> => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err;
+            const isTransient = err instanceof TypeError && err.message === 'Failed to fetch';
+            if (!isTransient || attempt === maxRetries) throw err;
+            await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt)));
+        }
+    }
+    throw lastError;
+};
+
 /** Classify a caught error into an ErrorCode + message for C# consumption */
 const classifyError = (error: unknown): { code: ErrorCode; message: string } => {
     if (error instanceof BootAuthRequiredError) {
@@ -236,14 +259,26 @@ export const disconnect = (): void => {
 const withClientOperation = async (
     operationName: string,
     operation: (client: SignifyClient) => Promise<unknown>,
-    logParams?: Record<string, unknown>
+    logParams?: Record<string, unknown>,
+    options?: { retry?: boolean }
 ): Promise<string> => {
     const paramString = logParams
         ? ` - ${Object.entries(logParams).map(([k, v]) => `${k}: ${v}`).join(', ')}`
         : '';
+
+    // Early exit if browser is known-offline
+    if (!navigator.onLine) {
+        console.warn(`signifyClient: ${operationName} skipped — browser is offline${paramString}`);
+        const wrapped: ResultErr = { ok: false, code: 'network_error', message: 'Browser is offline' };
+        return JSON.stringify(wrapped);
+    }
+
     try {
         const client = await validateClient();
-        const result = await operation(client);
+        const doOperation = () => operation(client);
+        const result = options?.retry
+            ? await withRetry(doOperation)
+            : await doOperation();
 
         console.debug(`signifyClient: ${operationName}${paramString}`);
 
@@ -552,7 +587,7 @@ const _getState = async (client: SignifyClient): Promise<unknown> => {
  * @returns JSON string of ClientState wrapped in Result envelope
  */
 export const getState = async (): Promise<string> => {
-    return withClientOperation('getState', _getState);
+    return withClientOperation('getState', _getState, undefined, { retry: true });
 };
 
 // ===================== Identifier (AID) Operations =====================
@@ -645,7 +680,9 @@ export const getAIDs = async (): Promise<string> => {
         async (client) => {
             const managedIdentifiers = await client.identifiers().list();
             return managedIdentifiers;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -658,7 +695,8 @@ export const getAID = async (name: string): Promise<string> => {
     return withClientOperation(
         'getAID',
         (client) => client.identifiers().get(name),
-        { Name: name }
+        { Name: name },
+        { retry: true }
     );
 };
 
@@ -674,7 +712,8 @@ export const getNameByPrefix = async (prefix: string): Promise<string> => {
             const aid: HabState = await client.identifiers().get(prefix);
             return aid.name ?? '';
         },
-        { Prefix: prefix }
+        { Prefix: prefix },
+        { retry: true }
     );
     // Return the raw string, not JSON-encoded
     return JSON.parse(result) as string;
@@ -692,7 +731,8 @@ export const getIdentifierByPrefix = async (prefix: string): Promise<string> => 
             const aid: HabState = await client.identifiers().get(prefix);
             return aid;
         },
-        { Prefix: prefix }
+        { Prefix: prefix },
+        { retry: true }
     );
 };
 
@@ -726,7 +766,8 @@ export const getCredentialsList = async (): Promise<string> => {
             const credentials: CredentialResult[] = await client.credentials().list();
             return credentials;
         },
-        { Count: 'retrieved' }
+        { Count: 'retrieved' },
+        { retry: true }
     );
 };
 
@@ -748,7 +789,9 @@ export const credentialsListFilteredCesr = async (filterJson: string): Promise<s
                 cesrResults.push(cesr);
             }
             return cesrResults;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -776,7 +819,8 @@ export const credentialsBySchemaAndIssuerCesr = async (
             }
             return cesrResults;
         },
-        { SchemaSaid: schemaSaid, IssuerPrefix: issuerPrefix }
+        { SchemaSaid: schemaSaid, IssuerPrefix: issuerPrefix },
+        { retry: true }
     );
 };
 
@@ -801,7 +845,8 @@ export const getCredential = async (
                 return credResult;
             }
         },
-        { SAID: id, IncludeCESR: includeCESR }
+        { SAID: id, IncludeCESR: includeCESR },
+        { retry: true }
     );
 };
 
@@ -919,7 +964,8 @@ export const credentialsState = async (ri: string, said: string): Promise<string
             const state: CredentialState = await client.credentials().state(ri, said);
             return state;
         },
-        { SAID: said }
+        { SAID: said },
+        { retry: true }
     );
 };
 
@@ -1349,7 +1395,8 @@ export const oobiGet = async (name: string, role?: string): Promise<string> => {
     return withClientOperation(
         'oobiGet',
         (client) => client.oobis().get(name, role),
-        { Name: name, Role: role }
+        { Name: name, Role: role },
+        { retry: true }
     );
 };
 
@@ -1357,7 +1404,8 @@ export const oobiResolve = async (oobi: string, alias?: string): Promise<string>
     return withClientOperation(
         'oobiResolve',
         (client) => client.oobis().resolve(oobi, alias),
-        { Alias: alias }
+        { Alias: alias },
+        { retry: true }
     );
 };
 
@@ -1367,7 +1415,8 @@ export const operationsGet = async <T = unknown>(name: string): Promise<string> 
     return withClientOperation(
         'operationsGet',
         (client) => client.operations().get<T>(name),
-        { Name: name }
+        { Name: name },
+        { retry: true }
     );
 };
 
@@ -1375,7 +1424,8 @@ export const operationsList = async (type?: string): Promise<string> => {
     return withClientOperation(
         'operationsList',
         (client) => client.operations().list(type),
-        { Type: type }
+        { Type: type },
+        { retry: true }
     );
 };
 
@@ -1419,7 +1469,8 @@ export const registriesList = async (name: string): Promise<string> => {
             const registries: Registry[] = await client.registries().list(name);
             return registries;
         },
-        { Name: name }
+        { Name: name },
+        { retry: true }
     );
 };
 
@@ -1484,7 +1535,9 @@ export const contactsList = async (group?: string, filterField?: string, filterV
         async (client) => {
             const contacts: Contact[] = await client.contacts().list(group, filterField, filterValue);
             return contacts;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -1495,7 +1548,8 @@ export const contactsGet = async (prefix: string): Promise<string> => {
             const contact: Contact = await client.contacts().get(prefix);
             return contact;
         },
-        { Prefix: prefix }
+        { Prefix: prefix },
+        { retry: true }
     );
 };
 
@@ -1564,7 +1618,9 @@ export const schemasList = async (): Promise<string> => {
         async (client) => {
             const schemas: Schema[] = await client.schemas().list();
             return schemas;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -1580,7 +1636,9 @@ export const notificationsList = async (start?: number, end?: number): Promise<s
             // signify-ts returns { start, end, total, notes: [...] }
             // C# expects a bare array of notification objects
             return result.notes;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -1618,7 +1676,8 @@ export const escrowsListReply = async (route?: string): Promise<string> => {
     return withClientOperation(
         'escrowsListReply',
         (client) => client.escrows().listReply(route),
-        { Route: route }
+        { Route: route },
+        { retry: true }
     );
 };
 
@@ -1633,7 +1692,8 @@ export const groupsGetRequest = async (said: string): Promise<string> => {
     return withClientOperation(
         'groupsGetRequest',
         (client) => client.groups().getRequest(said),
-        { SAID: said }
+        { SAID: said },
+        { retry: true }
     );
 };
 
@@ -1704,7 +1764,8 @@ export const exchangesGet = async (said: string): Promise<string> => {
     return withClientOperation(
         'exchangesGet',
         (client) => client.exchanges().get(said),
-        { SAID: said }
+        { SAID: said },
+        { retry: true }
     );
 };
 
@@ -1802,7 +1863,8 @@ export const keyEventsGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'keyEventsGet',
         (client) => client.keyEvents().get(prefix),
-        { Prefix: prefix }
+        { Prefix: prefix },
+        { retry: true }
     );
 };
 
@@ -1817,7 +1879,8 @@ export const keyStatesGet = async (prefix: string): Promise<string> => {
     return withClientOperation(
         'keyStatesGet',
         (client) => client.keyStates().get(prefix),
-        { Prefix: prefix }
+        { Prefix: prefix },
+        { retry: true }
     );
 };
 
@@ -1832,7 +1895,9 @@ export const keyStatesList = async (prefixesJson: string): Promise<string> => {
         async (client) => {
             const prefixes = JSON.parse(prefixesJson) as string[];
             return await client.keyStates().list(prefixes);
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -1850,7 +1915,8 @@ export const keyStatesQuery = async (prefix: string, sn?: string, anchorJson?: s
             const anchor = anchorJson ? JSON.parse(anchorJson) : undefined;
             return await client.keyStates().query(prefix, sn, anchor);
         },
-        { Prefix: prefix, SN: sn }
+        { Prefix: prefix, SN: sn },
+        { retry: true }
     );
 };
 
@@ -1866,7 +1932,9 @@ export const configGet = async (): Promise<string> => {
         async (client) => {
             const config: AgentConfig = await client.config().get();
             return config;
-        }
+        },
+        undefined,
+        { retry: true }
     );
 };
 
@@ -1884,7 +1952,8 @@ export const challengesGenerate = async (strength: number = 128): Promise<string
             const challenge: Challenge = await client.challenges().generate(strength);
             return challenge;
         },
-        { Strength: strength }
+        { Strength: strength },
+        { retry: true }
     );
 };
 
@@ -1938,7 +2007,8 @@ export const challengesResponded = async (source: string, said: string): Promise
             const response = await client.challenges().responded(source, said);
             return { ok: response.ok, status: response.status };
         },
-        { Source: source, SAID: said }
+        { Source: source, SAID: said },
+        { retry: true }
     );
 };
 

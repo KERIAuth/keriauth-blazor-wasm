@@ -889,6 +889,9 @@ namespace Extension.Services.PrimeDataService {
             }
         }
 
+        // TODO P2: CreateAidWithEndRole is a composite non-idempotent operation.
+        // On network error, the AID may have been partially created in KERIA.
+        // Recovery should check if AID exists before retrying.
         private async Task<Result<AidWithOobi>> CreateAidStep(string name, string stepLabel) {
             _logger.LogInformation("{Step}: Creating AID '{Name}'...", stepLabel, name);
             var result = await _signifyClient.CreateAidWithEndRole(name);

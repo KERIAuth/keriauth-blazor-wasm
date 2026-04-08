@@ -233,7 +233,9 @@
                                     SessionDurationRemainingSeconds="@SessionDurationRemainingSeconds"
                                     OnHoverChanged="@((hovered) => isTimeoutHovered = hovered)"
                                     KeriaAlias="@KeriaAlias"
-                                    IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled" />
+                                    IsMultiKeriaConfigEnabled="@IsMultiKeriaConfigEnabled"
+                                    IsNetworkOnline="@appCache.IsNetworkOnline"
+                                    IsKeriaReachable="@appCache.IsKeriaReachable" />
 
             <!-- Active Profile Display -->
             <div id="activeProfileDisplay" style="align-self:center; height: 2.5rem;">
