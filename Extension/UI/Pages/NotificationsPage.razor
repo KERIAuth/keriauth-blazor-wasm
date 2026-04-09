@@ -49,11 +49,23 @@
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
 
+        new(ViewDefIds.NotifUnreadProfile, "Unread (active profile)",
+            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix && !n.IsRead]),
+                         new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix && !n.IsRead])],
+            SubtotalFilterSets: ProfileSubtotalFilterSets,
+            CountStyle: CountStyle.OfSubTotal,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+
         new(ViewDefIds.NotifProfile, "All (active profile)",
             FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix]),
                          new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
+            SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
+        
+        new(ViewDefIds.NotifUnreadAll, "All unread",
+            FilterSets: [new("Unread", [(Notification n) => !n.IsRead])],
+            CountStyle: CountStyle.Total,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
         
         new(ViewDefIds.NotifAll, "All",
