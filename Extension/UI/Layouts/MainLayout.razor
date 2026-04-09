@@ -303,15 +303,16 @@
                     <MudNavLink Ripple="false" Href="@Routes.Paths.Passkeys" Icon="@Icons.Material.Filled.Key" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Passkeys</MudNavLink>
                     <MudNavLink Ripple="false" Href="@Routes.Paths.KeriaConfigs" Icon="@Icons.Material.Filled.Cloud" IconColor="Color.Surface">KERIA</MudNavLink>
                     <MudNavGroup Ripple="false" Title="Developer" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
-                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTheme" Icon="@Icons.Material.Filled.Palette" IconColor="Color.Surface">Theme</MudNavLink>
-                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperState" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">State</MudNavLink>
-                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTest" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test</MudNavLink>
+                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperState" Icon="@Icons.Material.Filled.Label" IconColor="Color.Surface">App states</MudNavLink>
+                        <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTest" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.Rule" IconColor="Color.Surface">Test actions</MudNavLink>
                         <MudNavLink Ripple="false" Href="@Routes.Paths.PrimeData" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.DataObject" IconColor="Color.Surface">Create test data</MudNavLink>
+                        @* // TODO P3 fix these draft pages before showing them
                         <MudNavGroup Ripple="false" Title="Draft pages" Icon="@Icons.Material.Filled.Science" IconColor="Color.Surface" Style="padding-right: 0;">
                             <MudNavLink Ripple="false" Href="@Routes.Paths.Presentations" Disabled="@(!appCache.IsAuthenticated)" Icon="@Icons.Material.Filled.PresentToAll" IconColor="Color.Surface">Presentations</MudNavLink>
                             <MudNavLink Ripple="false" Href="@Routes.Paths.Mnemonic" Icon="@Icons.Material.Filled.Password" Disabled="@(!appCache.IsAuthenticated)" IconColor="Color.Surface">Recovery phrase</MudNavLink>
-
+                            <MudNavLink Ripple="false" Href="@Routes.Paths.DeveloperTheme" Icon="@Icons.Material.Filled.Palette" IconColor="Color.Surface">Theme</MudNavLink>
                         </MudNavGroup>
+                        *@
                     </MudNavGroup>
                     <MudNavLink Ripple="false" Href="@Routes.Paths.Delete" Icon="@Icons.Material.Filled.DeleteForever" IconColor="Color.Surface">Reset all…</MudNavLink>
                 </MudNavGroup>
