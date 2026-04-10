@@ -24,7 +24,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueReadAsync_Success_ReturnsResult() {
-        var result = await _broker.EnqueueReadAsync("Test",
+        var result = await _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => Task.FromResult(Result.Ok("hello")));
 
         Assert.True(result.IsSuccess);
@@ -33,7 +33,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueCommandAsync_Success_ReturnsResult() {
-        var result = await _broker.EnqueueCommandAsync("Test",
+        var result = await _broker.EnqueueCommandAsync(SignifyOperation.Connect,
             _ => Task.FromResult(Result.Ok(42)));
 
         Assert.True(result.IsSuccess);
@@ -42,7 +42,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueCommandAsync_NonGeneric_Success() {
-        var result = await _broker.EnqueueCommandAsync("Test",
+        var result = await _broker.EnqueueCommandAsync(SignifyOperation.Disconnect,
             _ => Task.FromResult(Result.Ok()));
 
         Assert.True(result.IsSuccess);
@@ -50,7 +50,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueBackgroundAsync_Success_ReturnsResult() {
-        var result = await _broker.EnqueueBackgroundAsync("Test",
+        var result = await _broker.EnqueueBackgroundAsync(SignifyOperation.ListNotifications,
             _ => Task.FromResult(Result.Ok("bg")));
 
         Assert.True(result.IsSuccess);
@@ -59,7 +59,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueReadAsync_Failure_PropagatesErrors() {
-        var result = await _broker.EnqueueReadAsync<string>("Test",
+        var result = await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
             _ => Task.FromResult(Result.Fail<string>("something broke")));
 
         Assert.True(result.IsFailed);
@@ -72,7 +72,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
         var gate = new TaskCompletionSource();
 
         // Enqueue a blocking command to hold the drain loop
-        var blockingTask = _broker.EnqueueCommandAsync("Blocking",
+        var blockingTask = _broker.EnqueueCommandAsync(SignifyOperation.Connect,
             async _ => {
                 await gate.Task;
                 order.Add("blocking");
@@ -83,10 +83,10 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
         await Task.Delay(50);
 
         // Now enqueue a read and a command while the loop is blocked
-        var readTask = _broker.EnqueueReadAsync("Read",
+        var readTask = _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => { order.Add("read"); return Task.FromResult(Result.Ok("r")); });
 
-        var cmdTask = _broker.EnqueueCommandAsync("Command",
+        var cmdTask = _broker.EnqueueCommandAsync(SignifyOperation.Disconnect,
             _ => { order.Add("command"); return Task.FromResult(Result.Ok("c")); });
 
         // Release the blocking command
@@ -105,7 +105,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
         var order = new List<string>();
         var gate = new TaskCompletionSource();
 
-        var blockingTask = _broker.EnqueueCommandAsync("Blocking",
+        var blockingTask = _broker.EnqueueCommandAsync(SignifyOperation.Connect,
             async _ => {
                 await gate.Task;
                 order.Add("blocking");
@@ -114,10 +114,10 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
         await Task.Delay(50);
 
-        var bgTask = _broker.EnqueueBackgroundAsync("BG",
+        var bgTask = _broker.EnqueueBackgroundAsync(SignifyOperation.ListNotifications,
             _ => { order.Add("bg"); return Task.FromResult(Result.Ok("b")); });
 
-        var readTask = _broker.EnqueueReadAsync("Read",
+        var readTask = _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => { order.Add("read"); return Task.FromResult(Result.Ok("r")); });
 
         gate.SetResult();
@@ -129,12 +129,12 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
     }
 
     [Fact]
-    public async Task SuspendBackground_PreventsBackgroundExecution() {
+    public async Task PrioritizeInteractive_PreventsBackgroundExecution() {
         var order = new List<string>();
         var gate = new TaskCompletionSource();
 
         // Start a blocking command
-        var blockingTask = _broker.EnqueueCommandAsync("Blocking",
+        var blockingTask = _broker.EnqueueCommandAsync(SignifyOperation.Connect,
             async _ => {
                 await gate.Task;
                 order.Add("blocking");
@@ -144,13 +144,13 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
         await Task.Delay(50);
 
         // Suspend background
-        var suspension = _broker.SuspendBackground();
+        var suspension = _broker.PrioritizeInteractive();
 
         // Enqueue background and read while suspended
-        var bgTask = _broker.EnqueueBackgroundAsync("BG",
+        var bgTask = _broker.EnqueueBackgroundAsync(SignifyOperation.ListNotifications,
             _ => { order.Add("bg"); return Task.FromResult(Result.Ok("b")); });
 
-        var readTask = _broker.EnqueueReadAsync("Read",
+        var readTask = _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => { order.Add("read"); return Task.FromResult(Result.Ok("r")); });
 
         // Release the blocking command
@@ -178,7 +178,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task Reachability_SingleFailure_StaysTrue() {
-        await _broker.EnqueueReadAsync<string>("Test",
+        await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
             _ => Task.FromResult(Result.Fail<string>(
                 new ConnectionError("keria", "Failed to fetch"))));
 
@@ -191,7 +191,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
         _broker.KeriaReachabilityChanged += r => lastReachable = r;
 
         for (int i = 0; i < 3; i++) {
-            await _broker.EnqueueReadAsync<string>($"Fail{i}",
+            await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
                 _ => Task.FromResult(Result.Fail<string>(
                     new ConnectionError("keria", "Failed to fetch"))));
         }
@@ -204,18 +204,18 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
     public async Task Reachability_SuccessResetsCounter() {
         // Two failures
         for (int i = 0; i < 2; i++) {
-            await _broker.EnqueueReadAsync<string>($"Fail{i}",
+            await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
                 _ => Task.FromResult(Result.Fail<string>(
                     new ConnectionError("keria", "Failed to fetch"))));
         }
 
         // One success resets
-        await _broker.EnqueueReadAsync("Success",
+        await _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => Task.FromResult(Result.Ok("ok")));
 
         // Two more failures -- should not trigger unreachable (need 3 consecutive)
         for (int i = 0; i < 2; i++) {
-            await _broker.EnqueueReadAsync<string>($"Fail2_{i}",
+            await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
                 _ => Task.FromResult(Result.Fail<string>(
                     new ConnectionError("keria", "Failed to fetch"))));
         }
@@ -226,7 +226,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
     [Fact]
     public async Task Reachability_NonNetworkErrors_DontAffectCounter() {
         for (int i = 0; i < 5; i++) {
-            await _broker.EnqueueReadAsync<string>($"Fail{i}",
+            await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
                 _ => Task.FromResult(Result.Fail<string>(
                     new ValidationError("field", "invalid"))));
         }
@@ -241,14 +241,14 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
         // Trigger unreachable
         for (int i = 0; i < 3; i++) {
-            await _broker.EnqueueReadAsync<string>($"Fail{i}",
+            await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
                 _ => Task.FromResult(Result.Fail<string>(
                     new ConnectionError("keria", "Failed to fetch"))));
         }
         Assert.False(_broker.IsKeriaReachable);
 
         // One success recovers
-        await _broker.EnqueueReadAsync("Success",
+        await _broker.EnqueueReadAsync(SignifyOperation.GetState,
             _ => Task.FromResult(Result.Ok("ok")));
 
         Assert.True(_broker.IsKeriaReachable);
@@ -257,7 +257,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
     [Fact]
     public async Task EnqueueReadAsync_OperationException_ReturnsFailResult() {
-        var result = await _broker.EnqueueReadAsync<string>("Throws",
+        var result = await _broker.EnqueueReadAsync<string>(SignifyOperation.GetState,
             _ => throw new InvalidOperationException("boom"));
 
         Assert.True(result.IsFailed);
@@ -272,7 +272,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
 
         for (int i = 0; i < 5; i++) {
             var idx = i;
-            results.Add(_broker.EnqueueReadAsync($"Op{idx}", async _ => {
+            results.Add(_broker.EnqueueReadAsync(SignifyOperation.GetState, async _ => {
                 var current = Interlocked.Increment(ref concurrency);
                 if (current > maxConcurrency)
                     Interlocked.Exchange(ref maxConcurrency, current);

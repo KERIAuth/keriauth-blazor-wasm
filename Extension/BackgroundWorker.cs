@@ -17,6 +17,7 @@ using Extension.Services.NotificationPollingService;
 using Extension.Services.Port;
 using Extension.Services.ConfigureService;
 using Extension.Services.PrimeDataService;
+using Extension.Services.SignifyBroker;
 using Extension.Services.SignifyService;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
@@ -61,6 +62,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     private readonly IJsRuntimeAdapter _jsRuntimeAdapter;
     private readonly IStorageGateway _storageGateway;
     private readonly ISignifyClientService _signifyClientService;
+    private readonly ISignifyRequestBroker _broker;
     private readonly IWebsiteConfigService _websiteConfigService;
     private readonly IPendingBwAppRequestService _pendingBwAppRequestService;
     private readonly ISchemaService _schemaService;
@@ -149,6 +151,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         IBwPortService portService,
         IPrimeDataService primeDataService,
         IConfigureService configureService,
+        ISignifyRequestBroker broker,
         INotificationPollingService notificationPollingService,
         INetworkConnectivityService networkConnectivityService) {
         this.logger = logger;
@@ -157,6 +160,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _jsRuntimeAdapter = jsRuntimeAdapter;
         _storageGateway = storageGateway;
         _signifyClientService = signifyService;
+        _broker = broker;
         _websiteConfigService = websiteConfigService;
         _pendingBwAppRequestService = pendingBwAppRequestService;
         _schemaService = schemaService;
@@ -218,7 +222,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         try {
             logger.LogInformation(nameof(OnInstalledAsync) + ": installed/updated: {Reason}", details.Reason);
 
-            var readyRes = await _signifyClientService.TestAsync();
+            var readyRes = await _broker.EnqueueReadAsync(SignifyOperation.TestAsync, svc => svc.TestAsync());
             if (readyRes.IsSuccess) {
                 logger.LogInformation(nameof(OnInstalledAsync) + ": SignifyClientService is ready onInstalled");
             }
@@ -862,7 +866,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         public void OnNext(SessionStateModel? value) {
             if (value is null || value.SessionExpirationUtc == DateTime.MinValue) {
                 backgroundWorker.logger.LogInformation(nameof(SessionStatePollingObserver) + ": SessionStateModel cleared — disconnecting signify client and canceling notification polling");
-                _ = backgroundWorker._signifyClientService.Disconnect();
+                _ = backgroundWorker._broker.EnqueueCommandAsync(SignifyOperation.Disconnect, async svc => { await svc.Disconnect(); return Result.Ok(); });
                 _ = backgroundWorker.CancelNotificationPollingAsync();
             }
         }
@@ -1710,7 +1714,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (!string.IsNullOrEmpty(approvalPayload.CredentialSaid)) {
                 try {
                     // Fetch credentials from signify-ts
-                    var credentialsResult = await _signifyClientService.GetCredentials();
+                    var credentialsResult = await _broker.EnqueueReadAsync(SignifyOperation.GetCredentials,
+                        svc => svc.GetCredentials());
                     if (credentialsResult.IsFailed) {
                         logger.LogWarning(nameof(HandleAppReplyAidApprovalRpcAsync) + ": Failed to fetch credentials: {Error}",
                             credentialsResult.Errors.Count > 0 ? credentialsResult.Errors[0].Message : "Unknown error");
@@ -1960,6 +1965,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.PortId, pendingRequest.PortSessionId,
                     pendingRequest.RpcRequestId ?? requestId,
                     operationName: nameof(HandleAppReplyIpexApplyApprovalRpcAsync),
+                    brokerOp: SignifyOperation.IpexApplyAndSubmit,
                     operation: () => _signifyClientService.IpexApplyAndSubmit(new IpexApplySubmitArgs(
                         SenderNameOrPrefix: approvalPayload.SenderPrefix,
                         RecipientPrefix: approvalPayload.RecipientPrefix,
@@ -2041,6 +2047,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.PortId, pendingRequest.PortSessionId,
                     pendingRequest.RpcRequestId ?? requestId,
                     operationName: nameof(HandleAppReplyIpexAgreeApprovalRpcAsync),
+                    brokerOp: SignifyOperation.IpexAgreeAndSubmit,
                     operation: () => _signifyClientService.IpexAgreeAndSubmit(new IpexAgreeSubmitArgs(
                         SenderNameOrPrefix: approvalPayload.SenderPrefix,
                         RecipientPrefix: approvalPayload.RecipientPrefix,
@@ -2125,6 +2132,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     pendingRequest.PortId, pendingRequest.PortSessionId,
                     pendingRequest.RpcRequestId ?? requestId,
                     operationName: nameof(HandleAppReplyIpexAdmitApprovalRpcAsync),
+                    brokerOp: SignifyOperation.IpexAdmitAndSubmit,
                     operation: () => _signifyClientService.IpexAdmitAndSubmit(new IpexAdmitSubmitArgs(
                         SenderNameOrPrefix: approvalPayload.SenderPrefix,
                         RecipientPrefix: approvalPayload.RecipientPrefix,
@@ -2466,7 +2474,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             var healthUri = new Uri(healthCheckRequest.HealthUrl);
-            var healthCheckResult = await _signifyClientService.HealthCheck(healthUri);
+            var healthCheckResult = await _broker.EnqueueReadAsync(SignifyOperation.HealthCheck,
+                svc => svc.HealthCheck(healthUri));
 
             if (healthCheckResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2527,7 +2536,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             if (_signifyClientService.IsConnected && !connectRequest.IsNewAgent) {
                 logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Already connected, skipping redundant Connect");
                 skippedConnect = true;
-                var stateResult = await _signifyClientService.GetState();
+                var stateResult = await _broker.EnqueueReadAsync(SignifyOperation.GetState, svc => svc.GetState());
                 connectResult = stateResult.IsSuccess
                     ? Result.Ok(stateResult.Value)
                     : Result.Fail<State>(stateResult.Errors);
@@ -2539,7 +2548,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var pendingResult = await _pendingConnectTask;
                 skippedConnect = true;
                 if (pendingResult.IsSuccess) {
-                    var stateResult = await _signifyClientService.GetState();
+                    var stateResult = await _broker.EnqueueReadAsync(SignifyOperation.GetState, svc => svc.GetState());
                     connectResult = stateResult.IsSuccess
                         ? Result.Ok(stateResult.Value)
                         : Result.Fail<State>(stateResult.Errors);
@@ -2556,15 +2565,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // and in-flight polling calls would hit "Client not connected"
                 _notificationPollingCts?.Cancel();
 
-                using (_signifyClientService.BeginLongOperation()) {
-                    connectResult = await _signifyClientService.Connect(
-                        connectRequest.AdminUrl,
-                        passcode,
-                        connectRequest.BootUrl,
-                        connectRequest.IsNewAgent,
-                        connectRequest.BootAuthUsername,
-                        connectRequest.BootAuthPassword
-                    );
+                using (_broker.PrioritizeInteractive()) {
+                    connectResult = await _broker.EnqueueCommandAsync(SignifyOperation.Connect,
+                        svc => svc.Connect(
+                            connectRequest.AdminUrl,
+                            passcode,
+                            connectRequest.BootUrl,
+                            connectRequest.IsNewAgent,
+                            connectRequest.BootAuthUsername,
+                            connectRequest.BootAuthPassword
+                        ));
                 }
             }
 
@@ -2579,7 +2589,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
 
                 // Fetch identifiers and store in session for App to read
-                var identifiersResult = await _signifyClientService.GetIdentifiers();
+                var identifiersResult = await _broker.EnqueueReadAsync(SignifyOperation.GetIdentifiers,
+                    svc => svc.GetIdentifiers());
 
                 // Proactively cache credentials in session storage for App components to read directly
                 await RefreshCachedCredentialsAsync();
@@ -2677,7 +2688,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         try {
-            var credentialsResult = await _signifyClientService.GetCredentials();
+            var credentialsResult = await _broker.EnqueueReadAsync(SignifyOperation.GetCredentials,
+                svc => svc.GetCredentials());
 
             if (credentialsResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2712,17 +2724,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — signify not connected");
             return;
         }
-        if (_signifyClientService.IsLongOperationActive) {
-            logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — long operation active");
-            return;
-        }
         if (!force && await IsWithinPollSkipThresholdAsync(
                 ps => ps.CredentialsLastFetchedUtc, AppConfig.CredentialsPollSkipThreshold)) {
             logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Skipped — within poll threshold");
             return;
         }
         try {
-            var rawJsonResult = await _signifyClientService.GetCredentialsRaw();
+            var rawJsonResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetCredentialsRaw,
+                svc => svc.GetCredentialsRaw());
             if (rawJsonResult.IsSuccess) {
                 var credentialsDict = CredentialHelper.SplitCredentialsArrayToDict(rawJsonResult.Value);
                 var pollingState = await GetCurrentPollingStateAsync();
@@ -2802,7 +2811,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var keyStateResult = await _signifyClientService.GetKeyState(keyStateRequest.Prefix);
+            var keyStateResult = await _broker.EnqueueReadAsync(SignifyOperation.GetKeyState,
+                svc => svc.GetKeyState(keyStateRequest.Prefix));
 
             if (keyStateResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2848,7 +2858,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var keyEventsResult = await _signifyClientService.GetKeyEvents(keyEventsRequest.Prefix);
+            var keyEventsResult = await _broker.EnqueueReadAsync(SignifyOperation.GetKeyEvents,
+                svc => svc.GetKeyEvents(keyEventsRequest.Prefix));
 
             if (keyEventsResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2894,7 +2905,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var renameResult = await _signifyClientService.RenameAid(renameRequest.CurrentName, renameRequest.NewName);
+            var renameResult = await _broker.EnqueueCommandAsync(SignifyOperation.RenameAid,
+                svc => svc.RenameAid(renameRequest.CurrentName, renameRequest.NewName));
 
             if (renameResult.IsSuccess) {
                 // Refresh the identifiers cache after successful rename
@@ -3106,7 +3118,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var oobiResult = await _signifyClientService.GetOobi(getOobiRequest.AidName, "agent");
+            var oobiResult = await _broker.EnqueueReadAsync(SignifyOperation.GetOobi,
+                svc => svc.GetOobi(getOobiRequest.AidName, "agent"));
 
             if (oobiResult.IsSuccess && oobiResult.Value is not null) {
                 // The result contains an "oobis" field with an array of OOBI URLs
@@ -3155,7 +3168,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            var resolveResult = await _signifyClientService.ResolveOobi(resolveRequest.OobiUrl, resolveRequest.Alias);
+            var resolveResult = await _broker.EnqueueCommandAsync(SignifyOperation.ResolveOobi,
+                svc => svc.ResolveOobi(resolveRequest.OobiUrl, resolveRequest.Alias));
 
             if (resolveResult.IsSuccess) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -3376,9 +3390,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
-            using (_signifyClientService.BeginLongOperation()) {
+            using (_broker.PrioritizeInteractive()) {
                 // Look up ECR Auth credential held by sender
-                var credsResult = await _signifyClientService.GetCredentials();
+                var credsResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
+                    svc => svc.GetCredentials());
                 if (credsResult.IsFailed) {
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                         result: new IpexOfferResponsePayload(false, Error: $"Failed to get credentials: {credsResult.Errors[0].Message}"));
@@ -3397,7 +3412,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Create registry
                 var registryName = $"{senderName}_ecr_offer_registry";
-                var registryResult = await _signifyClientService.CreateRegistryIfNotExists(senderName, registryName);
+                var registryResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                    svc => svc.CreateRegistryIfNotExists(senderName, registryName));
                 if (registryResult.IsFailed) {
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                         result: new IpexOfferResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
@@ -3410,7 +3426,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var ecrRules = VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer);
 
                 logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Issuing ECR credential...");
-                var issueResult = await _signifyClientService.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueAndGetCredential,
+                    svc => svc.IssueAndGetCredential(new IssueAndGetCredentialArgs(
                     IssuerAidNameOrPrefix: senderName,
                     RegistryName: registryName,
                     Schema: VleiCredentialHelper.EcrSchemaSaid,
@@ -3419,7 +3436,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     CredEdge: ecrEdge,
                     CredRules: ecrRules,
                     Private: true
-                ));
+                )));
 
                 if (issueResult.IsFailed) {
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -3437,12 +3454,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 // Send IPEX Offer
                 logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Sending IPEX offer...");
-                var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
-                    SenderNameOrPrefix: senderPrefix,
-                    RecipientPrefix: recipientPrefix,
-                    CredentialSaid: credentialSaid,
-                    ApplySaid: offerRequest.ApplySaid
-                ));
+                var offerResult = await _broker.EnqueueCommandAsync(SignifyOperation.IpexOfferAndSubmit,
+                    svc => svc.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                        SenderNameOrPrefix: senderPrefix,
+                        RecipientPrefix: recipientPrefix,
+                        CredentialSaid: credentialSaid,
+                        ApplySaid: offerRequest.ApplySaid
+                    )));
 
                 if (offerResult.IsSuccess) {
                     var offerSaid = offerResult.Value["offerSaid"]?.StringValue;
@@ -3540,9 +3558,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        using (_signifyClientService.BeginLongOperation()) {
+        using (_broker.PrioritizeInteractive()) {
             // Look up ECR Auth credential held by sender
-            var credsResult = await _signifyClientService.GetCredentials();
+            var credsResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
+                svc => svc.GetCredentials());
             if (credsResult.IsFailed) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credsResult.Errors[0].Message}"));
@@ -3560,7 +3579,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Create registry
             var registryName = $"{senderName}_ecr_grant_registry";
-            var registryResult = await _signifyClientService.CreateRegistryIfNotExists(senderName, registryName);
+            var registryResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                svc => svc.CreateRegistryIfNotExists(senderName, registryName));
             if (registryResult.IsFailed) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
@@ -3573,7 +3593,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var ecrRules = VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer);
 
             logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Issuing ECR credential...");
-            var issueResult = await _signifyClientService.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+            var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueAndGetCredential,
+                svc => svc.IssueAndGetCredential(new IssueAndGetCredentialArgs(
                 IssuerAidNameOrPrefix: senderName,
                 RegistryName: registryName,
                 Schema: VleiCredentialHelper.EcrSchemaSaid,
@@ -3582,7 +3603,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 CredEdge: ecrEdge,
                 CredRules: ecrRules,
                 Private: true
-            ));
+            )));
 
             if (issueResult.IsFailed) {
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -3759,7 +3780,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case (true, false): {
                     // Selective disclosure grant path: elide ACDC, saidify in signify-ts, grant
-                    var credResult = await _signifyClientService.GetCredentials();
+                    var credResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
+                        svc => svc.GetCredentials());
                     if (credResult.IsFailed) {
                         await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                             result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credResult.Errors[0].Message}"));
@@ -3787,8 +3809,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
                         ": Elided ACDC prepared, calling grantWithElidedAcdc");
 
-                    var grantResult = await _signifyClientService.GrantWithElidedAcdc(
-                        senderName, elidedAcdcJson, grantRequest.CredentialSaid, grantRequest.RecipientPrefix);
+                    var grantResult = await _broker.EnqueueCommandAsync(SignifyOperation.GrantWithElidedAcdc,
+                        svc => svc.GrantWithElidedAcdc(
+                            senderName, elidedAcdcJson, grantRequest.CredentialSaid, grantRequest.RecipientPrefix));
 
                     result = grantResult.IsSuccess
                         ? Result.Ok(grantResult.Value["grantSaid"]?.StringValue ?? "")
@@ -3798,12 +3821,13 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case (false, true): {
                     // Full disclosure offer path: send IPEX offer with held credential
-                    var offerResult = await _signifyClientService.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
-                        SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
-                        RecipientPrefix: grantRequest.RecipientPrefix,
-                        CredentialSaid: grantRequest.CredentialSaid,
-                        ApplySaid: grantRequest.ApplySaid
-                    ));
+                    var offerResult = await _broker.EnqueueCommandAsync(SignifyOperation.IpexOfferAndSubmit,
+                        svc => svc.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                            SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
+                            RecipientPrefix: grantRequest.RecipientPrefix,
+                            CredentialSaid: grantRequest.CredentialSaid,
+                            ApplySaid: grantRequest.ApplySaid
+                        )));
                     result = offerResult.IsSuccess
                         ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
                         : Result.Fail<string>(offerResult.Errors);
@@ -3874,7 +3898,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Check if schema is already in KERIA and cache the body
-            var existingSchemaRaw = await _signifyClientService.GetSchemaRaw(schemaSaid);
+            var existingSchemaRaw = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetSchemaRaw,
+                svc => svc.GetSchemaRaw(schemaSaid));
             if (existingSchemaRaw.IsSuccess) {
                 logger.LogDebug("{Caller}: Schema {SchemaSaid} already resolved in KERIA", callerName, schemaSaid);
                 await AddToResolvedSchemaCacheAsync(schemaSaid, existingSchemaRaw.Value);
@@ -3897,13 +3922,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             foreach (var schemaOobi in schemaOobiUrls) {
                 try {
                     logger.LogInformation("{Caller}: Attempting to resolve schema OOBI: {Oobi}", callerName, schemaOobi);
-                    var resolveResult = await _signifyClientService.ResolveOobi(schemaOobi);
+                    var resolveResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.ResolveOobi,
+                        svc => svc.ResolveOobi(schemaOobi));
                     if (resolveResult.IsSuccess) {
                         var resolveOp = resolveResult.Value;
                         if (resolveOp.TryGetValue("name", out var nameValue) && nameValue.StringValue is string opName && !string.IsNullOrEmpty(opName)) {
                             logger.LogInformation("{Caller}: Waiting for schema OOBI resolution operation {OpName}", callerName, opName);
                             var op = new Operation(opName);
-                            var waitResult = await _signifyClientService.WaitForOperation(op);
+                            var waitResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.WaitForOperation,
+                                svc => svc.WaitForOperation(op));
                             if (waitResult.IsFailed) {
                                 logger.LogWarning("{Caller}: Operation wait failed for schema OOBI: {Error}", callerName, waitResult.Errors[0].Message);
                                 continue;
@@ -3912,7 +3939,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                         const int maxRetries = 5;
                         for (int attempt = 1; attempt <= maxRetries; attempt++) {
-                            var verifyResult = await _signifyClientService.GetSchemaRaw(schemaSaid);
+                            var verifyResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetSchemaRaw,
+                                svc => svc.GetSchemaRaw(schemaSaid));
                             if (verifyResult.IsSuccess) {
                                 logger.LogInformation("{Caller}: Successfully loaded and verified schema {SchemaSaid} from {Oobi} (attempt {Attempt})",
                                     callerName, schemaSaid, schemaOobi, attempt);
@@ -3994,7 +4022,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogDebug(ex, "GetExchangeCachedAsync: Cache read failed for {Said}, falling through to network", said);
         }
 
-        var rawResult = await _signifyClientService.GetExchangeRaw(said);
+        var rawResult = await _broker.EnqueueReadAsync(SignifyOperation.GetExchangeRaw,
+            svc => svc.GetExchangeRaw(said));
         if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
 
         await AddToExchangeCacheAsync(said, rawResult.Value);
@@ -4074,16 +4103,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         string portSessionId,
         string rpcRequestId,
         string operationName,
+        SignifyOperation brokerOp,
         Func<Task<Result<RecursiveDictionary>>> operation,
         string? saidKey = null,
         string? senderPrefix = null,
         Func<Task>? onSuccess = null) {
         try {
             logger.LogInformation("{Op}: Starting IPEX operation", operationName);
-            Result<RecursiveDictionary> result;
-            using (_signifyClientService.BeginLongOperation()) {
-                result = await operation();
-            }
+            var result = await _broker.EnqueueCommandAsync(brokerOp,
+                _ => operation());
 
             if (result.IsSuccess) {
                 var credentialPending = result.Value.TryGetValue("credentialPending", out var cpVal) ? cpVal?.BooleanValue : null;
@@ -4142,10 +4170,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // Resolve the page's OOBI to validate it and extract identity info
         string? resolvedAidPrefix = null;
         string? resolvedAlias = null;
-        Result<RecursiveDictionary> resolveResult;
-        using (_signifyClientService.BeginLongOperation()) {
-            resolveResult = await _signifyClientService.ResolveOobi(oobi);
-        }
+        var resolveResult = await _broker.EnqueueCommandAsync(SignifyOperation.ResolveOobi,
+            svc => svc.ResolveOobi(oobi));
         if (resolveResult.IsSuccess && resolveResult.Value is not null) {
             // Best-effort extraction of AID prefix from resolved result
             resolvedAidPrefix = resolveResult.Value.GetByPath("response.i")?.StringValue;
@@ -4459,7 +4485,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": aidName={AidName}", replyPayload.AidName);
 
             // Get own OOBI for the selected AID
-            var oobiResult = await _signifyClientService.GetOobi(replyPayload.AidName, "agent");
+            var oobiResult = await _broker.EnqueueReadAsync(SignifyOperation.GetOobi,
+                svc => svc.GetOobi(replyPayload.AidName, "agent"));
             if (oobiResult.IsFailed || oobiResult.Value is null) {
                 var errorMsg = oobiResult.Errors.Count > 0 ? oobiResult.Errors[0].Message : "Failed to get OOBI";
                 logger.LogError(nameof(HandleAppReplyConnectionInviteRpcAsync) + ": GetOobi failed: {Error}", errorMsg);
@@ -4651,7 +4678,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     // 2. Write sequence marker so App's WaitForAppCache can detect the lock
                     await _storageGateway.SetItem(NextSessionSequence(), StorageArea.Session);
                     // 3. Slower cleanup after session is authoritatively locked
-                    await _signifyClientService.Disconnect();
+                    await _broker.EnqueueCommandAsync(SignifyOperation.Disconnect, async svc => { await svc.Disconnect(); return Result.Ok(); });
                     await CancelNotificationPollingAsync();
                 }
                 catch (Exception ex) {
@@ -4703,7 +4730,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification ignored — signify not connected");
                         break;
                     }
-                    var markResult = await _signifyClientService.MarkNotification(saidValue);
+                    var markResult = await _broker.EnqueueCommandAsync(SignifyOperation.MarkNotification,
+                        svc => svc.MarkNotification(saidValue));
                     if (markResult.IsSuccess) {
                         await PollNotificationsThrottledAsync();
                     }
@@ -4732,7 +4760,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                         logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification ignored — signify not connected");
                         break;
                     }
-                    var deleteResult = await _signifyClientService.DeleteNotification(saidValue);
+                    var deleteResult = await _broker.EnqueueCommandAsync(SignifyOperation.DeleteNotification,
+                        svc => svc.DeleteNotification(saidValue));
                     if (deleteResult.IsSuccess) {
                         await PollNotificationsThrottledAsync();
                     }
@@ -5063,10 +5092,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             }
 
             // Create the identifier with end role
-            Result<AidWithOobi> createResult;
-            using (_signifyClientService.BeginLongOperation()) {
-                createResult = await _signifyClientService.CreateAidWithEndRole(addRequest.Alias);
-            }
+            var createResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateAidWithEndRole,
+                svc => svc.CreateAidWithEndRole(addRequest.Alias));
             if (createResult.IsFailed || createResult.Value is null) {
                 var errorMsg = string.Join("; ", createResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to create identifier: {Errors}", errorMsg);
@@ -5079,7 +5106,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 addRequest.Alias, createResult.Value.Prefix);
 
             // Refresh identifiers from KERIA
-            var identifiersResult = await _signifyClientService.GetIdentifiers();
+            var identifiersResult = await _broker.EnqueueReadAsync(SignifyOperation.GetIdentifiers,
+                svc => svc.GetIdentifiers());
             if (identifiersResult.IsFailed) {
                 var errorMsg = string.Join("; ", identifiersResult.Errors.Select(e => e.Message));
                 logger.LogWarning(nameof(HandleRequestAddIdentifierRpcAsync) + ": Failed to refresh identifiers: {Errors}", errorMsg);
@@ -5225,7 +5253,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
 
         try {
-            using var _ = _signifyClientService.BeginLongOperation();
+            using var _bgSuspend = _broker.PrioritizeInteractive();
             logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": Processing credential creation approval");
 
             // Deserialize the approval payload
@@ -5247,14 +5275,16 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             // Get registry for this AID, creating one if none exists
             string registryId;
-            var registriesResult = await _signifyClientService.ListRegistries(aidPrefix);
+            var registriesResult = await _broker.EnqueueCommandAsync(SignifyOperation.ListRegistries,
+                svc => svc.ListRegistries(aidPrefix));
             if (registriesResult.IsSuccess && registriesResult.Value.Count > 0) {
                 registryId = registriesResult.Value[0].Regk;
             }
             else {
                 logger.LogInformation(nameof(HandleCreateCredentialApprovalAsync) + ": no registry found for AID {AidPrefix}, creating one", aidPrefix);
                 var registryName = $"reg-{aidPrefix[..8]}-{schemaSaid[..8]}";
-                var createResult = await _signifyClientService.CreateRegistryIfNotExists(aidPrefix, registryName);
+                var createResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                    svc => svc.CreateRegistryIfNotExists(aidPrefix, registryName));
                 if (createResult.IsFailed) {
                     logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": failed to create registry: {Error}", createResult.Errors[0].Message);
                     await SendResponseAsync(null, "Failed to create credential registry: " + createResult.Errors[0].Message);
@@ -5310,7 +5340,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 aidPrefix, schemaSaid);
 
             // Issue the credential
-            var issueResult = await _signifyClientService.IssueCredential(aidPrefix, credentialData);
+            var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueCredential,
+                svc => svc.IssueCredential(aidPrefix, credentialData));
             if (issueResult.IsFailed) {
                 logger.LogWarning(nameof(HandleCreateCredentialApprovalAsync) + ": failed to issue credential: {Error}",
                     issueResult.Errors[0].Message);
@@ -5380,17 +5411,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — signify not connected");
             return;
         }
-        if (_signifyClientService.IsLongOperationActive) {
-            logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — long operation active");
-            return;
-        }
         if (!force && await IsWithinPollSkipThresholdAsync(
                 ps => ps.IdentifiersLastFetchedUtc, AppConfig.IdentifiersPollSkipThreshold)) {
             logger.LogDebug(nameof(RefreshIdentifiersCache) + ": Skipped — within poll threshold");
             return;
         }
         try {
-            var identifiersResult = await _signifyClientService.GetIdentifiers();
+            var identifiersResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetIdentifiers,
+                svc => svc.GetIdentifiers());
             if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                 var ps2 = await GetCurrentPollingStateAsync();
                 await _storageGateway.WriteTransaction(StorageArea.Session, tx => {
@@ -5466,7 +5494,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// </summary>
     private async Task<Result> EnsureSignifyConnectedAsync() {
         // Try a lightweight operation to check connection
-        var stateResult = await _signifyClientService.GetState();
+        var stateResult = await _broker.EnqueueReadAsync(SignifyOperation.GetState, svc => svc.GetState());
         if (stateResult.IsSuccess) {
             return Result.Ok();
         }
@@ -5555,13 +5583,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogInformation(nameof(TryConnectSignifyClientAsync) + ": connecting to {AdminUrl} (IsConnected={IsConnected}, hasPendingConnect={HasPending})",
                 config.AdminUrl, _signifyClientService.IsConnected, _pendingConnectTask is not null);
             Result<State> connectResult;
-            using (_signifyClientService.BeginLongOperation()) {
-                connectResult = await _signifyClientService.Connect(
-                    config.AdminUrl,
-                    passcode,
-                    config.BootUrl,
-                    isBootForced: false  // Don't force boot - just connect
-                );
+            using (_broker.PrioritizeInteractive()) {
+                connectResult = await _broker.EnqueueCommandAsync(SignifyOperation.Connect,
+                    svc => svc.Connect(
+                        config.AdminUrl,
+                        passcode,
+                        config.BootUrl,
+                        isBootForced: false  // Don't force boot - just connect
+                    ));
             }
             if (connectResult.IsFailed) {
                 return Result.Fail($"Failed to connect: {connectResult.Errors[0].Message}");

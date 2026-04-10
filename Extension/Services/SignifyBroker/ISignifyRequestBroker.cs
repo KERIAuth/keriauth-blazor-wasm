@@ -8,14 +8,14 @@ public interface ISignifyRequestBroker : IAsyncDisposable {
     /// Enqueue a mutating operation (Connect, credential issue, IPEX flows).
     /// Processed with highest priority. Runs exclusively -- no other work executes concurrently.
     /// </summary>
-    Task<Result<T>> EnqueueCommandAsync<T>(string opName,
+    Task<Result<T>> EnqueueCommandAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
         CancellationToken ct = default);
 
     /// <summary>
     /// Enqueue a non-generic mutating operation (Disconnect, Ready, etc.).
     /// </summary>
-    Task<Result> EnqueueCommandAsync(string opName,
+    Task<Result> EnqueueCommandAsync(SignifyOperation op,
         Func<ISignifyClientService, Task<Result>> operation,
         CancellationToken ct = default);
 
@@ -23,16 +23,30 @@ public interface ISignifyRequestBroker : IAsyncDisposable {
     /// Enqueue an idempotent read (GetIdentifiers, GetCredentials, GetSchema).
     /// Processed when no commands are pending.
     /// </summary>
-    Task<Result<T>> EnqueueReadAsync<T>(string opName,
+    Task<Result<T>> EnqueueReadAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
         CancellationToken ct = default);
 
     /// <summary>
-    /// Enqueue a low-priority background operation (polling, schema resolution, cache refresh).
-    /// Yields to commands and reads. Skipped when SuspendBackground is active.
+    /// Enqueue a non-generic idempotent read (HealthCheck, Ready, etc.).
     /// </summary>
-    Task<Result<T>> EnqueueBackgroundAsync<T>(string opName,
+    Task<Result> EnqueueReadAsync(SignifyOperation op,
+        Func<ISignifyClientService, Task<Result>> operation,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Enqueue a low-priority background operation (polling, schema resolution, cache refresh).
+    /// Yields to commands and reads. Skipped when PrioritizeInteractive is active.
+    /// </summary>
+    Task<Result<T>> EnqueueBackgroundAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Enqueue a non-generic low-priority background operation.
+    /// </summary>
+    Task<Result> EnqueueBackgroundAsync(SignifyOperation op,
+        Func<ISignifyClientService, Task<Result>> operation,
         CancellationToken ct = default);
 
     /// <summary>
@@ -51,5 +65,5 @@ public interface ISignifyRequestBroker : IAsyncDisposable {
     /// Use to prevent background work from interleaving with multi-step command sequences.
     /// Replaces BeginLongOperation.
     /// </summary>
-    IDisposable SuspendBackground();
+    IDisposable PrioritizeInteractive();
 }

@@ -45,48 +45,67 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
         _drainLoop = DrainLoopAsync(_shutdownCts.Token);
     }
 
-    public async Task<Result<T>> EnqueueCommandAsync<T>(string opName,
+    public async Task<Result<T>> EnqueueCommandAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
         CancellationToken ct = default) {
-        var item = BrokerWorkItemFactory.Create(opName, BrokerPriority.Command, operation, ct);
+        var item = BrokerWorkItemFactory.Create(op, BrokerPriority.Command, operation, ct);
         await _commandChannel.Writer.WriteAsync(item, ct);
         return await UnwrapResult<T>(item);
     }
 
-    public async Task<Result> EnqueueCommandAsync(string opName,
+    public async Task<Result> EnqueueCommandAsync(SignifyOperation op,
         Func<ISignifyClientService, Task<Result>> operation,
         CancellationToken ct = default) {
-        var item = BrokerWorkItemFactory.CreateNonGeneric(opName, BrokerPriority.Command, operation, ct);
+        var item = BrokerWorkItemFactory.CreateNonGeneric(op, BrokerPriority.Command, operation, ct);
         await _commandChannel.Writer.WriteAsync(item, ct);
         var result = await item.Task;
         return result.IsSuccess ? Result.Ok() : Result.Fail(result.Errors);
     }
 
-    public async Task<Result<T>> EnqueueReadAsync<T>(string opName,
+    public async Task<Result<T>> EnqueueReadAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
         CancellationToken ct = default) {
-        var item = BrokerWorkItemFactory.Create(opName, BrokerPriority.Read, operation, ct);
+        var item = BrokerWorkItemFactory.Create(op, BrokerPriority.Read, operation, ct);
         await _readChannel.Writer.WriteAsync(item, ct);
         return await UnwrapResult<T>(item);
     }
 
-    public async Task<Result<T>> EnqueueBackgroundAsync<T>(string opName,
+    public async Task<Result> EnqueueReadAsync(SignifyOperation op,
+        Func<ISignifyClientService, Task<Result>> operation,
+        CancellationToken ct = default) {
+        var item = BrokerWorkItemFactory.CreateNonGeneric(op, BrokerPriority.Read, operation, ct);
+        await _readChannel.Writer.WriteAsync(item, ct);
+        var result = await item.Task;
+        return result.IsSuccess ? Result.Ok() : Result.Fail(result.Errors);
+    }
+
+    public async Task<Result<T>> EnqueueBackgroundAsync<T>(SignifyOperation op,
         Func<ISignifyClientService, Task<Result<T>>> operation,
         CancellationToken ct = default) {
-        var item = BrokerWorkItemFactory.Create(opName, BrokerPriority.Background, operation, ct);
+        var item = BrokerWorkItemFactory.Create(op, BrokerPriority.Background, operation, ct);
         if (!_backgroundChannel.Writer.TryWrite(item)) {
-            _logger.LogDebug("Background channel full, dropping oldest for {Op}", opName);
-            // BoundedChannelFullMode.DropOldest handles this, but TryWrite may still fail
-            // if the channel is being drained. Await the write in that case.
+            _logger.LogDebug("Background channel full, dropping oldest for {Op}", op);
             await _backgroundChannel.Writer.WriteAsync(item, ct);
         }
         return await UnwrapResult<T>(item);
     }
 
-    public IDisposable SuspendBackground() {
+    public async Task<Result> EnqueueBackgroundAsync(SignifyOperation op,
+        Func<ISignifyClientService, Task<Result>> operation,
+        CancellationToken ct = default) {
+        var item = BrokerWorkItemFactory.CreateNonGeneric(op, BrokerPriority.Background, operation, ct);
+        if (!_backgroundChannel.Writer.TryWrite(item)) {
+            _logger.LogDebug("Background channel full, dropping oldest for {Op}", op);
+            await _backgroundChannel.Writer.WriteAsync(item, ct);
+        }
+        var result = await item.Task;
+        return result.IsSuccess ? Result.Ok() : Result.Fail(result.Errors);
+    }
+
+    public IDisposable PrioritizeInteractive() {
         Interlocked.Increment(ref _backgroundSuspendCount);
-        _logger.LogDebug("SuspendBackground: count={Count}", _backgroundSuspendCount);
-        return new BackgroundSuspensionScope(this);
+        _logger.LogDebug("PrioritizeInteractive: count={Count}", _backgroundSuspendCount);
+        return new InteractivePriorityScope(this);
     }
 
     private async Task DrainLoopAsync(CancellationToken ct) {
@@ -97,11 +116,11 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
                 if (item is null) continue;
 
                 _logger.LogDebug("Executing {Priority} operation: {Op}",
-                    item.Priority, item.OperationName);
+                    item.Priority, item.Operation);
 
                 var result = await item.ExecuteAsync(_client);
                 if (result is not null) {
-                    TrackResult(result, item.OperationName);
+                    TrackResult(result, item.Operation);
                     item.Complete(result);
                 }
             }
@@ -154,11 +173,11 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
         return null;
     }
 
-    private void TrackResult(Result<object?> result, string operationName) {
+    private void TrackResult(Result<object?> result, SignifyOperation operation) {
         if (result.IsSuccess) {
             if (_consecutiveFailures > 0) {
                 _logger.LogDebug("Reachability: reset after {Op} succeeded (was {Failures} consecutive failures)",
-                    operationName, _consecutiveFailures);
+                    operation, _consecutiveFailures);
             }
             _consecutiveFailures = 0;
             SetReachable(true);
@@ -166,7 +185,7 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
         else if (result.Errors.Any(e => e is ConnectionError or NotConnectedError)) {
             _consecutiveFailures++;
             _logger.LogDebug("Reachability: {Failures}/{Threshold} consecutive failures after {Op}",
-                _consecutiveFailures, UnreachableThreshold, operationName);
+                _consecutiveFailures, UnreachableThreshold, operation);
             if (_consecutiveFailures >= UnreachableThreshold) {
                 SetReachable(false);
             }
@@ -213,12 +232,12 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
         _shutdownCts.Dispose();
     }
 
-    private sealed class BackgroundSuspensionScope(SignifyRequestBroker owner) : IDisposable {
+    private sealed class InteractivePriorityScope(SignifyRequestBroker owner) : IDisposable {
         private int _disposed;
         public void Dispose() {
             if (Interlocked.Exchange(ref _disposed, 1) == 0) {
                 var newCount = Interlocked.Decrement(ref owner._backgroundSuspendCount);
-                owner._logger.LogDebug("BackgroundSuspensionScope.Dispose: count={Count}", newCount);
+                owner._logger.LogDebug("InteractivePriorityScope.Dispose: count={Count}", newCount);
                 if (newCount == 0) {
                     // Signal the drain loop to re-check background channel
                     owner._backgroundResumedSignal.TrySetResult();

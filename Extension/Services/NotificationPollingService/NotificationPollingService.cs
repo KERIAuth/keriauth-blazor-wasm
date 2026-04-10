@@ -61,7 +61,7 @@ public class NotificationPollingService : INotificationPollingService {
 
     public async Task PollOnDemandAsync() {
         var result = await _broker.EnqueueBackgroundAsync(
-            "ListNotifications", svc => svc.ListNotifications());
+            SignifyOperation.ListNotifications, svc => svc.ListNotifications());
         if (result.IsFailed) {
             // TODO P3: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
             _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
@@ -169,7 +169,7 @@ public class NotificationPollingService : INotificationPollingService {
         }
 
         var rawResult = await _broker.EnqueueBackgroundAsync(
-            "GetExchangeRaw", svc => svc.GetExchangeRaw(said));
+            SignifyOperation.GetExchangeRaw, svc => svc.GetExchangeRaw(said));
         if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
 
         try {

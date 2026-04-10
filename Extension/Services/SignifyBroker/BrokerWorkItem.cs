@@ -11,7 +11,7 @@ internal enum BrokerPriority {
 }
 
 internal sealed class BrokerWorkItem {
-    public string OperationName { get; }
+    public SignifyOperation Operation { get; }
     public BrokerPriority Priority { get; }
     public CancellationToken CancellationToken { get; }
 
@@ -21,11 +21,11 @@ internal sealed class BrokerWorkItem {
     public Task<Result<object?>> Task => _tcs.Task;
 
     public BrokerWorkItem(
-        string operationName,
+        SignifyOperation operation,
         BrokerPriority priority,
         Func<ISignifyClientService, Task<Result<object?>>> execute,
         CancellationToken ct) {
-        OperationName = operationName;
+        Operation = operation;
         Priority = priority;
         CancellationToken = ct;
         _execute = execute;
@@ -51,7 +51,7 @@ internal sealed class BrokerWorkItem {
         }
         catch (Exception ex) {
             return Result.Fail<object?>(
-                new JavaScriptInteropError(OperationName, $"Unhandled exception: {ex.Message}", ex));
+                new JavaScriptInteropError(Operation.ToString(), $"Unhandled exception: {ex.Message}", ex));
         }
     }
 
@@ -68,18 +68,17 @@ internal sealed class BrokerWorkItem {
     }
 }
 
-// Avoid boxing: helper to adapt typed Func delegates into the object?-based work item
 internal static class BrokerWorkItemFactory {
     public static BrokerWorkItem Create<T>(
-        string operationName,
+        SignifyOperation operation,
         BrokerPriority priority,
-        Func<ISignifyClientService, Task<Result<T>>> operation,
+        Func<ISignifyClientService, Task<Result<T>>> op,
         CancellationToken ct) {
         return new BrokerWorkItem(
-            operationName,
+            operation,
             priority,
             async svc => {
-                var result = await operation(svc);
+                var result = await op(svc);
                 return result.IsSuccess
                     ? Result.Ok<object?>(result.Value)
                     : Result.Fail<object?>(result.Errors);
@@ -88,15 +87,15 @@ internal static class BrokerWorkItemFactory {
     }
 
     public static BrokerWorkItem CreateNonGeneric(
-        string operationName,
+        SignifyOperation operation,
         BrokerPriority priority,
-        Func<ISignifyClientService, Task<Result>> operation,
+        Func<ISignifyClientService, Task<Result>> op,
         CancellationToken ct) {
         return new BrokerWorkItem(
-            operationName,
+            operation,
             priority,
             async svc => {
-                var result = await operation(svc);
+                var result = await op(svc);
                 return result.IsSuccess
                     ? Result.Ok<object?>(null)
                     : Result.Fail<object?>(result.Errors);
