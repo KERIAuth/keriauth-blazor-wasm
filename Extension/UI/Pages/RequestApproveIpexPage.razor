@@ -45,7 +45,7 @@
     // Admit-specific fields
     string? GrantSaid { get; set; }
 
-    string? RequestPayloadForDisplay { get; set; } // TODO P1 this is just a placeholder to have something on the UI for now, do a proper job of displaying the request details instead of dumping the raw JSON
+    string? RequestPayloadForDisplay { get; set; } // TODO P2 this is just a placeholder to have something on the UI for now, do a proper job of displaying the request details instead of dumping the raw JSON
 
     // Presentation-specific fields
     List<RecursiveDictionary> matchingCredentials = [];
@@ -84,7 +84,7 @@
                     SchemaSaid = applyPayload.SchemaSaid;
                     RequestRecipientPrefix = applyPayload.RecipientPrefix;
                     Attributes = applyPayload.Attributes;
-                    RequestPayloadForDisplay = applyPayload.ToString(); // TODO P1 do a proper job of displaying the request details instead of dumping the raw JSON, this is just a placeholder to have something on the UI for now
+                    RequestPayloadForDisplay = applyPayload.ToString(); // TODO P2 do a proper job of displaying the request details instead of dumping the raw JSON, this is just a placeholder to have something on the UI for now
                     break;
                 }
             case BwAppMessageType.Values.RequestIpexAgree:

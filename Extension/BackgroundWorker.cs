@@ -12,10 +12,10 @@ using Extension.Models.Messages.ExCs;
 using Extension.Models.Messages.Port;
 using Extension.Models.Storage;
 using Extension.Services;
+using Extension.Services.ConfigureService;
 using Extension.Services.JsBindings;
 using Extension.Services.NotificationPollingService;
 using Extension.Services.Port;
-using Extension.Services.ConfigureService;
 using Extension.Services.PrimeDataService;
 using Extension.Services.SignifyBroker;
 using Extension.Services.SignifyService;
@@ -3779,60 +3779,60 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     return;
 
                 case (true, false): {
-                    // Selective disclosure grant path: elide ACDC, saidify in signify-ts, grant
-                    var credResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
-                        svc => svc.GetCredentials());
-                    if (credResult.IsFailed) {
-                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                            result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credResult.Errors[0].Message}"));
-                        return;
+                        // Selective disclosure grant path: elide ACDC, saidify in signify-ts, grant
+                        var credResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
+                            svc => svc.GetCredentials());
+                        if (credResult.IsFailed) {
+                            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                                result: new IpexGrantResponsePayload(false, Error: $"Failed to get credentials: {credResult.Errors[0].Message}"));
+                            return;
+                        }
+
+                        var credential = credResult.Value.FirstOrDefault(c =>
+                            c.GetValueByPath("sad.d")?.Value?.ToString() == grantRequest.CredentialSaid);
+                        if (credential is null) {
+                            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                                result: new IpexGrantResponsePayload(false, Error: $"Credential {grantRequest.CredentialSaid} not found"));
+                            return;
+                        }
+
+                        var sad = credential.GetByPath("sad")?.Dictionary;
+                        if (sad is null) {
+                            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                                result: new IpexGrantResponsePayload(false, Error: "Credential has no SAD"));
+                            return;
+                        }
+
+                        var elidedAcdc = Helper.CredentialHelper.ElideAcdc(sad, grantRequest.ElisionMap!);
+                        var elidedAcdcJson = JsonSerializer.Serialize(elidedAcdc.ToObjectDictionary(), JsonOptions.CamelCase);
+
+                        logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
+                            ": Elided ACDC prepared, calling grantWithElidedAcdc");
+
+                        var grantResult = await _broker.EnqueueCommandAsync(SignifyOperation.GrantWithElidedAcdc,
+                            svc => svc.GrantWithElidedAcdc(
+                                senderName, elidedAcdcJson, grantRequest.CredentialSaid, grantRequest.RecipientPrefix));
+
+                        result = grantResult.IsSuccess
+                            ? Result.Ok(grantResult.Value["grantSaid"]?.StringValue ?? "")
+                            : Result.Fail<string>(grantResult.Errors);
+                        break;
                     }
-
-                    var credential = credResult.Value.FirstOrDefault(c =>
-                        c.GetValueByPath("sad.d")?.Value?.ToString() == grantRequest.CredentialSaid);
-                    if (credential is null) {
-                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                            result: new IpexGrantResponsePayload(false, Error: $"Credential {grantRequest.CredentialSaid} not found"));
-                        return;
-                    }
-
-                    var sad = credential.GetByPath("sad")?.Dictionary;
-                    if (sad is null) {
-                        await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                            result: new IpexGrantResponsePayload(false, Error: "Credential has no SAD"));
-                        return;
-                    }
-
-                    var elidedAcdc = Helper.CredentialHelper.ElideAcdc(sad, grantRequest.ElisionMap!);
-                    var elidedAcdcJson = JsonSerializer.Serialize(elidedAcdc.ToObjectDictionary(), JsonOptions.CamelCase);
-
-                    logger.LogInformation(nameof(HandleAppRequestIpexOfferOrGrantPresentationRpcAsync) +
-                        ": Elided ACDC prepared, calling grantWithElidedAcdc");
-
-                    var grantResult = await _broker.EnqueueCommandAsync(SignifyOperation.GrantWithElidedAcdc,
-                        svc => svc.GrantWithElidedAcdc(
-                            senderName, elidedAcdcJson, grantRequest.CredentialSaid, grantRequest.RecipientPrefix));
-
-                    result = grantResult.IsSuccess
-                        ? Result.Ok(grantResult.Value["grantSaid"]?.StringValue ?? "")
-                        : Result.Fail<string>(grantResult.Errors);
-                    break;
-                }
 
                 case (false, true): {
-                    // Full disclosure offer path: send IPEX offer with held credential
-                    var offerResult = await _broker.EnqueueCommandAsync(SignifyOperation.IpexOfferAndSubmit,
-                        svc => svc.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
-                            SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
-                            RecipientPrefix: grantRequest.RecipientPrefix,
-                            CredentialSaid: grantRequest.CredentialSaid,
-                            ApplySaid: grantRequest.ApplySaid
-                        )));
-                    result = offerResult.IsSuccess
-                        ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
-                        : Result.Fail<string>(offerResult.Errors);
-                    break;
-                }
+                        // Full disclosure offer path: send IPEX offer with held credential
+                        var offerResult = await _broker.EnqueueCommandAsync(SignifyOperation.IpexOfferAndSubmit,
+                            svc => svc.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                                SenderNameOrPrefix: grantRequest.SenderNameOrPrefix,
+                                RecipientPrefix: grantRequest.RecipientPrefix,
+                                CredentialSaid: grantRequest.CredentialSaid,
+                                ApplySaid: grantRequest.ApplySaid
+                            )));
+                        result = offerResult.IsSuccess
+                            ? Result.Ok(offerResult.Value["offerSaid"]?.StringValue ?? "")
+                            : Result.Fail<string>(offerResult.Errors);
+                        break;
+                    }
 
                 case (false, false):
                     // Full disclosure grant path: use existing PresentStep
@@ -3888,7 +3888,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Checks if already available, and if not, resolves via OOBI from manifest or default hosts.
     /// Returns true if the schema is available (already was, or successfully resolved).
     /// </summary>
-    // TODO P1: Consider Polly circuit breaker (already in project) to fail-fast when OOBI
+    // TODO P2: Consider Polly circuit breaker (already in project) to fail-fast when OOBI
     // endpoints are consistently unreachable, preventing 8x7s=56s of sequential timeouts.
     private async Task<bool> EnsureSchemaResolvedAsync(string schemaSaid, string callerName) {
         try {
@@ -4719,64 +4719,64 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 break;
 
             case AppBwMessageType.Values.RequestMarkNotification: {
-                // Fire-and-forget from App. BW marks the notification in KERIA and refreshes
-                // the CachedNotifications session record; the App observes the update via storage.
-                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestMarkNotification event received");
-                try {
-                    var saidValue = ExtractSaidFromEventData(eventMessage.Data);
-                    if (string.IsNullOrEmpty(saidValue)) {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification missing said");
-                        break;
+                    // Fire-and-forget from App. BW marks the notification in KERIA and refreshes
+                    // the CachedNotifications session record; the App observes the update via storage.
+                    logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestMarkNotification event received");
+                    try {
+                        var saidValue = ExtractSaidFromEventData(eventMessage.Data);
+                        if (string.IsNullOrEmpty(saidValue)) {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification missing said");
+                            break;
+                        }
+                        if (!_signifyClientService.IsConnected) {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification ignored — signify not connected");
+                            break;
+                        }
+                        var markResult = await _broker.EnqueueCommandAsync(SignifyOperation.MarkNotification,
+                            svc => svc.MarkNotification(saidValue));
+                        if (markResult.IsSuccess) {
+                            await PollNotificationsThrottledAsync();
+                        }
+                        else {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": MarkNotification failed: {Error}",
+                                markResult.Errors.Count > 0 ? markResult.Errors[0].Message : "unknown");
+                        }
                     }
-                    if (!_signifyClientService.IsConnected) {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestMarkNotification ignored — signify not connected");
-                        break;
+                    catch (Exception ex) {
+                        logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestMarkNotification");
                     }
-                    var markResult = await _broker.EnqueueCommandAsync(SignifyOperation.MarkNotification,
-                        svc => svc.MarkNotification(saidValue));
-                    if (markResult.IsSuccess) {
-                        await PollNotificationsThrottledAsync();
-                    }
-                    else {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": MarkNotification failed: {Error}",
-                            markResult.Errors.Count > 0 ? markResult.Errors[0].Message : "unknown");
-                    }
+                    break;
                 }
-                catch (Exception ex) {
-                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestMarkNotification");
-                }
-                break;
-            }
 
             case AppBwMessageType.Values.RequestDeleteNotification: {
-                // Fire-and-forget from App. BW deletes the notification in KERIA and refreshes
-                // the CachedNotifications session record; the App observes the update via storage.
-                logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestDeleteNotification event received");
-                try {
-                    var saidValue = ExtractSaidFromEventData(eventMessage.Data);
-                    if (string.IsNullOrEmpty(saidValue)) {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification missing said");
-                        break;
+                    // Fire-and-forget from App. BW deletes the notification in KERIA and refreshes
+                    // the CachedNotifications session record; the App observes the update via storage.
+                    logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestDeleteNotification event received");
+                    try {
+                        var saidValue = ExtractSaidFromEventData(eventMessage.Data);
+                        if (string.IsNullOrEmpty(saidValue)) {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification missing said");
+                            break;
+                        }
+                        if (!_signifyClientService.IsConnected) {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification ignored — signify not connected");
+                            break;
+                        }
+                        var deleteResult = await _broker.EnqueueCommandAsync(SignifyOperation.DeleteNotification,
+                            svc => svc.DeleteNotification(saidValue));
+                        if (deleteResult.IsSuccess) {
+                            await PollNotificationsThrottledAsync();
+                        }
+                        else {
+                            logger.LogWarning(nameof(HandlePortEventAsync) + ": DeleteNotification failed: {Error}",
+                                deleteResult.Errors.Count > 0 ? deleteResult.Errors[0].Message : "unknown");
+                        }
                     }
-                    if (!_signifyClientService.IsConnected) {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": RequestDeleteNotification ignored — signify not connected");
-                        break;
+                    catch (Exception ex) {
+                        logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestDeleteNotification");
                     }
-                    var deleteResult = await _broker.EnqueueCommandAsync(SignifyOperation.DeleteNotification,
-                        svc => svc.DeleteNotification(saidValue));
-                    if (deleteResult.IsSuccess) {
-                        await PollNotificationsThrottledAsync();
-                    }
-                    else {
-                        logger.LogWarning(nameof(HandlePortEventAsync) + ": DeleteNotification failed: {Error}",
-                            deleteResult.Errors.Count > 0 ? deleteResult.Errors[0].Message : "unknown");
-                    }
+                    break;
                 }
-                catch (Exception ex) {
-                    logger.LogError(ex, nameof(HandlePortEventAsync) + ": Error handling RequestDeleteNotification");
-                }
-                break;
-            }
 
             default:
                 logger.LogDebug(nameof(HandlePortEventAsync) + ": Unhandled event: name={Name}", eventMessage.Name);
