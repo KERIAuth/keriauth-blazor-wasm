@@ -479,7 +479,7 @@
         public void LogAuthDiagnostic(ILogger logger) {
             var selectedDigest = MyPreferences.SelectedKeriaConnectionDigest;
             var configFound = !string.IsNullOrEmpty(selectedDigest) && MyKeriaConnectConfigs.Configs.ContainsKey(selectedDigest);
-            logger.LogWarning(
+            logger.LogInformation(
                 "AUTH DIAGNOSTIC: IsAuthenticated={IsAuth}, IsSessionUnlocked={IsUnlocked}, IsInitialized={IsInit}" +
                 " | SessionUnlocked components: IsPasscodeHashSet={PHSet}(hash={PH}), IsSessionExpirationSet={SESet}, IsSessionNotExpired={SNE}(expUtc={Exp})" +
                 " | Initialized components: IsKeriaConfigValidated={KCV}, IsProductOnboarded={PO}, MyPreferences.IsStored={PS}" +
