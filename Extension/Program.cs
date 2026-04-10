@@ -8,6 +8,7 @@ using Extension.Services.NotificationPollingService;
 using Extension.Services.Port;
 using Extension.Services.ConfigureService;
 using Extension.Services.PrimeDataService;
+using Extension.Services.SignifyBroker;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Extension.Utilities;
@@ -89,6 +90,7 @@ builder.UseBrowserExtension(browserExtension => {
             builder.Services.AddSingleton<IBwPortService, BwPortService>();
             builder.Services.AddSingleton<ISignifyClientBinding, SignifyClientBinding>();
             builder.Services.AddSingleton<ISignifyClientService, SignifyClientService>();
+            builder.Services.AddSingleton<ISignifyRequestBroker, SignifyRequestBroker>();
             builder.Services.AddSingleton<IPrimeDataService, Extension.Services.PrimeDataService.PrimeDataService>();
             builder.Services.AddSingleton<IConfigureService, Extension.Services.ConfigureService.ConfigureService>();
             builder.Services.AddSingleton<ISchemaService, SchemaService>();

@@ -174,9 +174,6 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _notificationPollingService.OnSchemasNeeded = async () => {
             await EnsureAllManifestSchemasResolvedAsync("NotificationPolling");
         };
-        _notificationPollingService.IsClientReady = () => _signifyClientService.IsConnected;
-        _notificationPollingService.IsLongOperationActive = () => _signifyClientService.IsLongOperationActive;
-        _notificationPollingService.IsNetworkOnline = () => _networkConnectivityService.IsOnline;
 
         // Register RPC handlers for port-based messaging
         _portService.RegisterContentScriptRpcHandler(HandleContentScriptRpcAsync);

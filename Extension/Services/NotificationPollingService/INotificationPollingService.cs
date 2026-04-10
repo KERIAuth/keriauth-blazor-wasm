@@ -16,22 +16,4 @@ public interface INotificationPollingService {
     /// Best-effort, non-blocking.
     /// </summary>
     Func<Task>? OnSchemasNeeded { get; set; }
-
-    /// <summary>
-    /// Gate that returns true when the signify client is ready (passcode available).
-    /// Polling is silently skipped when this returns false.
-    /// </summary>
-    Func<bool>? IsClientReady { get; set; }
-
-    /// <summary>
-    /// Gate that returns true when a long-running signify operation is in progress.
-    /// Polling is silently skipped when this returns true to avoid blocking the operation.
-    /// </summary>
-    Func<bool>? IsLongOperationActive { get; set; }
-
-    /// <summary>
-    /// Gate that returns true when the browser reports network connectivity.
-    /// Polling is silently skipped when this returns false to avoid wasting fetch attempts.
-    /// </summary>
-    Func<bool>? IsNetworkOnline { get; set; }
 }

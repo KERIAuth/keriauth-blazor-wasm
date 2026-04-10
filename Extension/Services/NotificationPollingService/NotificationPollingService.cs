@@ -4,13 +4,13 @@ using System.Text.Json;
 using Extension.Helper;
 using Extension.Models.Storage;
 using FluentResults;
-using Extension.Services.SignifyService;
+using Extension.Services.SignifyBroker;
 using Extension.Services.SignifyService.Models;
 using Extension.Services.Storage;
 using Microsoft.Extensions.Logging;
 
 public class NotificationPollingService : INotificationPollingService {
-    private readonly ISignifyClientService _signifyClient;
+    private readonly ISignifyRequestBroker _broker;
     private readonly IStorageGateway _storageGateway;
     private readonly ILogger<NotificationPollingService> _logger;
 
@@ -25,15 +25,12 @@ public class NotificationPollingService : INotificationPollingService {
 
     public Func<Task>? OnCredentialNotificationsChanged { get; set; }
     public Func<Task>? OnSchemasNeeded { get; set; }
-    public Func<bool>? IsClientReady { get; set; }
-    public Func<bool>? IsLongOperationActive { get; set; }
-    public Func<bool>? IsNetworkOnline { get; set; }
 
     public NotificationPollingService(
-        ISignifyClientService signifyClient,
+        ISignifyRequestBroker broker,
         IStorageGateway storageGateway,
         ILogger<NotificationPollingService> logger) {
-        _signifyClient = signifyClient;
+        _broker = broker;
         _storageGateway = storageGateway;
         _logger = logger;
     }
@@ -63,22 +60,8 @@ public class NotificationPollingService : INotificationPollingService {
     }
 
     public async Task PollOnDemandAsync() {
-        if (IsNetworkOnline is not null && !IsNetworkOnline()) {
-            _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — browser is offline");
-            return;
-        }
-
-        if (IsClientReady is not null && !IsClientReady()) {
-            _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — signify client not ready (no passcode)");
-            return;
-        }
-
-        if (IsLongOperationActive is not null && IsLongOperationActive()) {
-            _logger.LogDebug(nameof(PollOnDemandAsync) + ": Skipped — long signify operation in progress");
-            return;
-        }
-
-        var result = await _signifyClient.ListNotifications();
+        var result = await _broker.EnqueueBackgroundAsync(
+            "ListNotifications", svc => svc.ListNotifications());
         if (result.IsFailed) {
             // TODO P3: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
             _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
@@ -185,7 +168,8 @@ public class NotificationPollingService : INotificationPollingService {
             _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache read failed for {Said}, falling through to network", said);
         }
 
-        var rawResult = await _signifyClient.GetExchangeRaw(said);
+        var rawResult = await _broker.EnqueueBackgroundAsync(
+            "GetExchangeRaw", svc => svc.GetExchangeRaw(said));
         if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
 
         try {
