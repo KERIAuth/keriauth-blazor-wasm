@@ -52,6 +52,10 @@ Extension/                        # Main Blazor WASM project (App + BackgroundWo
     Port/                         # Port-based messaging between runtimes
       BwPortService.cs            # BackgroundWorker-side port handler
       AppBwPortService.cs         # App-side port handler
+    SignifyBroker/                # Priority-aware request broker for signify-ts calls
+      ISignifyRequestBroker.cs    # Broker interface (EnqueueCommand/Read/Background)
+      SignifyRequestBroker.cs     # Three-channel drain loop, reachability tracking
+      SignifyOperation.cs         # Typed operation enum
     SignifyService/               # signify-ts client integration (JS interop)
       SignifyClientService.cs     # Main KERI/ACDC operations (~100KB)
       Models/                     # Signify response/request models
@@ -153,6 +157,52 @@ Three messaging boundaries:
 ### 3. BackgroundWorker to KERIA
 - Via signify-ts library (JS interop from C#)
 - All cryptographic operations happen here
+- All signify-ts calls are routed through `SignifyRequestBroker` (see below)
+
+## SignifyRequestBroker
+
+All signify-ts JS interop calls from BackgroundWorker, NotificationPollingService, and ConfigureService are routed through `ISignifyRequestBroker`, a priority-aware sequential queue that eliminates JS-thread contention.
+
+### Why
+
+The JS runtime is single-threaded. Concurrent C# `await` calls on JS interop queue as promises and contend, producing spurious "Failed to fetch" errors. The broker serializes all calls through a single drain loop, with priority ordering so interactive operations are never blocked by background work.
+
+### Call Chain
+
+```
+BackgroundWorker / NotificationPollingService / ConfigureService
+    --> ISignifyRequestBroker
+        --> ISignifyClientService (envelope unwrapping, error mapping)
+            --> ISignifyClientBinding (IJSRuntime)
+                --> signifyClient.ts --> signify-ts --> KERIA
+```
+
+### Three-Lane Priority Model
+
+The broker maintains three `Channel<BrokerWorkItem>` instances, drained sequentially by a single async loop in priority order:
+
+| Lane | Priority | Used For | Channel |
+|------|----------|----------|---------|
+| **Command** | 1 (highest) | Connect, Disconnect, credential issue, IPEX flows, OOBI resolve | Unbounded |
+| **Read** | 2 | GetIdentifiers, GetCredentials, GetState, GetOobi, GetKeyState | Unbounded |
+| **Background** | 3 (lowest) | Notification polling, schema resolution, cache refresh | Bounded (16) |
+
+One item executes at a time. The drain loop checks command → read → background on each iteration.
+
+### Key Features
+
+- **`PrioritizeInteractive()`** — returns `IDisposable`. While held, background items are not dequeued. Used to protect multi-step command sequences (e.g., Connect → GetIdentifiers → RefreshCredentials).
+- **Consecutive failure reachability** — tracks `ConnectionError` / `NotConnectedError` results. Signals `IsKeriaReachable = false` only after 3 consecutive failures, preventing single transient errors from flipping UI state.
+- **`SignifyOperation` enum** — all broker calls use a typed enum for operation identification, used in logging and diagnostics.
+
+### Files
+
+| File | Role |
+|------|------|
+| `Services/SignifyBroker/ISignifyRequestBroker.cs` | Interface |
+| `Services/SignifyBroker/SignifyRequestBroker.cs` | Implementation (drain loop, reachability) |
+| `Services/SignifyBroker/BrokerWorkItem.cs` | Internal work item and factory |
+| `Services/SignifyBroker/SignifyOperation.cs` | Operation enum |
 
 ## State Management
 
@@ -185,7 +235,7 @@ KERIA notifications are fetched via two mechanisms that allow the service worker
 
 **Recurring Chrome Alarm** — Fires every 5 minutes while session is active. Wakes the service worker for a single poll, then the SW goes inactive again. Chrome manages alarm persistence across SW restarts. Cleared when session locks.
 
-Implementation: `NotificationPollingService` handles the actual KERIA fetch, enrichment, and fingerprint-based deduplication. `BackgroundWorker` manages burst lifecycle (`CancellationTokenSource`) and alarm creation/clearing.
+Implementation: `NotificationPollingService` handles the actual KERIA fetch, enrichment, and fingerprint-based deduplication. All signify-ts calls go through `SignifyRequestBroker` as background-priority items, so they automatically yield to interactive commands and reads. `BackgroundWorker` manages burst lifecycle (`CancellationTokenSource`) and alarm creation/clearing.
 
 ### Chrome Extension APIs
 - C# bindings via [WebExtensions.Net](https://github.com/mingyaulee/WebExtensions.Net) NuGet package
