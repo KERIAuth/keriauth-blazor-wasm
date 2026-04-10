@@ -4,6 +4,10 @@ using Extension.Services.SignifyService;
 namespace Extension.Services.SignifyBroker;
 
 public interface ISignifyRequestBroker : IAsyncDisposable {
+    // TODO P1: Consider per-key command ordering if concurrent credential operations on
+    // different resources need independent serialization (e.g., CommandKey = credentialId).
+    // Current single-channel approach is correct for the sequential BW call patterns.
+
     /// <summary>
     /// Enqueue a mutating operation (Connect, credential issue, IPEX flows).
     /// Processed with highest priority. Runs exclusively -- no other work executes concurrently.
@@ -18,6 +22,10 @@ public interface ISignifyRequestBroker : IAsyncDisposable {
     Task<Result> EnqueueCommandAsync(SignifyOperation op,
         Func<ISignifyClientService, Task<Result>> operation,
         CancellationToken ct = default);
+
+    // TODO P1: Consider in-flight read deduplication via optional dedupKey parameter.
+    // Concurrent reads with the same key would share one in-flight task instead of
+    // queuing separately. Not needed yet -- current problems are contention-based.
 
     /// <summary>
     /// Enqueue an idempotent read (GetIdentifiers, GetCredentials, GetSchema).

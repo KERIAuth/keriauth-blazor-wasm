@@ -3888,6 +3888,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// Checks if already available, and if not, resolves via OOBI from manifest or default hosts.
     /// Returns true if the schema is available (already was, or successfully resolved).
     /// </summary>
+    // TODO P1: Consider Polly circuit breaker (already in project) to fail-fast when OOBI
+    // endpoints are consistently unreachable, preventing 8x7s=56s of sequential timeouts.
     private async Task<bool> EnsureSchemaResolvedAsync(string schemaSaid, string callerName) {
         try {
             // Fast path: check session cache of previously resolved schemas
