@@ -2,6 +2,7 @@ using System.Globalization;
 using Extension.Models;
 using Extension.Models.Messages.AppBw;
 using Extension.Models.Storage;
+using Extension.Services.SignifyBroker;
 using Extension.Services.SignifyService;
 using Extension.Services.Storage;
 using Extension.Utilities;
@@ -13,7 +14,7 @@ namespace Extension.Services.ConfigureService;
 // TODO P2 move ConfigureService so it is not a direct dependency of App program.cs;
 // rather, interactions should be via AppBw messages
 public class ConfigureService : IConfigureService {
-    private readonly ISignifyClientService _signifyClient;
+    private readonly ISignifyRequestBroker _broker;
     private readonly IStorageGateway _storageGateway;
     private readonly SessionManager _sessionManager;
     private readonly ILogger<ConfigureService> _logger;
@@ -21,11 +22,11 @@ public class ConfigureService : IConfigureService {
     private const int TotalSteps = 4;
 
     public ConfigureService(
-        ISignifyClientService signifyClient,
+        ISignifyRequestBroker broker,
         IStorageGateway storageGateway,
         SessionManager sessionManager,
         ILogger<ConfigureService> logger) {
-        _signifyClient = signifyClient;
+        _broker = broker;
         _storageGateway = storageGateway;
         _sessionManager = sessionManager;
         _logger = logger;
@@ -64,15 +65,16 @@ public class ConfigureService : IConfigureService {
             var connectTimeout = payload.IsNewAccount ? TimeSpan.FromMinutes(2) : TimeSpan.FromSeconds(30);
 
             Result<SignifyService.Models.State> connectResult;
-            using (_signifyClient.BeginLongOperation()) {
-                connectResult = await _signifyClient.Connect(
-                    payload.AdminUrl,
-                    payload.Passcode,
-                    payload.BootUrl,
-                    payload.IsNewAccount,
-                    payload.BootAuthUsername,
-                    payload.BootAuthPassword,
-                    connectTimeout);
+            using (_broker.PrioritizeInteractive()) {
+                connectResult = await _broker.EnqueueCommandAsync(SignifyOperation.Connect,
+                    svc => svc.Connect(
+                        payload.AdminUrl,
+                        payload.Passcode,
+                        payload.BootUrl,
+                        payload.IsNewAccount,
+                        payload.BootAuthUsername,
+                        payload.BootAuthPassword,
+                        connectTimeout));
             }
 
             if (connectResult.IsFailed || connectResult.Value is null) {

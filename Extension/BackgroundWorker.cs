@@ -173,7 +173,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         _notificationPollingService = notificationPollingService;
         _networkConnectivityService = networkConnectivityService;
         _networkConnectivityService.OnlineStateChanged += OnNetworkOnlineStateChanged;
-        _signifyClientService.KeriaReachabilityChanged += OnKeriaReachabilityChanged;
+        _broker.KeriaReachabilityChanged += OnKeriaReachabilityChanged;
         _notificationPollingService.OnCredentialNotificationsChanged = () => RefreshCachedCredentialsAsync();
         _notificationPollingService.OnSchemasNeeded = async () => {
             await EnsureAllManifestSchemasResolvedAsync("NotificationPolling");

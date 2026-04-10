@@ -53,7 +53,6 @@ namespace Extension.Services.SignifyService {
             }
 
             if (envelope.Ok) {
-                SignalKeriaReachability(true);
                 var rawValue = envelope.Value?.GetRawText();
                 if (string.IsNullOrEmpty(rawValue)) {
                     return Result.Fail<string>(new JavaScriptInteropError(operationName, "Success result with null/empty value"));
@@ -73,50 +72,14 @@ namespace Extension.Services.SignifyService {
                 _ => new JavaScriptInteropError(operationName, envelope.Message ?? "Unknown error"),
             };
 
-            if (envelope.Code is "network_error" or "not_connected") {
-                SignalKeriaReachability(false);
-            }
-
             logger.LogWarning("{Op}: JS error [{Code}]: {Message}", operationName, envelope.Code, envelope.Message);
             return Result.Fail<string>(error);
         }
 
         public bool IsConnected { get; private set; }
 
-        public event Action<bool>? KeriaReachabilityChanged;
-        private bool _lastKeriaReachable = true;
-
-        private void SignalKeriaReachability(bool reachable) {
-            if (_lastKeriaReachable != reachable) {
-                _lastKeriaReachable = reachable;
-                KeriaReachabilityChanged?.Invoke(reachable);
-            }
-        }
-
-        private int _longOperationCount;
-        public bool IsLongOperationActive => _longOperationCount > 0;
-
-        public IDisposable BeginLongOperation() {
-            Interlocked.Increment(ref _longOperationCount);
-            logger.LogDebug("BeginLongOperation: count={Count}", _longOperationCount);
-            return new LongOperationScope(this, logger);
-        }
-
-        private sealed class LongOperationScope(SignifyClientService owner, ILogger log) : IDisposable {
-            private int _disposed;
-            public void Dispose() {
-                if (Interlocked.Exchange(ref _disposed, 1) == 0) {
-                    Interlocked.Decrement(ref owner._longOperationCount);
-                    log.LogDebug("LongOperationScope.Dispose: count={Count}", owner._longOperationCount);
-                }
-            }
-        }
-
         public async Task Disconnect() {
             IsConnected = false;
-            // Reset KERIA reachability to optimistic default — the previous endpoint's
-            // state is meaningless after disconnect (config change or session lock).
-            SignalKeriaReachability(true);
             try {
                 await _binding.DisconnectAsync();
             }

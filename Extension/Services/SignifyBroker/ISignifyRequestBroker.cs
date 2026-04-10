@@ -63,7 +63,7 @@ public interface ISignifyRequestBroker : IAsyncDisposable {
     /// <summary>
     /// Suspend background operations. Returns IDisposable that resumes on dispose.
     /// Use to prevent background work from interleaving with multi-step command sequences.
-    /// Replaces BeginLongOperation.
+    /// While active, background channel items are held until the scope is disposed.
     /// </summary>
     IDisposable PrioritizeInteractive();
 }
