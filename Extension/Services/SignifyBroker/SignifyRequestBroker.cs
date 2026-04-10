@@ -115,6 +115,15 @@ public sealed class SignifyRequestBroker : ISignifyRequestBroker {
                 var item = await DequeueNextAsync(ct);
                 if (item is null) continue;
 
+                // Fast-fail background items when client is not connected —
+                // avoids a JS interop round-trip that will just return not_connected
+                if (item.Priority == BrokerPriority.Background && !_client.IsConnected) {
+                    _logger.LogDebug("Skipping {Op} — client not connected", item.Operation);
+                    item.Complete(Result.Fail<object?>(
+                        new NotConnectedError("Client not connected (broker fast-fail)")));
+                    continue;
+                }
+
                 _logger.LogDebug("Executing {Priority} operation: {Op}",
                     item.Priority, item.Operation);
 

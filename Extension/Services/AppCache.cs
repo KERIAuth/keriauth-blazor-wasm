@@ -590,7 +590,14 @@
                 }
             }
 
-            _logger.LogWarning(nameof(WaitForStorageSync) + ": timed out (baseline={Baseline}, lastProcessed={Current}, maxWait={MaxWaitMs}ms)", baselineSeq, Interlocked.Read(ref _lastProcessedSeq), maxWaitMs);
+            var current = Interlocked.Read(ref _lastProcessedSeq);
+            if (current == baselineSeq) {
+                // No new sequence arrived — nothing was expected, not actionable
+                _logger.LogDebug(nameof(WaitForStorageSync) + ": no update arrived (baseline={Baseline}, maxWait={MaxWaitMs}ms)", baselineSeq, maxWaitMs);
+            }
+            else {
+                _logger.LogWarning(nameof(WaitForStorageSync) + ": timed out (baseline={Baseline}, lastProcessed={Current}, maxWait={MaxWaitMs}ms)", baselineSeq, current, maxWaitMs);
+            }
             return false;
         }
 

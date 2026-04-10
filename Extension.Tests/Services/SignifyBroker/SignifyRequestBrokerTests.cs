@@ -13,6 +13,7 @@ public class SignifyRequestBrokerTests : IAsyncDisposable {
     private readonly SignifyRequestBroker _broker;
 
     public SignifyRequestBrokerTests() {
+        _mockClient.Setup(c => c.IsConnected).Returns(true);
         var mockLogger = new Mock<ILogger<SignifyRequestBroker>>();
         _broker = new SignifyRequestBroker(_mockClient.Object, mockLogger.Object);
     }

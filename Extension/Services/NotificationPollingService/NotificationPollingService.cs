@@ -2,6 +2,7 @@ namespace Extension.Services.NotificationPollingService;
 
 using System.Text.Json;
 using Extension.Helper;
+using Extension.Models;
 using Extension.Models.Storage;
 using FluentResults;
 using Extension.Services.SignifyBroker;
@@ -63,9 +64,15 @@ public class NotificationPollingService : INotificationPollingService {
         var result = await _broker.EnqueueBackgroundAsync(
             SignifyOperation.ListNotifications, svc => svc.ListNotifications());
         if (result.IsFailed) {
-            // TODO P3: This was LogDebug, but silent failures here hide broken connections. Consider whether Warning is too noisy at 5s intervals.
-            _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
-                result.Errors.Count > 0 ? result.Errors[0].Message : "unknown");
+            // not_connected is expected during startup before connect completes — don't warn at 5s intervals
+            var isNotConnected = result.Errors.Any(e => e is NotConnectedError);
+            if (isNotConnected) {
+                _logger.LogDebug(nameof(PollOnDemandAsync) + ": ListNotifications skipped — not connected");
+            }
+            else {
+                _logger.LogWarning(nameof(PollOnDemandAsync) + ": ListNotifications failed: {Error}",
+                    result.Errors.Count > 0 ? result.Errors[0].Message : "unknown");
+            }
             return;
         }
 
