@@ -165,9 +165,11 @@
         try {
             if (notification.ExchangeSaid is null) return;
 
+            // Longer timeout: GetExchange reads can be delayed behind in-progress IPEX commands in the broker
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = notification.ExchangeSaid } });
+                new { payload = new { said = notification.ExchangeSaid } },
+                timeout: TimeSpan.FromMinutes(3));
 
             if (!response.Ok || response.Result is not JsonElement jsonEl) return;
 
@@ -200,7 +202,8 @@
         try {
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = priorSaid } });
+                new { payload = new { said = priorSaid } },
+                timeout: TimeSpan.FromMinutes(3));
 
             if (!response.Ok || response.Result is not JsonElement priorJson) return IpexFlowType.Unknown;
 
@@ -317,9 +320,11 @@
 
             if (exchange is null) {
                 // Cache miss: fetch via RPC (BackgroundWorker will cache it)
+                // Longer timeout: can be delayed behind in-progress IPEX commands in the broker
                 var response = await appBwPortService.SendRpcRequestAsync(
                     AppBwMessageType.Values.RequestGetExchange,
-                    new { payload = new { said = notification.ExchangeSaid } });
+                    new { payload = new { said = notification.ExchangeSaid } },
+                    timeout: TimeSpan.FromMinutes(3));
 
                 if (!response.Ok) {
                     ExchangeLoadError = response.Error ?? "Failed to load exchange details";
