@@ -120,6 +120,18 @@
         return "(unknown)";
     }
 
+    // Resolve an AID prefix to a display name using the "(ext)" suffix convention
+    // for non-local AIDs, matching the pattern used on CreateTestDataPage.
+    // Returns null (not "(unknown)") so AidPrefixDisplay falls back to prefix-only display.
+    string? ResolveAidNameWithExt(string? prefix) {
+        if (prefix is null) return null;
+        var profile = appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix);
+        if (profile is not null) return profile.Name;
+        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
+        if (conn is not null) return $"{conn.Name} (ext)";
+        return null;
+    }
+
     // Lazy flow type cache: maps notification ID -> resolved IpexFlowType
     // TODO P3 refactor such caching into appCache or even stored, so display is instant
     Dictionary<string, IpexFlowType> _flowTypeCache = [];
@@ -495,7 +507,9 @@
         // Show confirmation dialog
         var parameters = new DialogParameters<OfferCredentialDialog>
         {
-            { x => x.ApplyExchange, view }
+            { x => x.ApplyExchange, view },
+            { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
+            { x => x.HolderName, ResolveAidNameWithExt(view.I) }
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -591,6 +605,26 @@
             snackbar.Add("Could not find matching AID for this apply", Severity.Error);
             return;
         }
+
+        // Show confirmation dialog
+        var parameters = new DialogParameters<GrantCredentialDialog>
+        {
+            { x => x.ApplyExchange, view },
+            { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
+            { x => x.HolderName, ResolveAidNameWithExt(view.I) }
+        };
+        var options = new DialogOptions {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+        var dialog = await dialogService.ShowAsync<GrantCredentialDialog>("Grant credential", parameters, options);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is null || dialogResult.Canceled) return;
 
         IsGranting = true;
 
