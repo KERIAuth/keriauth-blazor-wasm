@@ -173,6 +173,30 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestIpexOffer = "AppBw.RequestIpexOffer";
             public const string RequestIpexGrant = "AppBw.RequestIpexGrant";
             public const string RequestIpexGrantPresentation = "AppBw.RequestIpexGrantPresentation";
+            /// <summary>
+            /// Request BW to issue a new ECR credential (signing step only, no IPEX submission).
+            /// Returns full acdc/anc/iss dicts + SAID so the App can display the signed credential
+            /// before the user confirms offer/grant disclosure.
+            /// </summary>
+            public const string RequestIssueEcrCredential = "AppBw.RequestIssueEcrCredential";
+            /// <summary>
+            /// Request BW to submit an IPEX offer for an already-issued credential (by SAID).
+            /// Complements RequestIssueEcrCredential — the App calls IssueEcrCredential first,
+            /// then this once the user confirms.
+            /// </summary>
+            public const string RequestSubmitIpexOffer = "AppBw.RequestSubmitIpexOffer";
+            /// <summary>
+            /// Request BW to submit an IPEX grant. Two modes:
+            ///   - Post-issue: pass acdc/anc/iss dicts (returned from RequestIssueEcrCredential).
+            ///   - Agree-reuse: pass agreeSaid; BW traces agree → prior offer → existing credential and grants it.
+            /// </summary>
+            public const string RequestSubmitIpexGrant = "AppBw.RequestSubmitIpexGrant";
+            /// <summary>
+            /// Request BW to revoke a previously-issued credential. STUB in current implementation:
+            /// handler returns Success=false with an informative error so the App can surface a
+            /// snackbar "Revocation not yet implemented". See TODO P2 in the handler body.
+            /// </summary>
+            public const string RequestRevokeCredential = "AppBw.RequestRevokeCredential";
             public const string RequestPollNotifications = "AppBw.RequestPollNotifications";
             public const string RequestUnlockSession = "AppBw.RequestUnlockSession";
             public const string RequestLockSession = "AppBw.RequestLockSession";
@@ -224,6 +248,10 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
         public static AppBwMessageType RequestIpexOffer { get; } = new(Values.RequestIpexOffer);
         public static AppBwMessageType RequestIpexGrant { get; } = new(Values.RequestIpexGrant);
+        public static AppBwMessageType RequestIssueEcrCredential { get; } = new(Values.RequestIssueEcrCredential);
+        public static AppBwMessageType RequestSubmitIpexOffer { get; } = new(Values.RequestSubmitIpexOffer);
+        public static AppBwMessageType RequestSubmitIpexGrant { get; } = new(Values.RequestSubmitIpexGrant);
+        public static AppBwMessageType RequestRevokeCredential { get; } = new(Values.RequestRevokeCredential);
         public static AppBwMessageType RequestPollNotifications { get; } = new(Values.RequestPollNotifications);
         public static AppBwMessageType RequestUnlockSession { get; } = new(Values.RequestUnlockSession);
         public static AppBwMessageType RequestLockSession { get; } = new(Values.RequestLockSession);
@@ -361,6 +389,18 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestIpexGrant:
                     result = RequestIpexGrant;
+                    return true;
+                case Values.RequestIssueEcrCredential:
+                    result = RequestIssueEcrCredential;
+                    return true;
+                case Values.RequestSubmitIpexOffer:
+                    result = RequestSubmitIpexOffer;
+                    return true;
+                case Values.RequestSubmitIpexGrant:
+                    result = RequestSubmitIpexGrant;
+                    return true;
+                case Values.RequestRevokeCredential:
+                    result = RequestRevokeCredential;
                     return true;
                 case Values.RequestPollNotifications:
                     result = RequestPollNotifications;
@@ -869,6 +909,81 @@ namespace Extension.Models.Messages.AppBw {
     );
 
     public record IpexGrantResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to issue a new ECR credential. Signing-only — no IPEX submission.
+    /// </summary>
+    public record IssueEcrCredentialRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("ecrRole")] string EcrRole
+    );
+
+    /// <summary>
+    /// Response payload for RequestIssueEcrCredential.
+    /// On success includes the full acdc/anc/iss dicts so the App can display the credential
+    /// without a round-trip to fetch it, and so the subsequent SubmitIpexGrant call has the
+    /// acdc/anc/iss it needs (IpexGrantAndSubmit does not accept a credentialSaid alone).
+    /// </summary>
+    public record IssueEcrCredentialResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null,
+        [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,
+        [property: JsonPropertyName("anc")] RecursiveDictionary? Anc = null,
+        [property: JsonPropertyName("iss")] RecursiveDictionary? Iss = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to submit an IPEX offer for a credential that has already been issued.
+    /// Must be preceded by a successful RequestIssueEcrCredential (or otherwise, the credential
+    /// must already exist in the sender's registry). ApplySaid is optional for ad-hoc flows.
+    /// </summary>
+    public record SubmitIpexOfferRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
+        [property: JsonPropertyName("applySaid")] string? ApplySaid = null
+    );
+
+    public record SubmitIpexOfferResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to submit an IPEX grant. Two modes (exactly one set):
+    ///   - Post-issue: acdc/anc/iss dicts from a prior RequestIssueEcrCredential response.
+    ///   - Agree-reuse: agreeSaid; BW traces agree → prior offer → existing credential and grants it.
+    /// </summary>
+    public record SubmitIpexGrantRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,
+        [property: JsonPropertyName("anc")] RecursiveDictionary? Anc = null,
+        [property: JsonPropertyName("iss")] RecursiveDictionary? Iss = null,
+        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null
+    );
+
+    public record SubmitIpexGrantResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to revoke a previously-issued credential. STUB: handler returns Success=false
+    /// with error "Revocation not yet implemented" so the App surfaces a snackbar warning.
+    /// See TODO P2 in HandleAppRequestRevokeCredentialRpcAsync.
+    /// </summary>
+    public record RevokeCredentialRequestPayload(
+        [property: JsonPropertyName("issuerName")] string IssuerNameOrPrefix,
+        [property: JsonPropertyName("credentialSaid")] string CredentialSaid
+    );
+
+    public record RevokeCredentialResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("error")] string? Error = null
     );

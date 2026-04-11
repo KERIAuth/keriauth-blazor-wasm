@@ -1580,6 +1580,22 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIpexGrantRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIssueEcrCredential:
+                    await HandleAppRequestIssueEcrCredentialRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestSubmitIpexOffer:
+                    await HandleAppRequestSubmitIpexOfferRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestSubmitIpexGrant:
+                    await HandleAppRequestSubmitIpexGrantRpcAsync(portId, request, payload);
+                    return;
+
+                case AppBwMessageType.Values.RequestRevokeCredential:
+                    await HandleAppRequestRevokeCredentialRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestIpexGrantPresentation:
                     await HandleAppRequestIpexOfferOrGrantPresentationRpcAsync(portId, request, payload);
                     return;
@@ -3490,6 +3506,439 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestIpexOfferRpcAsync) + ": Error during IPEX offer");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IpexOfferResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Issue a new ECR credential (signing step only — no IPEX submission). The App uses this
+    /// first, then either RequestSubmitIpexOffer or RequestSubmitIpexGrant once the user has
+    /// reviewed the issued credential and confirmed disclosure.
+    /// </summary>
+    private async Task HandleAppRequestIssueEcrCredentialRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIssueEcrCredentialRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueEcrCredentialResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var issueRequest = JsonSerializer.Deserialize<IssueEcrCredentialRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (issueRequest is null || string.IsNullOrEmpty(issueRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(issueRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(issueRequest.EcrRole)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueEcrCredentialResponsePayload(false, Error: "Invalid or missing issue parameters"));
+                return;
+            }
+
+            var senderPrefix = issueRequest.SenderNameOrPrefix;
+            var recipientPrefix = issueRequest.RecipientPrefix;
+
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueEcrCredentialResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            logger.LogInformation(nameof(HandleAppRequestIssueEcrCredentialRpcAsync) +
+                ": sender={Sender} ({SenderName}), recipient={Recipient}, role={Role}",
+                senderPrefix, senderName, recipientPrefix, issueRequest.EcrRole);
+
+            if (!await EnsureSchemaResolvedAsync(VleiCredentialHelper.EcrSchemaSaid, nameof(HandleAppRequestIssueEcrCredentialRpcAsync))) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueEcrCredentialResponsePayload(false, Error: "Failed to resolve ECR schema"));
+                return;
+            }
+
+            IssueEcrCredentialResponsePayload? successResult = null;
+            using (_broker.PrioritizeInteractive()) {
+                // Look up ECR Auth credential held by sender
+                var credsResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
+                    svc => svc.GetCredentials());
+                if (credsResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueEcrCredentialResponsePayload(false, Error: $"Failed to get credentials: {credsResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var ecrAuthCred = VleiCredentialHelper.FindEcrAuthCredential(credsResult.Value, senderPrefix);
+                if (ecrAuthCred is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueEcrCredentialResponsePayload(false, Error: $"Sender {senderPrefix} does not hold an ECR Auth credential"));
+                    return;
+                }
+                var ecrAuthSaid = ecrAuthCred.GetValueByPath("sad.d")?.Value?.ToString()!;
+                logger.LogInformation(nameof(HandleAppRequestIssueEcrCredentialRpcAsync) + ": Found ECR Auth credential: said={Said}", ecrAuthSaid);
+
+                // Create registry (idempotent). Using the offer-registry name for consistency with the
+                // previous fused offer handler; the registry is reused by both the offer and grant
+                // submit paths since the issued credential is the same regardless of which IPEX
+                // submission the user chooses.
+                var registryName = $"{senderName}_ecr_offer_registry";
+                var registryResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                    svc => svc.CreateRegistryIfNotExists(senderName, registryName));
+                if (registryResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueEcrCredentialResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
+                    return;
+                }
+
+                // Issue ECR credential
+                var ecrCredData = VleiCredentialHelper.BuildEcrCredentialData(issueRequest.EcrRole);
+                var ecrEdge = VleiCredentialHelper.BuildEcrAuthEdge(ecrAuthSaid);
+                var ecrRules = VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer);
+
+                logger.LogInformation(nameof(HandleAppRequestIssueEcrCredentialRpcAsync) + ": Issuing ECR credential...");
+                var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueAndGetCredential,
+                    svc => svc.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                    IssuerAidNameOrPrefix: senderName,
+                    RegistryName: registryName,
+                    Schema: VleiCredentialHelper.EcrSchemaSaid,
+                    HolderPrefix: recipientPrefix,
+                    CredData: ecrCredData,
+                    CredEdge: ecrEdge,
+                    CredRules: ecrRules,
+                    Private: true
+                )));
+
+                if (issueResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueEcrCredentialResponsePayload(false, Error: $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var credentialSaid = issueResult.Value["said"]?.StringValue;
+                var acdc = issueResult.Value["acdc"]?.Dictionary;
+                var anc = issueResult.Value["anc"]?.Dictionary;
+                var iss = issueResult.Value["iss"]?.Dictionary;
+
+                if (string.IsNullOrEmpty(credentialSaid) || acdc is null || anc is null || iss is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueEcrCredentialResponsePayload(false, Error: "Issued credential missing required fields"));
+                    return;
+                }
+                logger.LogInformation(nameof(HandleAppRequestIssueEcrCredentialRpcAsync) + ": ECR credential issued: said={Said}", credentialSaid);
+
+                successResult = new IssueEcrCredentialResponsePayload(
+                    Success: true,
+                    CredentialSaid: credentialSaid,
+                    Acdc: acdc,
+                    Anc: anc,
+                    Iss: iss);
+            }
+
+            // Send response outside the PrioritizeInteractive scope. Issuance does not affect
+            // notifications so no poll is needed.
+            if (successResult is not null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: successResult);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIssueEcrCredentialRpcAsync) + ": Error during issue");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IssueEcrCredentialResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Submit an IPEX offer for a credential that has already been issued (by SAID).
+    /// Must be preceded by a successful RequestIssueEcrCredential (or otherwise, the credential
+    /// must already exist in the sender's registry). ApplySaid is optional for ad-hoc flows.
+    /// </summary>
+    private async Task HandleAppRequestSubmitIpexOfferRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestSubmitIpexOfferRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexOfferResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var submitRequest = JsonSerializer.Deserialize<SubmitIpexOfferRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (submitRequest is null || string.IsNullOrEmpty(submitRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(submitRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(submitRequest.CredentialSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexOfferResponsePayload(false, Error: "Invalid or missing submit-offer parameters"));
+                return;
+            }
+
+            var senderPrefix = submitRequest.SenderNameOrPrefix;
+            var recipientPrefix = submitRequest.RecipientPrefix;
+
+            logger.LogInformation(nameof(HandleAppRequestSubmitIpexOfferRpcAsync) +
+                ": sender={Sender}, recipient={Recipient}, credentialSaid={CredSaid}, applySaid={ApplySaid}",
+                senderPrefix, recipientPrefix, submitRequest.CredentialSaid, submitRequest.ApplySaid);
+
+            bool offerSucceeded = false;
+            string? offerError = null;
+            using (_broker.PrioritizeInteractive()) {
+                var offerResult = await _broker.EnqueueCommandAsync(SignifyOperation.IpexOfferAndSubmit,
+                    svc => svc.IpexOfferAndSubmit(new IpexOfferSubmitArgs(
+                        SenderNameOrPrefix: senderPrefix,
+                        RecipientPrefix: recipientPrefix,
+                        CredentialSaid: submitRequest.CredentialSaid,
+                        ApplySaid: submitRequest.ApplySaid
+                    )));
+
+                if (offerResult.IsSuccess) {
+                    var offerSaid = offerResult.Value["offerSaid"]?.StringValue;
+                    logger.LogInformation(nameof(HandleAppRequestSubmitIpexOfferRpcAsync) + ": Offer submitted: offerSaid={OfferSaid}", offerSaid);
+                    offerSucceeded = true;
+                }
+                else {
+                    offerError = offerResult.Errors.Count > 0 ? offerResult.Errors[0].Message : "IPEX offer failed";
+                    logger.LogWarning(nameof(HandleAppRequestSubmitIpexOfferRpcAsync) + ": {Error}", offerError);
+                }
+            }
+
+            // Poll notifications outside PrioritizeInteractive scope — see the deadlock comment
+            // in HandleAppRequestIpexOfferRpcAsync for why this must not move back inside.
+            if (offerSucceeded) {
+                await PollNotificationsThrottledAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexOfferResponsePayload(true));
+            }
+            else {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexOfferResponsePayload(false, Error: offerError ?? "Unknown error"));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestSubmitIpexOfferRpcAsync) + ": Error during IPEX offer submit");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexOfferResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Submit an IPEX grant. Two modes (exactly one set in the payload):
+    ///   - Post-issue: acdc/anc/iss dicts from a prior RequestIssueEcrCredential response.
+    ///   - Agree-reuse: agreeSaid; BW traces agree → prior offer → existing credential and grants it.
+    /// </summary>
+    private async Task HandleAppRequestSubmitIpexGrantRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestSubmitIpexGrantRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexGrantResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var submitRequest = JsonSerializer.Deserialize<SubmitIpexGrantRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (submitRequest is null || string.IsNullOrEmpty(submitRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(submitRequest.RecipientPrefix)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexGrantResponsePayload(false, Error: "Invalid or missing submit-grant parameters"));
+                return;
+            }
+
+            var hasPostIssue = submitRequest.Acdc is not null && submitRequest.Anc is not null && submitRequest.Iss is not null;
+            var hasAgreeSaid = !string.IsNullOrEmpty(submitRequest.AgreeSaid);
+            if (hasPostIssue == hasAgreeSaid) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SubmitIpexGrantResponsePayload(false,
+                        Error: "Exactly one of (acdc+anc+iss) or agreeSaid must be provided"));
+                return;
+            }
+
+            if (hasAgreeSaid) {
+                await SubmitGrantFromAgreeAsync(portId, request, submitRequest);
+            }
+            else {
+                await SubmitGrantPostIssueAsync(portId, request, submitRequest);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestSubmitIpexGrantRpcAsync) + ": Error during IPEX grant submit");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Post-issue grant path: the App already issued the credential via RequestIssueEcrCredential
+    /// and now sends the acdc/anc/iss dicts back to be granted.
+    /// </summary>
+    private async Task SubmitGrantPostIssueAsync(string portId, RpcRequest request, SubmitIpexGrantRequestPayload submitRequest) {
+        var senderPrefix = submitRequest.SenderNameOrPrefix;
+        var recipientPrefix = submitRequest.RecipientPrefix;
+
+        logger.LogInformation(nameof(SubmitGrantPostIssueAsync) +
+            ": sender={Sender}, recipient={Recipient}", senderPrefix, recipientPrefix);
+
+        bool grantSucceeded = false;
+        string? grantError = null;
+        using (_broker.PrioritizeInteractive()) {
+            var grantResult = await _primeDataService.GrantStep(new IpexGrantSubmitArgs(
+                SenderNameOrPrefix: senderPrefix,
+                RecipientPrefix: recipientPrefix,
+                Acdc: submitRequest.Acdc!,
+                Anc: submitRequest.Anc!,
+                Iss: submitRequest.Iss!
+            ), nameof(SubmitGrantPostIssueAsync));
+
+            if (grantResult.IsSuccess) {
+                logger.LogInformation(nameof(SubmitGrantPostIssueAsync) + ": Grant submitted: grantSaid={GrantSaid}", grantResult.Value);
+                grantSucceeded = true;
+            }
+            else {
+                grantError = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+                logger.LogWarning(nameof(SubmitGrantPostIssueAsync) + ": {Error}", grantError);
+            }
+        }
+
+        // Poll outside scope — same deadlock rule.
+        if (grantSucceeded) {
+            await PollNotificationsThrottledAsync();
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(true));
+        }
+        else {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: grantError ?? "Unknown error"));
+        }
+    }
+
+    /// <summary>
+    /// Agree-reuse grant path: trace agree → prior offer → existing credential SAID, then grant
+    /// that credential via PresentStep. No new issuance. Logic mirrors the retired
+    /// HandleGrantFromAgreeAsync helper.
+    /// </summary>
+    private async Task SubmitGrantFromAgreeAsync(string portId, RpcRequest request, SubmitIpexGrantRequestPayload submitRequest) {
+        var senderPrefix = submitRequest.SenderNameOrPrefix;
+        var recipientPrefix = submitRequest.RecipientPrefix;
+
+        var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+        if (senderNameResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+            return;
+        }
+        var senderName = senderNameResult.Value;
+
+        logger.LogInformation(nameof(SubmitGrantFromAgreeAsync) +
+            ": sender={Sender} ({SenderName}), recipient={Recipient}, agreeSaid={AgreeSaid}",
+            senderPrefix, senderName, recipientPrefix, submitRequest.AgreeSaid);
+
+        var agreeExchangeResult = await GetExchangeCachedAsync(submitRequest.AgreeSaid!);
+        if (agreeExchangeResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: $"Failed to get agree exchange: {agreeExchangeResult.Errors[0].Message}"));
+            return;
+        }
+
+        var agreeView = ExchangeView.FromRecursiveDictionary(agreeExchangeResult.Value);
+        var offerSaid = agreeView.P;
+        if (string.IsNullOrEmpty(offerSaid)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: "Agree exchange has no prior offer reference"));
+            return;
+        }
+
+        var offerExchangeResult = await GetExchangeCachedAsync(offerSaid);
+        if (offerExchangeResult.IsFailed) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: $"Failed to get prior offer exchange: {offerExchangeResult.Errors[0].Message}"));
+            return;
+        }
+
+        var offerView = ExchangeView.FromRecursiveDictionary(offerExchangeResult.Value);
+        var credentialSaid = offerView.E?.GetValueByPath("acdc.d")?.Value?.ToString();
+        if (string.IsNullOrEmpty(credentialSaid)) {
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: "Could not find credential SAID in prior offer"));
+            return;
+        }
+
+        logger.LogInformation(nameof(SubmitGrantFromAgreeAsync) +
+            ": Found credential SAID={CredSaid} from offer={OfferSaid}", credentialSaid, offerSaid);
+
+        var grantResult = await _primeDataService.PresentStep(
+            senderName, credentialSaid, recipientPrefix, nameof(SubmitGrantFromAgreeAsync));
+
+        if (grantResult.IsSuccess) {
+            await PollNotificationsThrottledAsync();
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(true));
+        }
+        else {
+            var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
+            logger.LogWarning(nameof(SubmitGrantFromAgreeAsync) + ": {Error}", errorMsg);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SubmitIpexGrantResponsePayload(false, Error: errorMsg));
+        }
+    }
+
+    /// <summary>
+    /// STUB handler for credential revocation. Returns Success=false with an informative error
+    /// so the App surfaces a snackbar "Revocation not yet implemented". Called by the dialog when
+    /// the user cancels after the credential has already been issued but before submission.
+    /// </summary>
+    // TODO P2 implement revocation — ISignifyClientService.RevokeCredential exists but the end-to-end
+    //   flow (registry lookup, ixn anchoring, downstream notification propagation) is not yet
+    //   validated in this project. When implementing: wire this handler through
+    //   _broker.EnqueueCommandAsync(SignifyOperation.RevokeCredential, ...) and return Success=true
+    //   with the revocation event SAID.
+    private async Task HandleAppRequestRevokeCredentialRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestRevokeCredentialRpcAsync) + ": called (STUB)");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new RevokeCredentialResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var revokeRequest = JsonSerializer.Deserialize<RevokeCredentialRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (revokeRequest is null || string.IsNullOrEmpty(revokeRequest.CredentialSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new RevokeCredentialResponsePayload(false, Error: "Invalid or missing credentialSaid"));
+                return;
+            }
+
+            logger.LogWarning(nameof(HandleAppRequestRevokeCredentialRpcAsync) +
+                ": STUB — revocation not performed for credentialSaid={Said} issuer={Issuer}",
+                revokeRequest.CredentialSaid, revokeRequest.IssuerNameOrPrefix);
+
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new RevokeCredentialResponsePayload(false, Error: "Revocation not yet implemented"));
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestRevokeCredentialRpcAsync) + ": Error in revoke stub");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new RevokeCredentialResponsePayload(false, Error: ex.Message));
         }
     }
 

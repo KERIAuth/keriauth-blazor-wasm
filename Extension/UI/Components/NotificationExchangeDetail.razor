@@ -95,8 +95,6 @@
         }
     }
 
-    bool showCredentialSettings;
-
     CredentialViewOptions CredentialViewOpts => new(
         DisplayType: appCache.MyPreferences.CredentialsDisplayType,
         DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
@@ -324,16 +322,7 @@
 
     @if (AcdcCredential is not null)
     {
-        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
-            <MudIconButton Icon="@Icons.Material.Filled.Settings"
-                           Size="Size.Small"
-                           OnClick="@(() => showCredentialSettings = !showCredentialSettings)" />
-        </MudStack>
-
-        @if (showCredentialSettings)
-        {
-            <CredentialViewPrefsComponent />
-        }
+        <CredentialViewPrefsComponent />
 
         <CredentialComponent Credential="@AcdcCredential"
                              ViewOptions="@CredentialViewOpts"
