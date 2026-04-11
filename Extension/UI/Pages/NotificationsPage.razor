@@ -505,11 +505,12 @@
         var view = ExpandedExchangeData.Value;
 
         // Show confirmation dialog
-        var parameters = new DialogParameters<OfferCredentialDialog>
+        var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
         {
             { x => x.ApplyExchange, view },
             { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
-            { x => x.HolderName, ResolveAidNameWithExt(view.I) }
+            { x => x.HolderName, ResolveAidNameWithExt(view.I) },
+            { x => x.IsOffer, true }
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -519,7 +520,7 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<OfferCredentialDialog>("Offer credential", parameters, options);
+        var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Offer credential", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is null || dialogResult.Canceled) return;
@@ -607,11 +608,12 @@
         }
 
         // Show confirmation dialog
-        var parameters = new DialogParameters<GrantCredentialDialog>
+        var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
         {
             { x => x.ApplyExchange, view },
             { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
-            { x => x.HolderName, ResolveAidNameWithExt(view.I) }
+            { x => x.HolderName, ResolveAidNameWithExt(view.I) },
+            { x => x.IsOffer, false }
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -621,7 +623,7 @@
             CloseButton = true,
             Position = DialogPosition.Center,
         };
-        var dialog = await dialogService.ShowAsync<GrantCredentialDialog>("Grant credential", parameters, options);
+        var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Grant credential", parameters, options);
         var dialogResult = await dialog.Result;
 
         if (dialogResult is null || dialogResult.Canceled) return;
