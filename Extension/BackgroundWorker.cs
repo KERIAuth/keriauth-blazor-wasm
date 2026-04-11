@@ -3390,6 +3390,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return;
             }
 
+            bool offerSucceeded = false;
             using (_broker.PrioritizeInteractive()) {
                 // Look up ECR Auth credential held by sender
                 var credsResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
@@ -3465,16 +3466,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 if (offerResult.IsSuccess) {
                     var offerSaid = offerResult.Value["offerSaid"]?.StringValue;
                     logger.LogInformation(nameof(HandleAppRequestIpexOfferRpcAsync) + ": Offer submitted: offerSaid={OfferSaid}", offerSaid);
-                    await PollNotificationsThrottledAsync();
-                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                        result: new IpexOfferResponsePayload(true));
+                    offerSucceeded = true;
                 }
                 else {
                     var errorMsg = offerResult.Errors.Count > 0 ? offerResult.Errors[0].Message : "IPEX offer failed";
                     logger.LogWarning(nameof(HandleAppRequestIpexOfferRpcAsync) + ": {Error}", errorMsg);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                         result: new IpexOfferResponsePayload(false, Error: errorMsg));
+                    return;
                 }
+            }
+
+            // Poll notifications outside PrioritizeInteractive scope — background channel is
+            // suspended inside the scope, so polling there would deadlock waiting on a
+            // Background-priority work item that the drain loop can't dequeue.
+            if (offerSucceeded) {
+                await PollNotificationsThrottledAsync();
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IpexOfferResponsePayload(true));
             }
         }
         catch (Exception ex) {
@@ -3558,6 +3567,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
+        bool grantSucceeded = false;
         using (_broker.PrioritizeInteractive()) {
             // Look up ECR Auth credential held by sender
             var credsResult = await _broker.EnqueueCommandAsync(SignifyOperation.GetCredentials,
@@ -3635,16 +3645,24 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
             if (grantResult.IsSuccess) {
                 logger.LogInformation(nameof(HandleGrantFromApplyAsync) + ": Grant submitted: grantSaid={GrantSaid}", grantResult.Value);
-                await PollNotificationsThrottledAsync();
-                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                    result: new IpexGrantResponsePayload(true));
+                grantSucceeded = true;
             }
             else {
                 var errorMsg = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
                 logger.LogWarning(nameof(HandleGrantFromApplyAsync) + ": {Error}", errorMsg);
                 await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                     result: new IpexGrantResponsePayload(false, Error: errorMsg));
+                return;
             }
+        }
+
+        // Poll notifications outside PrioritizeInteractive scope — background channel is
+        // suspended inside the scope, so polling there would deadlock waiting on a
+        // Background-priority work item that the drain loop can't dequeue.
+        if (grantSucceeded) {
+            await PollNotificationsThrottledAsync();
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IpexGrantResponsePayload(true));
         }
     }
 

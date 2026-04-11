@@ -891,15 +891,17 @@ namespace Extension.Models.Messages.AppBw {
     public enum IpexWorkflow {
         Apply,
         Offer,
+        Grant,
         ApplyOffer,
         ApplyOfferAgree,
         ApplyOfferAgreeGrant,
         ApplyOfferAgreeGrantAdmit,
         ApplyGrant,
         ApplyGrantAdmit,
-        Grant,
+        OfferAgree,
+        OfferAgreeGrant,
+        OfferAgreeGrantAdmit,
         GrantAdmit,
-        OfferAgreeGrantAdmit
     }
 
     /// <summary>
