@@ -42,7 +42,10 @@ namespace Extension.Services.PrimeDataService {
 
         private async Task ReportComplete() {
             await _storageGateway.SetItem(new PrimeDataProgress { Operation = _currentOperation, IsComplete = true }, StorageArea.Session);
-            // await Task.Yield(); // Allow time for BW to process any other background work
+            // Yield so the BW's background polling loop and any queued broker work can run before
+            // this workflow task fully completes — without this, the post-workflow notification
+            // cache can miss the /offer /agree /grant /admit notifications the workflow generated.
+            await Task.Yield();
         }
 
         private async Task ReportError(string description) {

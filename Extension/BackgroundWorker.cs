@@ -3065,7 +3065,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 logger.LogError(ex, nameof(HandleAppRequestPrimeDataIpexRpcAsync) + ": Unhandled error during PrimeData IPEX");
             }
             finally {
-                await RefreshIdentifiersCache();
+                // PrimeDataService calls _signifyClient.ListNotifications / MarkNotification directly,
+                // bypassing NotificationPollingService. That means the App-side CachedNotifications
+                // session storage isn't updated by those direct calls. Force a final post-workflow
+                // refresh of identifiers, notifications, and credentials so the NotificationsPage and
+                // CredentialsPage reflect the generated /exn/ipex/offer /agree /grant /admit state
+                // that the workflow produced.
+                await RefreshIdentifiersCache(force: true);
+                await PollNotificationsThrottledAsync(force: true);
+                await RefreshCachedCredentialsAsync(force: true);
             }
         });
     }
