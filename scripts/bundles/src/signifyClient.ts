@@ -1103,8 +1103,14 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
                 acdc: Dict<any>;
                 anc: Dict<any>;
                 iss: Dict<any>;
+                agreeSaid?: string;
             };
 
+            // When agreeSaid is provided, the grant's `p` (prior) field is set to link this
+            // grant back to the agree that preceded it, so KERIA's IpexHandler.verify() treats
+            // it as a proper chain continuation (`PreviousRoutes[grant] = (agree,)`).
+            // Without agreeSaid the grant becomes an unsolicited initiator — allowed but
+            // semantically wrong when the flow went through an agree.
             const [grant, gsigs, end] = await client.ipex().grant({
                 senderName: args.senderName,
                 recipient: args.recipient,
@@ -1112,6 +1118,7 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
                 acdc: new Serder(args.acdc),
                 anc: new Serder(args.anc),
                 iss: new Serder(args.iss),
+                agreeSaid: args.agreeSaid,
             });
 
             const grantSaid = grant.ked.d as string;

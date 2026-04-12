@@ -744,12 +744,23 @@ namespace Extension.Services.PrimeDataService {
                     grantSaid = grantResult.Value;
                 }
                 else {
+                    // Chain the grant to the preceding agree when the workflow actually went
+                    // through agree — KERIA's IpexHandler.verify() requires `p = agreeSaid` for
+                    // a grant that follows an agree (`PreviousRoutes[grant] = (agree,)`).
+                    // For flows that skip agree (ApplyGrant, ApplyGrantAdmit, standalone Grant,
+                    // GrantAdmit), agreeSaid stays null and the grant is an unsolicited initiator.
+                    var grantAgreeSaid = workflow is IpexWorkflow.ApplyOfferAgreeGrant
+                        or IpexWorkflow.ApplyOfferAgreeGrantAdmit
+                        or IpexWorkflow.OfferAgreeGrantAdmit
+                        ? agreeSaid
+                        : null;
                     var grantResult = await GrantStep(new IpexGrantSubmitArgs(
                         SenderNameOrPrefix: discloserPrefix,
                         RecipientPrefix: discloseePrefix,
                         Acdc: issuedCred!.Acdc,
                         Anc: issuedCred.Anc,
-                        Iss: issuedCred.Iss
+                        Iss: issuedCred.Iss,
+                        AgreeSaid: grantAgreeSaid
                     ), "IPEX grant");
                     if (grantResult.IsFailed) return await FailIpexResponseWithProgress(grantResult.Errors[0].Message);
                     grantSaid = grantResult.Value;

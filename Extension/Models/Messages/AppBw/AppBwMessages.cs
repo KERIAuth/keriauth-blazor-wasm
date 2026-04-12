@@ -170,8 +170,8 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestGetExchange = "AppBw.RequestGetExchange";
             public const string RequestIpexAdmit = "AppBw.RequestIpexAdmit";
             public const string RequestIpexAgree = "AppBw.RequestIpexAgree";
-            public const string RequestIpexOffer = "AppBw.RequestIpexOffer";
-            public const string RequestIpexGrant = "AppBw.RequestIpexGrant";
+            // RequestIpexOffer and RequestIpexGrant removed — replaced by decoupled
+            // RequestIssueEcrCredential + RequestSubmitIpexOffer + RequestSubmitIpexGrant
             public const string RequestIpexGrantPresentation = "AppBw.RequestIpexGrantPresentation";
             /// <summary>
             /// Request BW to issue a new ECR credential (signing step only, no IPEX submission).
@@ -246,8 +246,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetExchange { get; } = new(Values.RequestGetExchange);
         public static AppBwMessageType RequestIpexAdmit { get; } = new(Values.RequestIpexAdmit);
         public static AppBwMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
-        public static AppBwMessageType RequestIpexOffer { get; } = new(Values.RequestIpexOffer);
-        public static AppBwMessageType RequestIpexGrant { get; } = new(Values.RequestIpexGrant);
+        // RequestIpexOffer and RequestIpexGrant static properties removed (see Values comment above)
         public static AppBwMessageType RequestIssueEcrCredential { get; } = new(Values.RequestIssueEcrCredential);
         public static AppBwMessageType RequestSubmitIpexOffer { get; } = new(Values.RequestSubmitIpexOffer);
         public static AppBwMessageType RequestSubmitIpexGrant { get; } = new(Values.RequestSubmitIpexGrant);
@@ -384,12 +383,7 @@ namespace Extension.Models.Messages.AppBw {
                 case Values.RequestIpexAgree:
                     result = RequestIpexAgree;
                     return true;
-                case Values.RequestIpexOffer:
-                    result = RequestIpexOffer;
-                    return true;
-                case Values.RequestIpexGrant:
-                    result = RequestIpexGrant;
-                    return true;
+                // RequestIpexOffer and RequestIpexGrant TryParse cases removed
                 case Values.RequestIssueEcrCredential:
                     result = RequestIssueEcrCredential;
                     return true;
@@ -879,25 +873,9 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("error")] string? Error = null
     );
 
-    public record IpexOfferRequestPayload(
-        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
-        [property: JsonPropertyName("recipient")] string RecipientPrefix,
-        [property: JsonPropertyName("applySaid")] string ApplySaid,
-        [property: JsonPropertyName("ecrRole")] string EcrRole
-    );
-
-    public record IpexOfferResponsePayload(
-        [property: JsonPropertyName("success")] bool Success,
-        [property: JsonPropertyName("error")] string? Error = null
-    );
-
-    public record IpexGrantRequestPayload(
-        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
-        [property: JsonPropertyName("recipient")] string RecipientPrefix,
-        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null,
-        [property: JsonPropertyName("applySaid")] string? ApplySaid = null,
-        [property: JsonPropertyName("ecrRole")] string? EcrRole = null
-    );
+    // IpexOfferRequestPayload, IpexOfferResponsePayload, IpexGrantRequestPayload removed —
+    // replaced by IssueEcrCredentialRequestPayload/ResponsePayload + SubmitIpexOfferRequestPayload/ResponsePayload
+    // + SubmitIpexGrantRequestPayload/ResponsePayload (decoupled issuance from submission)
 
     public record IpexGrantPresentationRequestPayload(
         [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,

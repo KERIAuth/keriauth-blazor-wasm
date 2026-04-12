@@ -42,13 +42,17 @@ namespace Extension.Services.SignifyService.Models {
 
     /// <summary>
     /// Args for ipexGrantAndSubmit composite operation.
+    /// When AgreeSaid is provided, the grant exn chains to the prior agree via its `p` field,
+    /// which is required by KERIA's IPEX chain semantics in an apply→offer→agree→grant→admit
+    /// flow. Omit AgreeSaid for unsolicited grants that start a new IPEX exchange.
     /// </summary>
     public record IpexGrantSubmitArgs(
         [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
         [property: JsonPropertyName("recipient")] string RecipientPrefix,
         [property: JsonPropertyName("acdc")] RecursiveDictionary Acdc,
         [property: JsonPropertyName("anc")] RecursiveDictionary Anc,
-        [property: JsonPropertyName("iss")] RecursiveDictionary Iss
+        [property: JsonPropertyName("iss")] RecursiveDictionary Iss,
+        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null
     );
 
     /// <summary>

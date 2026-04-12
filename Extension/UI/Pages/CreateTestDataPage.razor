@@ -16,6 +16,8 @@
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
 @inject IStorageGateway storageGateway
+@inject IDialogService dialogService
+@inject ISnackbar snackbar
 
 @implements IDisposable
 
@@ -358,6 +360,34 @@
         StateHasChanged();
     }
 
+    async Task OpenAdHocIssuanceDialog(bool isOffer)
+    {
+        var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
+        {
+            { x => x.IsOffer, isOffer },
+            { x => x.LocalAids, appCache.Aids },
+            { x => x.Connections, appCache.MyConnections }
+        };
+        var options = new DialogOptions {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            BackdropClick = false,
+            CloseButton = true,
+            Position = DialogPosition.Center,
+        };
+        var title = isOffer ? "Issue & offer credential" : "Issue & grant credential";
+        var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>(title, parameters, options);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is not null && !dialogResult.Canceled) {
+            var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
+            if (result is not null && result.Submitted) {
+                snackbar.Add($"Credential {(isOffer ? "offered" : "granted")} successfully", Severity.Success);
+            }
+        }
+    }
+
     public void Dispose()
     {
         _progressSubscription?.Dispose();
@@ -468,6 +498,9 @@
                                     }
                                 </MudStack>
                             }
+                            <MudText Color="Color.Warning" Typo="Typo.body2" Class="mt-1">
+                                Note:  KERIA does not generate notifications for non-initiator IPEX messages (offer, agree, admit) when sender and recipient are under the same agent.
+                            </MudText>
 
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -491,6 +524,33 @@
                                     <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Title="@ipexError" />
                                     <MudText Color="Color.Error" Typo="Typo.body2">@ipexError</MudText>
                                 }
+                            </MudStack>
+                        </MudStack>
+                    </ChildContent>
+                </MudExpansionPanel>
+                <MudExpansionPanel>
+                    <TitleContent>
+                        <MudText Class="bt-pref-group-label0">
+                            Issue Credentials
+                        </MudText>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudStack Class="ml-5" Spacing="2">
+                            <MudText Typo="Typo.body2">
+                                Issue a credential ad-hoc and offer or grant it. Opens the multi-step
+                                issuance dialog where you select issuer, holder, and role.
+                            </MudText>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           OnClick="@(() => OpenAdHocIssuanceDialog(isOffer: true))"
+                                           Disabled="@(!appCache.IsConnectedToKeria)">
+                                    Issue &amp; Offer
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           OnClick="@(() => OpenAdHocIssuanceDialog(isOffer: false))"
+                                           Disabled="@(!appCache.IsConnectedToKeria)">
+                                    Issue &amp; Grant
+                                </MudButton>
                             </MudStack>
                         </MudStack>
                     </ChildContent>
