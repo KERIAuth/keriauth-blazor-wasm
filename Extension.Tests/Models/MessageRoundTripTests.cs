@@ -867,5 +867,170 @@ namespace Extension.Tests.Models {
         }
 
         #endregion
+
+        #region New Decoupled IPEX RPC Payload Tests
+
+        [Theory]
+        [InlineData(AppBwMessageType.Values.RequestIssueEcrCredential)]
+        [InlineData(AppBwMessageType.Values.RequestSubmitIpexOffer)]
+        [InlineData(AppBwMessageType.Values.RequestSubmitIpexGrant)]
+        [InlineData(AppBwMessageType.Values.RequestRevokeCredential)]
+        public void AppBwMessageType_TryParse_NewIpexValues(string value) {
+            var result = AppBwMessageType.TryParse(value, out var msgType);
+            Assert.True(result, $"TryParse should succeed for {value}");
+            Assert.Equal(value, msgType.Value);
+        }
+
+        [Fact]
+        public void IssueEcrCredentialRequestPayload_RoundTrip() {
+            var payload = new IssueEcrCredentialRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                EcrRole: "head_of_standards");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"senderName\"", json);
+            Assert.Contains("\"recipient\"", json);
+            Assert.Contains("\"ecrRole\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<IssueEcrCredentialRequestPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("issuer_aid", deserialized.SenderNameOrPrefix);
+            Assert.Equal("EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c", deserialized.RecipientPrefix);
+            Assert.Equal("head_of_standards", deserialized.EcrRole);
+        }
+
+        [Fact]
+        public void IssueEcrCredentialResponsePayload_RoundTrip_Success() {
+            var acdc = new RecursiveDictionary();
+            acdc["d"] = new RecursiveValue { StringValue = "EHMnCf8_nIemuPx" };
+            acdc["i"] = new RecursiveValue { StringValue = "EEXekkGu9IAzav6" };
+
+            var payload = new IssueEcrCredentialResponsePayload(
+                Success: true,
+                CredentialSaid: "EHMnCf8_nIemuPx",
+                Acdc: acdc,
+                Anc: new RecursiveDictionary(),
+                Iss: new RecursiveDictionary());
+
+            var json = JsonSerializer.Serialize(payload, _recursiveDictOptions);
+            var deserialized = JsonSerializer.Deserialize<IssueEcrCredentialResponsePayload>(json, _recursiveDictOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.True(deserialized.Success);
+            Assert.Equal("EHMnCf8_nIemuPx", deserialized.CredentialSaid);
+            Assert.NotNull(deserialized.Acdc);
+            Assert.Equal("EHMnCf8_nIemuPx", deserialized.Acdc["d"].StringValue);
+        }
+
+        [Fact]
+        public void IssueEcrCredentialResponsePayload_RoundTrip_Failure() {
+            var payload = new IssueEcrCredentialResponsePayload(false, Error: "ECR Auth not found");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<IssueEcrCredentialResponsePayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.False(deserialized.Success);
+            Assert.Equal("ECR Auth not found", deserialized.Error);
+            Assert.Null(deserialized.Acdc);
+        }
+
+        [Fact]
+        public void SubmitIpexOfferRequestPayload_RoundTrip_WithApplySaid() {
+            var payload = new SubmitIpexOfferRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3",
+                CredentialSaid: "EHMn",
+                ApplySaid: "EFvZ");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"applySaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexOfferRequestPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("EFvZ", deserialized.ApplySaid);
+        }
+
+        [Fact]
+        public void SubmitIpexOfferRequestPayload_RoundTrip_WithoutApplySaid() {
+            var payload = new SubmitIpexOfferRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3",
+                CredentialSaid: "EHMn");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            // null ApplySaid should be omitted with WhenWritingNull
+            Assert.DoesNotContain("\"applySaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexOfferRequestPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Null(deserialized.ApplySaid);
+        }
+
+        [Fact]
+        public void SubmitIpexGrantRequestPayload_RoundTrip_PostIssue() {
+            var acdc = new RecursiveDictionary();
+            acdc["d"] = new RecursiveValue { StringValue = "EHMn" };
+
+            var payload = new SubmitIpexGrantRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3",
+                Acdc: acdc,
+                Anc: new RecursiveDictionary(),
+                Iss: new RecursiveDictionary());
+
+            var json = JsonSerializer.Serialize(payload, _recursiveDictOptions);
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexGrantRequestPayload>(json, _recursiveDictOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.NotNull(deserialized.Acdc);
+            Assert.Null(deserialized.AgreeSaid);
+        }
+
+        [Fact]
+        public void SubmitIpexGrantRequestPayload_RoundTrip_AgreeReuse() {
+            var payload = new SubmitIpexGrantRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3",
+                AgreeSaid: "EFvZ_agreeSaid");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexGrantRequestPayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.Equal("EFvZ_agreeSaid", deserialized.AgreeSaid);
+            Assert.Null(deserialized.Acdc);
+            Assert.Null(deserialized.Anc);
+            Assert.Null(deserialized.Iss);
+        }
+
+        [Fact]
+        public void RevokeCredentialRequestPayload_RoundTrip() {
+            var payload = new RevokeCredentialRequestPayload(
+                IssuerNameOrPrefix: "issuer_aid",
+                CredentialSaid: "EHMnCf8");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"issuerName\"", json);
+            Assert.Contains("\"credentialSaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<RevokeCredentialRequestPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal("issuer_aid", deserialized.IssuerNameOrPrefix);
+            Assert.Equal("EHMnCf8", deserialized.CredentialSaid);
+        }
+
+        [Fact]
+        public void RevokeCredentialResponsePayload_RoundTrip_Stub() {
+            var payload = new RevokeCredentialResponsePayload(false, Error: "Revocation not yet implemented");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var deserialized = JsonSerializer.Deserialize<RevokeCredentialResponsePayload>(json, _jsonOptions);
+
+            Assert.NotNull(deserialized);
+            Assert.False(deserialized.Success);
+            Assert.Equal("Revocation not yet implemented", deserialized.Error);
+        }
+
+        #endregion
     }
 }

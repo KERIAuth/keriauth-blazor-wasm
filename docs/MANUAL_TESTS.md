@@ -31,7 +31,11 @@
   - [Create Data Attestation Credential](#create-data-attestation-credential)
   - [Connection Invite](#connection-invite)
   - [IPEX](#ipex)
+    - [IPEX Terminology: Issuance](#ipex-terminology-issuance)
     - [IPEX Apply (Credential Issuance) for an ECR](#ipex-apply-credential-issuance-for-an-ecr)
+    - [Offer / Grant Credential from Apply Notification (Multi-Step Dialog)](#offer--grant-credential-from-apply-notification-multi-step-dialog)
+    - [Grant Credential from Agree Notification (Review-Agree Dialog)](#grant-credential-from-agree-notification-review-agree-dialog)
+    - [CreateTestDataPage — Issue Credentials Panel (Ad-Hoc)](#createtestdatapage--issue-credentials-panel-ad-hoc)
     - [IPEX Apply (Credential Presentation)](#ipex-apply-credential-presentation)
     - [IPEX Agree (Credential Issuance)](#ipex-agree-credential-issuance)
     - [IPEX Agree (Credential Presentation)](#ipex-agree-credential-presentation)
@@ -39,6 +43,7 @@
     - [IPEX Grant (Credential Presentation)](#ipex-grant-credential-presentation)
     - [IPEX Admit (Credential Issuance)](#ipex-admit-credential-issuance)
     - [IPEX Admit (Credential Presentation)](#ipex-admit-credential-presentation)
+    - [Same-Agent Notification Limitation](#same-agent-notification-limitation)
 - [Session Expiration Tests](#session-expiration-tests)
   - [A. Inactivity Timeout Without User Activity](#a-inactivity-timeout-without-user-activity)
   - [B. Inactivity Timeout With User Activity](#b-inactivity-timeout-with-user-activity)
@@ -218,6 +223,17 @@ Expected manual test flow:
 4. Click **Approve** (or **Reject** to test cancellation)
 5. Check the DevTools console for the response (`/signify/reply` with result or error)
 
+### IPEX Terminology: Issuance
+
+**Issuance** refers to signing a new credential at the sender. This is now a distinct, user-visible step in the Offer and Grant dialogs. When the user clicks "Offer Credential" or "Grant Credential" from a notification, they walk through:
+
+1. **Review** — inspect the apply (or agree) request
+2. **Issue** — sign the new credential (spinner, progress)
+3. **Review credential** — inspect the signed credential via `CredentialComponent` (Card/Tree view, detail level)
+4. **Submit** — send the IPEX offer or grant
+
+The issuance step uses the decoupled `RequestIssueEcrCredential` RPC. The submission step uses `RequestSubmitIpexOffer` or `RequestSubmitIpexGrant`.
+
 ### IPEX Apply (Credential Issuance) for an ECR
 ```js
 window.postMessage({
@@ -236,6 +252,60 @@ window.postMessage({
 }, window.location.origin);
 
 ```
+
+### Offer / Grant Credential from Apply Notification (Multi-Step Dialog)
+
+1. Prerequisites: Authenticated with ECR Auth credential held, `/exn/ipex/apply` notification received
+2. Navigate to Notifications, expand the apply notification
+
+**Offer path:**
+3. Click **Offer Credential**
+
+Expected:
+- [ ] Step 1 shows credential summary: Schema (ECR), Role, Issuer (AidPrefixDisplay with name or `(ext)`), Holder (same)
+- [ ] "Apply request JSON" expandable panel shows the raw apply exn
+- [ ] Clicking "Next: Issue credential" shows issuing spinner, advances to step 3
+- [ ] Step 3 embeds `CredentialComponent` + gear icon for `CredentialViewPrefsComponent` (collapsed by default)
+- [ ] Clicking gear opens Card/Tree toggle and detail-level selector; changes update the credential view live
+- [ ] Clicking "Offer credential" submits the offer; success snackbar shows; notification marked as read
+- [ ] "Offering…" spinner stops (deadlock regression guard)
+- [ ] Clicking "Reject application" in step 1 closes dialog; no issuance, no submission
+- [ ] Clicking "Reject" in step 3 (post-issuance) surfaces snackbar "Revocation not yet implemented — issued credential remains in your issuer registry"; no submission
+
+**Grant path:**
+3. Click **Grant Credential** — same dialog opens with "Grant credential" title and `CardGiftcard` icon
+4. Walk through same 4 steps
+
+Expected: same as Offer path, except final button reads "Grant credential" and submission sends `/exn/ipex/grant` instead of `/exn/ipex/offer`.
+
+### Grant Credential from Agree Notification (Review-Agree Dialog)
+
+1. Prerequisites: Authenticated, `/exn/ipex/agree` notification received (from a prior offer)
+2. Navigate to Notifications, expand the agree notification
+3. Click **Grant Credential**
+
+Expected:
+- [ ] Dialog opens in review-agree mode: title "Grant credential (from agree)"
+- [ ] Step 1 shows issuer/holder via `AidPrefixDisplay`, prior offer SAID (elided with tooltip), "Agree message JSON" expander
+- [ ] Step label says "Step 1 of 3 · Review agree" (issuance step is skipped — 3 steps total)
+- [ ] Clicking "Next: Review credential" fetches the credential from the prior offer exchange
+- [ ] Step 2 shows the existing credential via `CredentialComponent` (no new issuance occurred)
+- [ ] Confirming "Grant credential" submits the grant via `RequestSubmitIpexGrant` with `agreeSaid`
+- [ ] Canceling is a plain close (no revoke snackbar since no credential was issued)
+
+### CreateTestDataPage — Issue Credentials Panel (Ad-Hoc)
+
+1. Prerequisites: Authenticated with at least one local AID holding an ECR Auth credential
+2. Navigate to CreateTestData page
+
+Expected:
+- [ ] A new `<MudExpansionPanel>` titled **"Issue Credentials"** appears alongside the existing panels, collapsed by default
+- [ ] Expanding reveals **Issue & Offer** and **Issue & Grant** buttons (disabled when not connected to KERIA)
+- [ ] Clicking either opens `OfferOrGrantCredentialIssuanceDialog` in ad-hoc mode (no prior notification)
+- [ ] Step 1 shows: Issuer picker (local AIDs only), Holder picker (local AIDs + connections with `(ext)` suffix), Role text field
+- [ ] `AidNameValidator` rules render live below the role field (icon + text for each rule)
+- [ ] "Next: Issue credential" is disabled until all rules pass (issuer selected, holder selected, issuer ≠ holder, valid role)
+- [ ] Full flow: select issuer → select holder → enter role → Next → issuance spinner → credential review → confirm → success snackbar
 
 ### IPEX Apply (Presentation)
 ```js
@@ -301,6 +371,14 @@ window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID()
 ```js
 window.postMessage({type: '/KeriAuth/ipex/admit', requestId: crypto.randomUUID(), payload: {grantSaid: 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao', recipient: 'EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3', isPresentation: true}}, window.location.origin);
 ```
+
+### Same-Agent Notification Limitation
+
+**Known limitation**: When sender and recipient are both local AIDs under the **same KERIA agent** (same-agent testing, e.g., CreateTestDataPage workflows), KERIA only generates notifications for *initiator* IPEX messages — `apply` and unsolicited `grant` (grant without a prior `agree` reference). Non-initiator messages (`offer`, `agree`, `admit`, and grant with `agreeSaid` properly set) do not generate notifications in this scenario.
+
+**Root cause**: KERIA processes each outgoing exn twice — once on the sender-side via `agent.parser.parseOne` (which logs the exchange and sets `erpy[prior_said]`), and once on the recipient-side delivery (which re-verifies the exchange). For same-agent sends, both paths share the same database. The recipient-side `IpexHandler.verify()` finds `erpy` already set from the sender-side processing and returns `False`, suppressing the notification.
+
+**Impact**: Same-agent automated workflows (CreateTestDataPage) will show only `apply` notifications on NotificationsPage. The actual IPEX exchange processing works correctly — credentials are issued and admitted regardless of notification visibility. Cross-agent workflows (two separate KERIA instances) generate all notifications as expected.
 
 
 # Session Expiration Tests
