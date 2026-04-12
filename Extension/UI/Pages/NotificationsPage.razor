@@ -177,19 +177,29 @@
         try {
             if (notification.ExchangeSaid is null) return;
 
-            // Longer timeout: GetExchange reads can be delayed behind in-progress IPEX commands in the broker
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = notification.ExchangeSaid } },
-                timeout: TimeSpan.FromMinutes(3));
+            // Cache-first: check AppCache before RPC roundtrip
+            RecursiveDictionary? exchangeDict = null;
+            if (appCache.MyCachedExns.TryGetValue(notification.ExchangeSaid, out var cachedJson)) {
+                exchangeDict = JsonSerializer.Deserialize<RecursiveDictionary>(cachedJson, JsonOptions.RecursiveDictionary);
+            }
 
-            if (!response.Ok || response.Result is not JsonElement jsonEl) return;
+            if (exchangeDict is null) {
+                // Cache miss: fetch via RPC (BackgroundWorker will cache it)
+                var response = await appBwPortService.SendRpcRequestAsync(
+                    AppBwMessageType.Values.RequestGetExchange,
+                    new { payload = new { said = notification.ExchangeSaid } },
+                    timeout: TimeSpan.FromMinutes(3));
 
-            var exchangeResult = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
-                jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging);
-            if (exchangeResult?.Success != true || exchangeResult.Exchange is null) return;
+                if (!response.Ok || response.Result is not JsonElement jsonEl) return;
 
-            var view = ExchangeView.FromRecursiveDictionary(exchangeResult.Exchange);
+                var exchangeResult = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
+                    jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging);
+                if (exchangeResult?.Success != true || exchangeResult.Exchange is null) return;
+
+                exchangeDict = exchangeResult.Exchange;
+            }
+
+            var view = ExchangeView.FromRecursiveDictionary(exchangeDict);
 
             // Approach B: infer from embedded ACDC (works for Offer/Grant)
             var flowType = ExchangeView.InferFlowFromAcdc(view.I, view.E);
@@ -212,6 +222,16 @@
 
     async Task<IpexFlowType> ResolveFlowTypeFromPrior(string priorSaid) {
         try {
+            // Cache-first: check AppCache before RPC roundtrip
+            if (appCache.MyCachedExns.TryGetValue(priorSaid, out var cachedJson)) {
+                var rd = JsonSerializer.Deserialize<RecursiveDictionary>(cachedJson, JsonOptions.RecursiveDictionary);
+                if (rd is not null) {
+                    var cachedView = ExchangeView.FromRecursiveDictionary(rd);
+                    return ExchangeView.InferFlowFromAcdc(cachedView.I, cachedView.E);
+                }
+            }
+
+            // Cache miss: fetch via RPC (BackgroundWorker will cache it)
             var response = await appBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestGetExchange,
                 new { payload = new { said = priorSaid } },

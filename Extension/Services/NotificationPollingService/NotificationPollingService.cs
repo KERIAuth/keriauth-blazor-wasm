@@ -39,6 +39,7 @@ public class NotificationPollingService : INotificationPollingService {
     public async Task StartPollingAsync(CancellationToken ct) {
         _lastNotificationFingerprint = null;
         _lastCredentialFingerprint = null;
+        _exchangePrefixCache.Clear();
         var deadline = DateTime.UtcNow + AppConfig.NotificationBurstDuration;
         _logger.LogInformation(nameof(StartPollingAsync) + ": Starting burst polling (interval={Interval}s, duration={Duration}s)",
             AppConfig.NotificationPollInterval.TotalSeconds, AppConfig.NotificationBurstDuration.TotalSeconds);

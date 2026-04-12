@@ -45,7 +45,7 @@ namespace Extension {
 
         // Notification polling configuration
         public const string NotificationPollAlarmName = "NotificationPollAlarm";
-        public const double NotificationPollAlarmPeriodMinutes = 2.0;
+        public const double NotificationPollAlarmPeriodMinutes = 1.0;
         public static readonly TimeSpan NotificationPollInterval = TimeSpan.FromSeconds(5);
         public static readonly TimeSpan NotificationBurstDuration = TimeSpan.FromSeconds(120);
 
