@@ -68,5 +68,14 @@
 
         [JsonPropertyName("CredentialsDisplayType")]
         public CredentialDisplayType CredentialsDisplayType { get; init; } = CredentialDisplayType.Tree;
+
+        /// <summary>
+        /// Diagnostic flag. When true, TypeScript modules emit console.debug messages.
+        /// When false (default), the consoleDebugGate.ts module replaces console.debug with a no-op
+        /// in every extension context (BW, App, content script). The chrome.storage.onChanged listener
+        /// reflects toggles live without restart.
+        /// </summary>
+        [JsonPropertyName("IsConsoleDebugLogged")]
+        public bool IsConsoleDebugLogged { get; init; }
     }
 }

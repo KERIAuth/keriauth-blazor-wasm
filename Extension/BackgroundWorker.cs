@@ -421,7 +421,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     [JSInvokable]
     public async Task OnAlarmAsync(BrowserAlarm alarm) {
         try {
-            logger.LogInformation(nameof(OnAlarmAsync) + ": '{AlarmName}' fired", alarm.Name);
+            // Debug-level: alarms fire frequently (SessionKeepAliveAlarm every 30s).
+            // Information-level fan-out for keep-alive in particular adds noise without value
+            // since HandleKeepAliveAlarm is a no-op (it exists only to keep the SW alive).
+            logger.LogDebug(nameof(OnAlarmAsync) + ": '{AlarmName}' fired", alarm.Name);
             await EnsureInitializedAsync();
             switch (alarm.Name) {
                 case AppConfig.SessionManagerAlarmName:
@@ -1416,7 +1419,9 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     /// These are typically replies to BW requests or App-initiated actions.
     /// </summary>
     private async Task HandleAppRpcAsync(string portId, PortSession? portSession, RpcRequest request) {
-        logger.LogInformation(nameof(HandleAppRpcAsync) + ": method={Method}, id={Id}, portId={PortId}",
+        // Debug: fires for every RPC. Frequent during normal use (unlock, connect, polls, page mounts).
+        // Each handler logs its own user-meaningful entry/outcome at Information.
+        logger.LogDebug(nameof(HandleAppRpcAsync) + ": method={Method}, id={Id}, portId={PortId}",
             request.Method, request.Id, portId);
 
         await EnsureInitializedAsync();
@@ -2542,7 +2547,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             Result<State> connectResult;
             var skippedConnect = false;
             if (_signifyClientService.IsConnected && !connectRequest.IsNewAgent) {
-                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Already connected, skipping redundant Connect");
+                // Debug: internal flow detail; the final success/failure log below is the user-meaningful outcome.
+                logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Already connected, skipping redundant Connect");
                 skippedConnect = true;
                 var stateResult = await _broker.EnqueueReadAsync(SignifyOperation.GetState, svc => svc.GetState());
                 connectResult = stateResult.IsSuccess
@@ -2552,7 +2558,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             else if (_pendingConnectTask is not null && !connectRequest.IsNewAgent) {
                 // Unlock handler already started a background connect — await it
                 // instead of starting a destructive second connect.
-                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Awaiting pending background connect from unlock");
+                // Debug: internal flow detail; outcome logged below.
+                logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Awaiting pending background connect from unlock");
                 var pendingResult = await _pendingConnectTask;
                 skippedConnect = true;
                 if (pendingResult.IsSuccess) {
@@ -2566,7 +2573,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 }
             }
             else {
-                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Performing Connect (IsNewAgent={IsNew}, IsConnected={IsConn}, hasPending={HasPending})",
+                // Debug: internal flow detail; TryConnectSignifyClientAsync logs connecting/connected at Information.
+                logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Performing Connect (IsNewAgent={IsNew}, IsConnected={IsConn}, hasPending={HasPending})",
                     connectRequest.IsNewAgent, _signifyClientService.IsConnected, _pendingConnectTask is not null);
 
                 // Cancel any active burst before connecting — Connect() resets the JS client,
@@ -2610,12 +2618,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 // until the cache populates.
                 _ = RefreshCachedCredentialsAsync();
 
-                logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}",
+                // Debug: intermediate detail. The Created/Updated KeriaConnectionInfo log below covers the storage outcome,
+                // and the RPC response itself signals the user-facing success.
+                logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}",
                     identifiersResult.IsSuccess);
 
                 if (identifiersResult.IsSuccess && identifiersResult.Value is not null) {
                     var connectionInfo = await _storageGateway.GetItem<KeriaConnectionInfo>(StorageArea.Session);
-                    logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Existing KeriaConnectionInfo in session: IsSuccess={Success}, hasValue={HasValue}",
+                    // Debug: internal probe of session state used to decide create-vs-update path.
+                    logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Existing KeriaConnectionInfo in session: IsSuccess={Success}, hasValue={HasValue}",
                         connectionInfo.IsSuccess, connectionInfo.Value is not null);
 
                     if (connectionInfo.IsSuccess && connectionInfo.Value is not null) {
@@ -2626,7 +2637,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
                             tx.SetItem(NextSessionSequence());
                         });
-                        logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
+                        // Debug: storage detail; AppCache reactively updates and the App sees identifiers via MyCachedIdentifiers.
+                        logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Updated CachedIdentifiers with identifiers");
                     }
                     else {
                         // KeriaConnectionInfo doesn't exist - create it using the digest computed from connect data
@@ -2654,7 +2666,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                                 tx.SetItem(ps with { IdentifiersLastFetchedUtc = DateTime.UtcNow });
                                 tx.SetItem(NextSessionSequence());
                             });
-                            logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
+                            // Debug: storage detail; the digest itself is internal; user-visible state arrives via AppCache.
+                            logger.LogDebug(nameof(HandleAppRequestConnectRpcAsync) + ": Created KeriaConnectionInfo and CachedIdentifiers in session storage with digest: {Digest}", digestResult.Value);
                         }
                     }
                 }
@@ -2755,7 +2768,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     tx.SetItem(pollingState with { CredentialsLastFetchedUtc = DateTime.UtcNow });
                     tx.SetItem(NextSessionSequence());
                 });
-                logger.LogInformation(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
+                // Debug: fires per refresh (initial connect, post-IPEX, periodic). AppCache reactively notifies subscribed pages.
+                logger.LogDebug(nameof(RefreshCachedCredentialsAsync) + ": Updated credentials in session storage");
             }
             else {
                 logger.LogWarning(nameof(RefreshCachedCredentialsAsync) + ": Failed to fetch credentials: {Error}",
@@ -5773,6 +5787,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             _notificationPollingCts.Dispose();
             _notificationPollingCts = null;
         }
+        // Session lock clears KERIA session storage records (CachedNotifications, CachedExns, etc.).
+        // Invalidate the polling service's in-memory fingerprints so the first poll after unlock
+        // re-writes CachedNotifications even if the notification list is identical.
+        _notificationPollingService.ResetCacheState();
         try {
             await WebExtensions.Alarms.Clear(AppConfig.NotificationPollAlarmName);
         }

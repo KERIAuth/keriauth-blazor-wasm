@@ -8,6 +8,11 @@
 // See commits 90aa450 and 6f33fba for details
 import './scripts/es6/libsodium-polyfill.js';
 
+// Install console.debug gate immediately after libsodium so the no-op (when the user has
+// IsConsoleDebugLogged=false in Preferences) is in place before any other module logs.
+// Live-toggleable via PreferencesPage; reads/observes Preferences from chrome.storage.local.
+import './scripts/es6/consoleDebugGate.js';
+
 // Determine logging context tag for this runtime
 const _logTag: string = (() => {
     if (typeof (globalThis as any).ServiceWorkerGlobalScope !== 'undefined') return '[BW]';

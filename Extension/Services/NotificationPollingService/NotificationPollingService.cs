@@ -1,6 +1,5 @@
 namespace Extension.Services.NotificationPollingService;
 
-using System.Text.Json;
 using Extension.Helper;
 using Extension.Models;
 using Extension.Models.Storage;
@@ -47,9 +46,17 @@ public class NotificationPollingService : INotificationPollingService {
         GC.SuppressFinalize(this);
     }
 
-    public async Task StartPollingAsync(CancellationToken ct) {
+    public void ResetCacheState() {
         _lastNotificationFingerprint = null;
         _lastCredentialFingerprint = null;
+        _logger.LogDebug(nameof(ResetCacheState) + ": Cleared notification/credential fingerprints");
+    }
+
+    public async Task StartPollingAsync(CancellationToken ct) {
+        // Notification/credential fingerprints intentionally persist across bursts so steady-state
+        // polling doesn't re-write unchanged CachedNotifications on every burst restart (each write
+        // fires AppCache.Changed → StateHasChanged on every subscribed page). Use ResetCacheState()
+        // to invalidate when storage may have been cleared (e.g., session lock).
         _fetchedExchangeSaids.Clear();
         var deadline = DateTime.UtcNow + AppConfig.NotificationBurstDuration;
         _logger.LogInformation(nameof(StartPollingAsync) + ": Starting burst polling (interval={Interval}s, duration={Duration}s)",
@@ -111,23 +118,26 @@ public class NotificationPollingService : INotificationPollingService {
             }
         }
 
-        var unreadCount = notifications.Count(n => !n.IsRead);
-        if (unreadCount > 0) {
-            _logger.LogInformation(nameof(PollOnDemandAsync) + ": {Total} notifications ({Unread} unread)",
-                notifications.Count, unreadCount);
-            foreach (var n in notifications.Where(n => !n.IsRead)) {
-                _logger.LogInformation(nameof(PollOnDemandAsync) + ": Unread: id={Id} dt={DateTime} route={Route} said={Said}",
-                    n.Id, n.DateTime, n.Route, n.ExchangeSaid);
-            }
-        }
-
         // Only write to storage when notifications actually changed, to avoid triggering
         // chrome.storage.onChanged → appCache subscription → StateHasChanged on every poll cycle.
         // Sender/target prefixes are derived from CachedExns on the read side (AppCache.GetExchangePrefixes),
-        // so the fingerprint only needs id/read state.
-        var fingerprint = string.Join("|", notifications.Select(n => $"{n.Id}:{n.IsRead}"));
+        // so the fingerprint only needs id/read state. Sort by Id so KERIA response ordering doesn't
+        // cause spurious fingerprint changes.
+        var fingerprint = string.Join("|",
+            notifications.Select(n => $"{n.Id}:{n.IsRead}").OrderBy(s => s, StringComparer.Ordinal));
         var fingerprintChanged = fingerprint != _lastNotificationFingerprint;
         if (fingerprintChanged) {
+            // Only log the summary on actual change, not every 5s poll. Per-unread enumeration is at
+            // Debug (high frequency × many unread = log noise that hurts BW perf via console.log).
+            var unreadCount = notifications.Count(n => !n.IsRead);
+            _logger.LogInformation(nameof(PollOnDemandAsync) + ": {Total} notifications ({Unread} unread)",
+                notifications.Count, unreadCount);
+            if (_logger.IsEnabled(LogLevel.Debug)) {
+                foreach (var n in notifications.Where(n => !n.IsRead)) {
+                    _logger.LogDebug(nameof(PollOnDemandAsync) + ": Unread: id={Id} dt={DateTime} route={Route} said={Said}",
+                        n.Id, n.DateTime, n.Route, n.ExchangeSaid);
+                }
+            }
             _lastNotificationFingerprint = fingerprint;
             var stored = new CachedNotifications { Items = notifications };
             var psResult = await _storageGateway.GetItem<PollingState>(StorageArea.Session);
@@ -138,19 +148,30 @@ public class NotificationPollingService : INotificationPollingService {
             });
         }
 
-        // After writing notifications, populate CachedExns for any notifications whose exchange isn't yet cached.
+        // Read CachedExns ONCE per poll instead of once per notification. Previously each iteration
+        // called GetItem<CachedExns>(Session) — for 76+ notifications that's 76+ chrome.storage reads
+        // of the full dict per first-poll-of-burst, which kept BW busy for ~1s and contended for the
+        // chrome.storage subsystem. With one read up front, subsequent iterations are O(1) HashSet
+        // lookups in memory.
+        var cachedExnsResult = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+        var cachedSaids = cachedExnsResult.IsSuccess && cachedExnsResult.Value is not null
+            ? new HashSet<string>(cachedExnsResult.Value.Exchanges.Keys)
+            : [];
+
+        // Populate CachedExns for any notifications whose exchange isn't yet cached.
         // The App reads sender/target prefixes reactively from CachedExns, so no second notifications write is needed.
         // Fetch newest notifications first so the UI (which sorts desc by DateTime) resolves prefixes top-down.
         // DateTime is ISO-8601, which sorts lexicographically in chronological order.
         foreach (var n in notifications.OrderByDescending(n => n.DateTime, StringComparer.Ordinal)) {
-            await EnsureExchangeCachedAsync(n);
+            await EnsureExchangeCachedAsync(n, cachedSaids);
         }
 
         if (fingerprintChanged && OnCredentialNotificationsChanged is not null) {
             var credentialFingerprint = string.Join("|",
                 notifications
                     .Where(n => CredentialAffectingRoutes.Contains(n.Route))
-                    .Select(n => $"{n.Id}:{n.IsRead}"));
+                    .Select(n => $"{n.Id}:{n.IsRead}")
+                    .OrderBy(s => s, StringComparer.Ordinal));
             if (credentialFingerprint != _lastCredentialFingerprint) {
                 _lastCredentialFingerprint = credentialFingerprint;
                 try {
@@ -177,49 +198,27 @@ public class NotificationPollingService : INotificationPollingService {
         }
     }
 
-    private async Task<Result<RecursiveDictionary>> GetExchangeCachedAsync(string said) {
-        try {
-            var cached = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
-            if (cached.IsSuccess && cached.Value?.Exchanges.TryGetValue(said, out var rawJson) == true) {
-                var rd = JsonSerializer.Deserialize<RecursiveDictionary>(rawJson, JsonOptions.RecursiveDictionary);
-                if (rd is not null) {
-                    _logger.LogDebug("GetExchangeCachedAsync: Cache hit for {Said}", said);
-                    return Result.Ok(rd);
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache read failed for {Said}, falling through to network", said);
-        }
-
-        var rawResult = await _broker.EnqueueBackgroundAsync(
-            SignifyOperation.GetExchangeRaw, svc => svc.GetExchangeRaw(said));
-        if (rawResult.IsFailed) return Result.Fail<RecursiveDictionary>(rawResult.Errors);
-
-        try {
-            var existing = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
-            var exchanges = existing.IsSuccess && existing.Value is not null
-                ? new Dictionary<string, string>(existing.Value.Exchanges)
-                : new Dictionary<string, string>();
-            exchanges[said] = rawResult.Value;
-            await _storageGateway.SetItem(new CachedExns { Exchanges = exchanges }, StorageArea.Session);
-        }
-        catch (Exception ex) {
-            _logger.LogDebug(ex, "GetExchangeCachedAsync: Cache write failed for {Said} (non-critical)", said);
-        }
-
-        var resultDict = JsonSerializer.Deserialize<RecursiveDictionary>(rawResult.Value, JsonOptions.RecursiveDictionary);
-        if (resultDict is null) return Result.Fail<RecursiveDictionary>("Failed to deserialize exchange from raw JSON");
-        return Result.Ok(resultDict);
-    }
-
     /// <summary>
     /// Ensures the exchange referenced by the notification is present in CachedExns (session storage).
-    /// Populates the cache on miss; skips if already fetched in the current burst. Also triggers
+    /// Fetches and caches on miss; skips if any entry exists for the said. Also triggers
     /// background schema resolution for grant/offer exchanges the first time they're seen.
     ///
     /// Sender/target prefixes are derived from CachedExns on the read side via AppCache.GetExchangePrefixes,
     /// so this method intentionally does not track prefixes itself.
+    ///
+    /// === Why we do NOT auto-retry persistent failures (sentinel entries) ===
+    /// CachedExns entries can be either real raw JSON (success) or empty-string sentinels
+    /// (persistent failure — see StoreExchangeSentinelAsync). We treat both as "tried, skip"
+    /// using ContainsKey rather than checking the value. Auto-retrying sentinels every burst
+    /// would cost one wasted broker call per persistently-failing exn per burst — a "persistent"
+    /// failure already means signify-ts internal retries exhausted and KERIA returned an error,
+    /// so polling-driven retry is unlikely to succeed and just adds load.
+    ///
+    /// Recovery paths that DO retry sentinels:
+    ///   1. User expands the notification — UI cache-first read deserializes empty as null and
+    ///      falls through to the RequestGetExchange RPC, giving an on-demand retry.
+    ///   2. Session lock+unlock — SessionManager.ClearKeriaSessionRecordsAsync wipes CachedExns,
+    ///      so the next burst retries everything.
     ///
     /// KERI exchange (exn) message fields — see KERIpy serdering.py (search Ilks.exn):
     ///   https://github.com/WebOfTrust/keripy/blob/main/src/keri/core/serdering.py
@@ -229,53 +228,92 @@ public class NotificationPollingService : INotificationPollingService {
     ///   d=SAID, i=sender AID prefix, rp=recipient prefix, dt=datetime,
     ///   r=route (e.g. /ipex/grant), a=attributes, e=embedded data
     /// </summary>
-    private async Task EnsureExchangeCachedAsync(Notification notification) {
+    /// <param name="notification">The notification whose ExchangeSaid should be ensured-cached.</param>
+    /// <param name="cachedSaids">Snapshot of CachedExns keys read once at the top of the poll.
+    /// Updated in place when this method writes a new entry, so later iterations see the addition
+    /// without another storage read.</param>
+    private async Task EnsureExchangeCachedAsync(Notification notification, HashSet<string> cachedSaids) {
         if (notification.ExchangeSaid is null || !_fetchedExchangeSaids.Add(notification.ExchangeSaid)) {
             return;
         }
+        // ContainsKey covers both real cached JSON and persistent-failure sentinels — see XML doc above
+        // for why we deliberately don't auto-retry sentinels here.
+        if (cachedSaids.Contains(notification.ExchangeSaid)) {
+            TriggerSchemaResolutionIfNeeded(notification);
+            return;
+        }
         try {
-            var exnResult = await GetExchangeCachedAsync(notification.ExchangeSaid);
-            if (exnResult.IsFailed) {
-                var isTransient = exnResult.Errors.Any(e => e is NotConnectedError);
+            var rawResult = await _broker.EnqueueBackgroundAsync(
+                SignifyOperation.GetExchangeRaw, svc => svc.GetExchangeRaw(notification.ExchangeSaid));
+            if (rawResult.IsFailed) {
+                var isTransient = rawResult.Errors.Any(e => e is NotConnectedError);
                 _logger.LogWarning(nameof(EnsureExchangeCachedAsync) + ": GetExchange failed for {Said} (transient={Transient}): {Error}",
                     notification.ExchangeSaid, isTransient,
-                    exnResult.Errors.Count > 0 ? exnResult.Errors[0].Message : "unknown");
+                    rawResult.Errors.Count > 0 ? rawResult.Errors[0].Message : "unknown");
                 if (isTransient) {
                     // Allow retry on next poll — don't store a sentinel for connection-state errors
                     _fetchedExchangeSaids.Remove(notification.ExchangeSaid);
                 }
                 else {
                     // Persistent failure: store an empty-string sentinel so IsAllExnsCached doesn't block the UI forever.
-                    // UI cache-first readers deserialize empty as null and fall through to RPC (on-demand retry).
-                    // Next burst clears _fetchedExchangeSaids; GetExchangeCachedAsync will retry the network fetch
-                    // (deserialize on sentinel returns null, falling through to broker call).
                     await StoreExchangeSentinelAsync(notification.ExchangeSaid);
+                    cachedSaids.Add(notification.ExchangeSaid);
                 }
                 return;
             }
 
-            // For grant/offer exchanges, proactively resolve all known schemas in the background.
-            // Credentials are chained (e.g., ECR → ECR Auth → LE → QVI) and KERIA needs all schemas
-            // in the chain to verify and index a credential.
-            // Fire-and-forget: don't block notification polling while resolving (unreachable hosts can timeout for 30s+ each).
-            if (OnSchemasNeeded is not null &&
-                notification.Route is "/exn/ipex/grant" or "/exn/ipex/offer") {
-                _ = Task.Run(async () => {
-                    try {
-                        await OnSchemasNeeded();
-                    }
-                    catch (Exception schemaEx) {
-                        _logger.LogWarning(schemaEx, nameof(EnsureExchangeCachedAsync) +
-                            ": Background schema resolution failed");
-                    }
-                });
-            }
+            await AddToExchangeCacheAsync(notification.ExchangeSaid, rawResult.Value);
+            cachedSaids.Add(notification.ExchangeSaid);
+            TriggerSchemaResolutionIfNeeded(notification);
         }
         catch (Exception ex) {
             _logger.LogWarning(ex, nameof(EnsureExchangeCachedAsync) + ": Exception fetching exchange {Said}", notification.ExchangeSaid);
             // Unknown exception — allow retry on next poll
             _fetchedExchangeSaids.Remove(notification.ExchangeSaid);
         }
+    }
+
+    /// <summary>
+    /// Writes the freshly-fetched raw exchange JSON into CachedExns. Read-modify-write of the
+    /// session storage record. Errors are logged at Debug — failure here just means the next poll
+    /// re-fetches.
+    /// </summary>
+    private async Task AddToExchangeCacheAsync(string said, string rawJson) {
+        try {
+            var existing = await _storageGateway.GetItem<CachedExns>(StorageArea.Session);
+            var exchanges = existing.IsSuccess && existing.Value is not null
+                ? new Dictionary<string, string>(existing.Value.Exchanges)
+                : [];
+            exchanges[said] = rawJson;
+            await _storageGateway.SetItem(new CachedExns { Exchanges = exchanges }, StorageArea.Session);
+        }
+        catch (Exception ex) {
+            _logger.LogDebug(ex, nameof(AddToExchangeCacheAsync) + ": Cache write failed for {Said} (non-critical)", said);
+        }
+    }
+
+    /// <summary>
+    /// For grant/offer exchanges, fire-and-forget OnSchemasNeeded so KERIA can resolve any new
+    /// schemas in the credential chain. Credentials are chained (e.g., ECR → ECR Auth → LE → QVI)
+    /// and KERIA needs all schemas in the chain to verify and index a credential.
+    /// Safe: callback's exceptions are caught and logged here; resolution doesn't block polling
+    /// because unreachable schema hosts can hang for 30s+ each.
+    /// </summary>
+    private void TriggerSchemaResolutionIfNeeded(Notification notification) {
+        if (OnSchemasNeeded is null) {
+            return;
+        }
+        if (notification.Route is not ("/exn/ipex/grant" or "/exn/ipex/offer")) {
+            return;
+        }
+        _ = Task.Run(async () => {
+            try {
+                await OnSchemasNeeded();
+            }
+            catch (Exception schemaEx) {
+                _logger.LogWarning(schemaEx, nameof(TriggerSchemaResolutionIfNeeded) + ": Background schema resolution failed");
+            }
+        });
     }
 
     /// <summary>

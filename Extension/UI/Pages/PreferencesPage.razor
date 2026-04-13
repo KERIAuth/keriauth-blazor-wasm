@@ -55,6 +55,7 @@
     bool IsMenuOpenInSidePanelOnStartup => Prefs.IsMenuOpenInSidePanelOnStartup;
     bool IsMultiKeriaConfigEnabled => Prefs.IsMultiKeriaConfigEnabled;
     bool IsMultiKeriaOnUnlock => Prefs.IsMultiKeriaOnUnlock;
+    bool IsConsoleDebugLogged => Prefs.IsConsoleDebugLogged;
 
     // KERIA config selection
     private const string ManageKeriaConfigsValue = "__MANAGE__";
@@ -133,6 +134,11 @@
     async Task SetAndPersistIsMultiKeriaOnUnlock(bool isEnabled)
     {
         await Persist(Prefs with { IsMultiKeriaOnUnlock = isEnabled });
+    }
+
+    async Task SetAndPersistIsConsoleDebugLogged(bool isEnabled)
+    {
+        await Persist(Prefs with { IsConsoleDebugLogged = isEnabled });
     }
 
     private async Task OnKeriaConfigDigestChanged(string digest)
@@ -268,6 +274,21 @@
                             }
                     </MudStack>
                 }
+                </MudStack>
+                <MudText Class="bt-pref-group-label0">
+                    Diagnostics
+                </MudText>
+                <MudStack Class="ml-5">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudSwitch Value="IsConsoleDebugLogged"
+                                   ValueChanged="async (bool isOn) => await SetAndPersistIsConsoleDebugLogged(isOn)"
+                                   T="bool" Color="Color.Primary" />
+                        <MudText>Verbose console.debug logging (TypeScript)</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-3">
+                        When on, TypeScript modules emit console.debug messages. Off by default for performance.
+                        Takes effect immediately in all extension contexts (no restart needed).
+                    </MudText>
                 </MudStack>
             </MudStack>
         </div>

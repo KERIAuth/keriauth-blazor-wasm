@@ -1,5 +1,41 @@
 /// <reference types="chrome-types" />
 
+// === console.debug gate (inline copy of scripts/modules/src/consoleDebugGate.ts) ===
+// Inlined here because scripts/bundles is a separate esbuild package from scripts/modules
+// and importing across them would require either a project reference or relative path that
+// breaks tsconfig's include rule. Keep this in sync with scripts/modules/src/consoleDebugGate.ts.
+//
+// CRITICAL: This must NOT run in service worker context. Blazor.BrowserExtension's generated
+// BackgroundWorker.js imports every wwwroot script (including this bundle), and BW already has
+// its own gate via consoleDebugGate.js. If both gates ran in BW, the second one's
+// `_origConsoleDebug = console.debug.bind(console)` would capture the FIRST gate's no-op as
+// its "original," and toggle-on would silently set console.debug back to that no-op.
+//
+// Default: console.debug is replaced with a no-op so per-call cost (chrome console buffer
+// write, DevTools serialization) is eliminated. The user can flip it on via the Preferences
+// page; chrome.storage.onChanged makes the change take effect live.
+(() => {
+    // Skip in service worker context — BW has its own consoleDebugGate.js
+    if ('ServiceWorkerGlobalScope' in globalThis) return;
+    const STORAGE_KEY = 'Preferences';
+    const PREF_FIELD = 'IsConsoleDebugLogged';
+    const _origConsoleDebug = console.debug.bind(console);
+    const _noopDebug = () => { /* gated */ };
+    const setEnabled = (enabled: boolean): void => {
+        console.debug = enabled ? _origConsoleDebug : _noopDebug;
+    };
+    setEnabled(false);
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.get(STORAGE_KEY).then(result => {
+            setEnabled(!!result?.[STORAGE_KEY]?.[PREF_FIELD]);
+        }).catch(() => { /* first run / no Preferences yet — stay off */ });
+        chrome.storage.onChanged.addListener((changes, area) => {
+            if (area !== 'local' || !changes[STORAGE_KEY]) return;
+            setEnabled(!!changes[STORAGE_KEY].newValue?.[PREF_FIELD]);
+        });
+    }
+})();
+
 // This ContentScript is inserted into tabs after a user provided permission for the site (after having clicked on the extension action button)
 // The purpose of the ContentScript is primarily to shuttle messages from a web page to/from the extension BackgroundWorker.
 
