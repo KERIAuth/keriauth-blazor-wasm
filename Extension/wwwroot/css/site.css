@@ -320,7 +320,7 @@
 /* logo button for light theme with background-color hint of magenta */
  .bt-logo-button {
     align-self: center;
-    background-color: hsla(329, 100%, 18%, 1) !important;
+    background-color: hsla(329, 100%, 10%, 1) !important;
     border-radius: 0.5rem;
  }
 
