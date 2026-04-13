@@ -24,7 +24,10 @@
     int NumCredentialsThisProfile => FilteredCredentials.Count;
 
     int NumNotificationsThisProfile => appCache.MyNotifications.Items
-        .Count(n => n.TargetPrefix == SelectedPrefix || n.SenderPrefix == SelectedPrefix);
+        .Count(n => {
+            var p = appCache.GetExchangePrefixes(n.ExchangeSaid);
+            return p.Target == SelectedPrefix || p.Sender == SelectedPrefix;
+        });
 
     string KeriaConnectStatusText => appCache.IsConnectedToKeria ? "Connected to" : appCache.IsAuthenticated ? "Not Connected with" : "Locked. Configured to";
     Color KeriaConnectStatusColor => appCache.IsConnectedToKeria ? Color.Success : appCache.IsAuthenticated ? Color.Warning : Color.Error;
@@ -41,6 +44,9 @@
     bool IsIdentifiersLoading => appCache.MyPollingState.IdentifiersLastFetchedUtc is null;
     bool IsCredentialsLoading => appCache.MyPollingState.CredentialsLastFetchedUtc is null;
     bool IsNotificationsLoading => appCache.MyPollingState.NotificationsLastFetchedUtc is null;
+    // Profile-filtered notification count depends on sender/target prefixes resolved from CachedExns.
+    // Not meaningful until all exns are cached.
+    bool IsNotificationsProfileCountLoading => IsNotificationsLoading || !appCache.IsAllExnsCached;
 
     string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? (string.IsNullOrEmpty(SelectedPrefix) ? "none" : "");
@@ -133,7 +139,7 @@
                     </MudStack>
                     <!-- Notifications (selected profile) -->
                     <MudStack Row>
-                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsNotificationsLoading">@NumNotificationsThisProfile</LoadingDiv></MudText>
+                        <MudText Class="mudtext-half-width-left bt-home-status-number"><LoadingDiv IsLoading="@IsNotificationsProfileCountLoading">@NumNotificationsThisProfile</LoadingDiv></MudText>
                         <MudText Class="mudtext-half-width-right">
                             <MudLink OnClick="() => navManager.NavigateTo(Routes.Paths.Notifications)">@NotificationsProfileLabel</MudLink>
                         </MudText>

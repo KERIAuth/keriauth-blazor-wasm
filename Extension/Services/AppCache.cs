@@ -208,6 +208,102 @@
 
         public Dictionary<string, string> MyCachedExns { get; private set; } = [];
 
+        // Derived from MyCachedExns — keyed by exchangeSaid → (sender, target) prefixes.
+        // Rebuilt whenever MyCachedExns changes so UI filters/displays avoid re-parsing exchange JSON per render.
+        private Dictionary<string, (string? Sender, string? Target)> _exchangePrefixes = [];
+
+        /// <summary>
+        /// Resolves (sender, target) prefixes for a cached exchange by SAID.
+        /// Returns (null, null) if the exchange isn't cached or the said is null/empty.
+        /// </summary>
+        public (string? Sender, string? Target) GetExchangePrefixes(string? exchangeSaid) {
+            if (string.IsNullOrEmpty(exchangeSaid)) return (null, null);
+            return _exchangePrefixes.TryGetValue(exchangeSaid, out var p) ? p : (null, null);
+        }
+
+        public string? GetSenderPrefix(string? exchangeSaid) => GetExchangePrefixes(exchangeSaid).Sender;
+        public string? GetTargetPrefix(string? exchangeSaid) => GetExchangePrefixes(exchangeSaid).Target;
+
+        // Derived from MyCachedExns — keyed by exchangeSaid → IpexFlowType.
+        // Precomputed during RebuildExchangePrefixes so per-row UI rendering is a pure dict lookup
+        // (avoids a JsonSerializer.Deserialize storm + StateHasChanged cascade per notification).
+        private Dictionary<string, IpexFlowType> _exchangeFlowTypes = [];
+
+        /// <summary>
+        /// Returns the cached IPEX flow type (Issuance vs Presentation) for an exchange.
+        /// Returns IpexFlowType.Unknown when the exchange isn't cached, has no embedded ACDC,
+        /// or its prior chain isn't (yet) resolvable. NotificationsPage uses this as a pure
+        /// lookup during render — no async, no deserialization, no re-render cascade.
+        /// </summary>
+        public IpexFlowType GetExchangeFlowType(string? exchangeSaid) {
+            if (string.IsNullOrEmpty(exchangeSaid)) return IpexFlowType.Unknown;
+            return _exchangeFlowTypes.TryGetValue(exchangeSaid, out var ft) ? ft : IpexFlowType.Unknown;
+        }
+
+        /// <summary>
+        /// True when every notification with a non-null ExchangeSaid has its exchange present in MyCachedExns.
+        /// UI counts and filters that depend on exchange-derived prefixes (sender/target) should show a loading
+        /// state until this becomes true, since the filter results are incomplete while exns are still being fetched.
+        /// </summary>
+        public bool IsAllExnsCached {
+            get {
+                foreach (var n in MyNotifications.Items) {
+                    if (n.ExchangeSaid is null) continue;
+                    if (!MyCachedExns.ContainsKey(n.ExchangeSaid)) return false;
+                }
+                return true;
+            }
+        }
+
+        private void RebuildExchangePrefixes() {
+            var prefixes = new Dictionary<string, (string? Sender, string? Target)>(MyCachedExns.Count);
+            var flowTypes = new Dictionary<string, IpexFlowType>(MyCachedExns.Count);
+            // Temp store of parsed views, keyed by said. Used in the second pass for chain resolution
+            // (agree/admit have no embedded ACDC; their flow type is determined by following view.P
+            // back to the originating offer/grant which does embed an ACDC).
+            var views = new Dictionary<string, ExchangeView>(MyCachedExns.Count);
+
+            // Pass 1: parse all exns; capture prefixes and direct flow types (offer/grant with embedded ACDC).
+            foreach (var (said, rawJson) in MyCachedExns) {
+                // Empty-string entries are failure sentinels (see NotificationPollingService.StoreExchangeSentinelAsync).
+                // Skip — no prefix data available; UI will show empty sender/target for these rows.
+                if (string.IsNullOrEmpty(rawJson)) continue;
+                try {
+                    var rd = JsonSerializer.Deserialize<RecursiveDictionary>(rawJson, JsonOptions.RecursiveDictionary);
+                    if (rd is null) continue;
+                    var view = ExchangeView.FromRecursiveDictionary(rd);
+                    views[said] = view;
+                    prefixes[said] = (view.I, view.Rp);
+                    var direct = ExchangeView.InferFlowFromAcdc(view.I, view.E);
+                    if (direct != IpexFlowType.Unknown) {
+                        flowTypes[said] = direct;
+                    }
+                }
+                catch (Exception ex) {
+                    _logger.LogDebug(ex, nameof(AppCache) + ": Failed to parse exchange {Said} for prefix cache", said);
+                }
+            }
+
+            // Pass 2: resolve flow types for chained exns (agree/admit) by following view.P to a prior
+            // exchange whose ACDC reveals the flow direction. Bounded loop guards against malformed cycles.
+            foreach (var (said, view) in views) {
+                if (flowTypes.ContainsKey(said)) continue;
+                var current = view;
+                for (var hops = 0; hops < 10 && current.P is not null; hops++) {
+                    if (!views.TryGetValue(current.P, out var prior)) break;
+                    var direct = ExchangeView.InferFlowFromAcdc(prior.I, prior.E);
+                    if (direct != IpexFlowType.Unknown) {
+                        flowTypes[said] = direct;
+                        break;
+                    }
+                    current = prior;
+                }
+            }
+
+            _exchangePrefixes = prefixes;
+            _exchangeFlowTypes = flowTypes;
+        }
+
         public List<WebsiteConfig> MyWebsiteConfigs => MyKeriaConnectConfig.WebsiteConfigs;
 
         /// <summary>
@@ -300,6 +396,8 @@
             MyCachedCredentials = [];
             MyPollingState = new PollingState();
             MyCachedExns = [];
+            _exchangePrefixes = [];
+            _exchangeFlowTypes = [];
             _logger.LogDebug(nameof(AppCache) + ": Cleared session state synchronously");
             Changed?.Invoke();
         }
@@ -678,6 +776,7 @@
                     if (batch.Contains<CachedExns>()) {
                         var raw = batch.GetNew<CachedExns>();
                         cache.MyCachedExns = raw?.Exchanges ?? [];
+                        cache.RebuildExchangePrefixes();
                         cache._logger.LogDebug(nameof(AppCache) + ": updated MyCachedExns (count={Count})", cache.MyCachedExns.Count);
                         dirty = true;
                     }
@@ -909,6 +1008,7 @@
             var cachedExns = session?.Get<CachedExns>();
             if (cachedExns?.Exchanges is { Count: > 0 } exnsDict) {
                 MyCachedExns = exnsDict;
+                RebuildExchangePrefixes();
                 _logger.LogDebug(nameof(AppCache) + ": Initial fetch - CachedExns loaded (count={Count})", MyCachedExns.Count);
             }
             else {

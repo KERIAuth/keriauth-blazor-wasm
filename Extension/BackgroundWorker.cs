@@ -2600,8 +2600,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 var identifiersResult = await _broker.EnqueueReadAsync(SignifyOperation.GetIdentifiers,
                     svc => svc.GetIdentifiers());
 
-                // Proactively cache credentials in session storage for App components to read directly
-                await RefreshCachedCredentialsAsync();
+                // Fire-and-forget: proactively cache credentials so App components that read
+                // MyCachedCredentials don't have to wait. Awaiting here would block the RPC response
+                // because GetCredentialsRaw is enqueued at Background priority and queues behind any
+                // in-flight notification-burst exchange fetches (potentially many seconds-to-minutes
+                // on first connect with a large notification backlog), causing ConnectingPage to time out.
+                // Safe: RefreshCachedCredentialsAsync has internal try/catch and logs failures; the App
+                // reactively observes CachedCredentials via AppCache and renders IsCredentialsLoading
+                // until the cache populates.
+                _ = RefreshCachedCredentialsAsync();
 
                 logger.LogInformation(nameof(HandleAppRequestConnectRpcAsync) + ": Connect succeeded. identifiersResult.IsSuccess={Success}",
                     identifiersResult.IsSuccess);
@@ -5680,8 +5687,15 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             // Start notification burst polling (cancel any previous burst first)
             RestartNotificationBurst();
 
-            // Proactively cache credentials in session storage for App components to read directly
-            await RefreshCachedCredentialsAsync();
+            // Fire-and-forget: proactively cache credentials. Awaiting here would lengthen
+            // _pendingConnectTask, which HandleAppRequestConnectRpcAsync awaits when the App opens
+            // ConnectingPage — and GetCredentialsRaw queues at Background priority behind exchange
+            // fetches from the burst above, potentially delaying ConnectingPage navigation past the
+            // RPC timeout. Keep _pendingConnectTask scoped to "connect succeeded" only.
+            // Safe: RefreshCachedCredentialsAsync has internal try/catch and logs failures; the App
+            // reactively observes CachedCredentials via AppCache and renders IsCredentialsLoading
+            // until the cache populates.
+            _ = RefreshCachedCredentialsAsync();
 
             return Result.Ok();
         }

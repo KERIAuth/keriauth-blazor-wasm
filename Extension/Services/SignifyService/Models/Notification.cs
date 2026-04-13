@@ -17,10 +17,4 @@ public class Notification {
 
     [JsonPropertyName("exchangeSaid")]
     public string? ExchangeSaid { get; init; }
-
-    [JsonPropertyName("senderPrefix")]
-    public string? SenderPrefix { get; init; }
-
-    [JsonPropertyName("targetPrefix")]
-    public string? TargetPrefix { get; init; }
 }

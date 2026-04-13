@@ -1,6 +1,6 @@
 namespace Extension.Services.NotificationPollingService;
 
-public interface INotificationPollingService {
+public interface INotificationPollingService : IDisposable {
     Task StartPollingAsync(CancellationToken ct);
     Task PollOnDemandAsync();
 

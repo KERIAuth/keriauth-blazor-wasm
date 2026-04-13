@@ -19,6 +19,12 @@
 @code {
     bool IsProcessing { get; set; }
     bool IsNotificationsLoading => appCache.MyPollingState.NotificationsLastFetchedUtc is null;
+    // Profile-dependent views filter by sender/target prefixes resolved from CachedExns.
+    // Counts for these views aren't meaningful until all exns are cached.
+    bool IsProfileFilteredView => selectedViewDefId is ViewDefIds.NotifTarget or ViewDefIds.NotifSender
+        or ViewDefIds.NotifUnreadProfile or ViewDefIds.NotifProfile;
+    bool IsFilteredCountLoading => IsNotificationsLoading || (IsProfileFilteredView && !appCache.IsAllExnsCached);
+    bool IsSubtotalCountLoading => IsNotificationsLoading || !appCache.IsAllExnsCached;
     string selectedViewDefId =>
         appCache.MyPreferences.SelectedViewDefIds.TryGetValue(nameof(NotificationsPage), out var savedId) && NotificationViewDefs.Any(v => v.Id == savedId)
             ? savedId
@@ -31,34 +37,34 @@
     // ViewDef
     List<FilterSet<Notification>> ProfileSubtotalFilterSets =>
     [
-        new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix]),
-        new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])
+        new("Target", [(Notification n) => appCache.GetTargetPrefix(n.ExchangeSaid) == appCache.SelectedPrefix]),
+        new("Sender", [(Notification n) => appCache.GetSenderPrefix(n.ExchangeSaid) == appCache.SelectedPrefix])
     ];
 
     List<ViewDef<Notification>> NotificationViewDefs =>
     [
         new(ViewDefIds.NotifTarget, "Target (active profile)",
-            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix])],
+            FilterSets: [new("Target", [(Notification n) => appCache.GetTargetPrefix(n.ExchangeSaid) == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
 
         new(ViewDefIds.NotifSender, "Sender (active profile)",
-            FilterSets: [new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
+            FilterSets: [new("Sender", [(Notification n) => appCache.GetSenderPrefix(n.ExchangeSaid) == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
 
         new(ViewDefIds.NotifUnreadProfile, "Unread (active profile)",
-            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix && !n.IsRead]),
-                         new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix && !n.IsRead])],
+            FilterSets: [new("Target", [(Notification n) => appCache.GetTargetPrefix(n.ExchangeSaid) == appCache.SelectedPrefix && !n.IsRead]),
+                         new("Sender", [(Notification n) => appCache.GetSenderPrefix(n.ExchangeSaid) == appCache.SelectedPrefix && !n.IsRead])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
 
         new(ViewDefIds.NotifProfile, "All (active profile)",
-            FilterSets: [new("Target", [(Notification n) => n.TargetPrefix == appCache.SelectedPrefix]),
-                         new("Sender", [(Notification n) => n.SenderPrefix == appCache.SelectedPrefix])],
+            FilterSets: [new("Target", [(Notification n) => appCache.GetTargetPrefix(n.ExchangeSaid) == appCache.SelectedPrefix]),
+                         new("Sender", [(Notification n) => appCache.GetSenderPrefix(n.ExchangeSaid) == appCache.SelectedPrefix])],
             SubtotalFilterSets: ProfileSubtotalFilterSets,
             CountStyle: CountStyle.OfSubTotal,
             SortSets: [new("DateTime", [new SortExpression<Notification>(n => n.DateTime, Descending: true)])]),
@@ -132,11 +138,6 @@
         return null;
     }
 
-    // Lazy flow type cache: maps notification ID -> resolved IpexFlowType
-    // TODO P3 refactor such caching into appCache or even stored, so display is instant
-    Dictionary<string, IpexFlowType> _flowTypeCache = [];
-    HashSet<string> _flowTypeFetching = [];
-
     string RouteLabel(string route, Notification? notification = null) {
         if (route == "/exn/ipex/apply") return "Credential Request \u2013 Apply";
 
@@ -148,18 +149,16 @@
             _ => null
         };
         if (ipexStep is not null) {
-            if (notification is not null && _flowTypeCache.TryGetValue(notification.Id, out var cachedFlow)) {
-                var flowLabel = cachedFlow switch {
-                    IpexFlowType.Issuance => "Credential Issuance",
-                    IpexFlowType.Presentation => "Credential Presentation",
-                    _ => "Credential"
-                };
-                return $"{flowLabel} \u2013 {ipexStep}";
-            }
-            if (notification is not null) {
-                _ = ResolveFlowTypeLazy(notification);
-            }
-            return $"Credential \u2013 {ipexStep}";
+            // Pure lookup — flow type is precomputed in AppCache from MyCachedExns (RebuildExchangePrefixes).
+            // No async, no JSON parse, no StateHasChanged cascade. When CachedExns updates, AppCache rebuilds
+            // and fires its Changed event, naturally re-rendering the page with refined labels.
+            var flowType = appCache.GetExchangeFlowType(notification?.ExchangeSaid);
+            var flowLabel = flowType switch {
+                IpexFlowType.Issuance => "Credential Issuance",
+                IpexFlowType.Presentation => "Credential Presentation",
+                _ => "Credential"
+            };
+            return $"{flowLabel} \u2013 {ipexStep}";
         }
         return route switch {
             "/multisig/iss" => "Multisig Issuance",
@@ -168,87 +167,6 @@
             "/multisig/exn" => "Multisig Exchange",
             _ => route
         };
-    }
-
-    async Task ResolveFlowTypeLazy(Notification notification) {
-        if (_flowTypeCache.ContainsKey(notification.Id)) return;
-        if (!_flowTypeFetching.Add(notification.Id)) return; // already in flight
-
-        try {
-            if (notification.ExchangeSaid is null) return;
-
-            // Cache-first: check AppCache before RPC roundtrip
-            RecursiveDictionary? exchangeDict = null;
-            if (appCache.MyCachedExns.TryGetValue(notification.ExchangeSaid, out var cachedJson)) {
-                exchangeDict = JsonSerializer.Deserialize<RecursiveDictionary>(cachedJson, JsonOptions.RecursiveDictionary);
-            }
-
-            if (exchangeDict is null) {
-                // Cache miss: fetch via RPC (BackgroundWorker will cache it)
-                var response = await appBwPortService.SendRpcRequestAsync(
-                    AppBwMessageType.Values.RequestGetExchange,
-                    new { payload = new { said = notification.ExchangeSaid } },
-                    timeout: TimeSpan.FromMinutes(3));
-
-                if (!response.Ok || response.Result is not JsonElement jsonEl) return;
-
-                var exchangeResult = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
-                    jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging);
-                if (exchangeResult?.Success != true || exchangeResult.Exchange is null) return;
-
-                exchangeDict = exchangeResult.Exchange;
-            }
-
-            var view = ExchangeView.FromRecursiveDictionary(exchangeDict);
-
-            // Approach B: infer from embedded ACDC (works for Offer/Grant)
-            var flowType = ExchangeView.InferFlowFromAcdc(view.I, view.E);
-
-            // If unknown, try prior chain (for Agree/Admit)
-            if (flowType == IpexFlowType.Unknown && view.P is not null) {
-                flowType = await ResolveFlowTypeFromPrior(view.P);
-            }
-
-            _flowTypeCache[notification.Id] = flowType;
-            StateHasChanged();
-        }
-        catch (Exception ex) {
-            logger.LogWarning(ex, "Error resolving flow type for notification {Id}", notification.Id);
-        }
-        finally {
-            _flowTypeFetching.Remove(notification.Id);
-        }
-    }
-
-    async Task<IpexFlowType> ResolveFlowTypeFromPrior(string priorSaid) {
-        try {
-            // Cache-first: check AppCache before RPC roundtrip
-            if (appCache.MyCachedExns.TryGetValue(priorSaid, out var cachedJson)) {
-                var rd = JsonSerializer.Deserialize<RecursiveDictionary>(cachedJson, JsonOptions.RecursiveDictionary);
-                if (rd is not null) {
-                    var cachedView = ExchangeView.FromRecursiveDictionary(rd);
-                    return ExchangeView.InferFlowFromAcdc(cachedView.I, cachedView.E);
-                }
-            }
-
-            // Cache miss: fetch via RPC (BackgroundWorker will cache it)
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestGetExchange,
-                new { payload = new { said = priorSaid } },
-                timeout: TimeSpan.FromMinutes(3));
-
-            if (!response.Ok || response.Result is not JsonElement priorJson) return IpexFlowType.Unknown;
-
-            var priorPayload = JsonSerializer.Deserialize<GetExchangeResponsePayload>(
-                priorJson.GetRawText(), Helper.JsonOptions.PortMessaging);
-            if (priorPayload?.Success != true || priorPayload.Exchange is null) return IpexFlowType.Unknown;
-
-            var priorView = ExchangeView.FromRecursiveDictionary(priorPayload.Exchange);
-            return ExchangeView.InferFlowFromAcdc(priorView.I, priorView.E);
-        }
-        catch {
-            return IpexFlowType.Unknown;
-        }
     }
 
     static string RouteIcon(string route) => route switch {
@@ -290,6 +208,14 @@
     bool IsOfferingPresentation { get; set; }
     bool IsLoadingPrior { get; set; }
 
+    // Deferred-render gate: keep the heavy notification list out of the first synchronous render
+    // so navigation feels snappy. Blazor doesn't paint until OnInitializedAsync completes AND the
+    // first synchronous render builds the entire DOM. With ~77 notifications each rendering several
+    // MudBlazor components, that single render can block the UI for noticeable time. The first render
+    // shows page chrome + a spinner; OnAfterRenderAsync flips this flag and triggers a second render
+    // for the list. End-to-end render time is similar, but perceived navigation latency drops sharply.
+    bool _renderContent;
+
     protected override async Task OnInitializedAsync() {
         logger.LogInformation("OnInitializedAsync");
         InitializeAppCache(appCache);
@@ -302,6 +228,13 @@
         }
         catch (Exception ex) {
             logger.LogWarning(ex, "Failed to send RequestPollNotifications event");
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender) {
+        if (firstRender && !_renderContent) {
+            _renderContent = true;
+            StateHasChanged();
         }
     }
 
@@ -884,8 +817,8 @@
                               ViewDefs="@NotificationViewDefs"
                               SelectedViewDefId="@selectedViewDefId"
                               SelectedViewDefIdChanged="@OnViewDefChanged"
-                              FilteredCount="@(IsNotificationsLoading ? null : ViewDefFilteredNotifications.Count)"
-                              SubtotalCount="@(IsNotificationsLoading ? null : SubtotalCount)"
+                              FilteredCount="@(IsFilteredCountLoading ? null : ViewDefFilteredNotifications.Count)"
+                              SubtotalCount="@(IsSubtotalCountLoading ? null : SubtotalCount)"
                               TotalCount="@(IsNotificationsLoading ? null : AllNotifications.Count)" />
                 <MudSpacer />
                 @if (UnreadCount > 0 && !IsMarkingAll)
@@ -927,26 +860,35 @@
                 </MudStack>
             }
 
-            @if (!FilteredNotifications.Any())
+            @if (!_renderContent)
+            {
+                <div style="display:flex; align-items:center; justify-content:center; padding: 48px;">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else if (!FilteredNotifications.Any())
             {
                 <MudAlert Severity="Severity.Info" Class="mt-4">
                     @(IsFiltering ? "No notifications match the current filters." : "No notifications.")
                 </MudAlert>
             }
 
+            @if (_renderContent)
+            {
             @foreach (var n in FilteredNotifications)
             {
+                var prefixes = appCache.GetExchangePrefixes(n.ExchangeSaid);
                 <MudCard Elevation="0" Class="py-0 my-1">
                     <div class="d-flex align-center bt-notif-row"
                          @onclick="@(() => ToggleNotificationDetail(n))">
                         <div class="d-flex align-center bt-notif-aids">
-                            <AidPrefixDisplay Prefix="@(n.SenderPrefix ?? "")"
-                                              Name="@ResolveName(n.SenderPrefix)"
+                            <AidPrefixDisplay Prefix="@(prefixes.Sender ?? "")"
+                                              Name="@ResolveName(prefixes.Sender)"
                                               TextPosition="AidPrefixDisplay.TextSide.Left"
                                               ShowCopyButton="false" />
                             <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="bt-notif-arrow" />
-                            <AidPrefixDisplay Prefix="@(n.TargetPrefix ?? "")"
-                                              Name="@ResolveName(n.TargetPrefix)"
+                            <AidPrefixDisplay Prefix="@(prefixes.Target ?? "")"
+                                              Name="@ResolveName(prefixes.Target)"
                                               ShowCopyButton="false" />
                         </div>
                         <div class="bt-notif-details">
@@ -1004,6 +946,7 @@
                         </div>
                     }
                 </MudCard>
+            }
             }
 
             @if (IsProcessing)

@@ -83,6 +83,17 @@ Local storage records that implement `IVersionedStorageModel` have a `SchemaVers
 - **Avoid over-engineering** — three similar lines is better than a premature abstraction
 - **Avoid backwards-compatibility hacks** — if something is unused, delete it completely
 
+### Fire-and-Forget (`_ = ...Async()`)
+
+When detaching an async call so the caller doesn't await it, every fire-and-forget site MUST have an inline comment that covers two things:
+
+1. **Why it's fire-and-forget** — what would block, time out, or get queued behind something slower if you awaited it. Be specific (e.g., "GetCredentialsRaw is Background priority and queues behind exchange fetches; awaiting would push past the 30s RPC timeout").
+2. **Why it's safe** — how exceptions are handled (the called method must have an internal try/catch that logs, OR you wrap it in `Task.Run(async () => { try { ... } catch { _logger.LogWarning(...); } })`), and how downstream code knows the operation eventually completes (e.g., reactive AppCache subscription, subsequent poll, user-visible loading state).
+
+Without the safety side, an unobserved exception silently disappears. Without the rationale side, future readers won't know whether converting back to `await` is safe. **A bare `_ = SomeAsync();` with no comment is a code smell** — either add the rationale or use `await`.
+
+This pattern is especially load-bearing in BackgroundWorker RPC handlers: handlers that block on Background-priority broker operations (`EnqueueBackgroundAsync`) can stall behind in-flight notification polling and exchange fetches, causing the App's RPC to time out even though the operation eventually succeeds.
+
 ### Priority Order for Code Changes
 
 1. **Security** — never expose keys, secrets, or sensitive data

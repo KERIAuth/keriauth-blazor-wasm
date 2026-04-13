@@ -17,7 +17,14 @@
             }
         </MudSelect>
     }
-    <MudText Style="opacity: 0.6;">@CountLabel</MudText>
+    @if (FilteredCount is null)
+    {
+        <MudProgressCircular Color="Color.Default" Indeterminate="true" Size="Size.Small" />
+    }
+    else
+    {
+        <MudText Style="opacity: 0.6;">@CountLabel</MudText>
+    }
 </MudStack>
 
 @code {
@@ -42,10 +49,10 @@
     ViewDef<T>? SelectedViewDef =>
         ViewDefs.FirstOrDefault(v => v.Id == SelectedViewDefId);
 
+    // FilteredCount == null is rendered as a spinner above; the switch handles the value cases.
     string CountLabel => (FilteredCount, SubtotalCount, TotalCount,
                           SelectedViewDef?.CountStyle) switch
     {
-        (null, _, _, _) => "\u2026",
         (int f, _, _, CountStyle.Total) => $"({f})",
         (int f, _, _, CountStyle.ForProfile) => $"({f})", //" for profile)",
         (int f, _, int t, CountStyle.OfTotal) => $"({f} of {t})",
