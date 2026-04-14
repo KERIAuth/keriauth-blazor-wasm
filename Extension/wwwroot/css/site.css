@@ -603,6 +603,49 @@
     font-weight: bold;
 }
 
+.bt-credview-row {
+    display: flex;
+    align-items: anchor-center;
+    gap: 0.25rem;
+}
+
+.bt-credview-gutter {
+    flex: 0 0 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.bt-credview-content {
+    flex: 1 1 auto;
+    overflow-wrap: anywhere;
+    
+}
+
+.bt-credview-content.bt-credview-content-field {
+    --bt-credview-role: field;
+    color: var(--mud-palette-text-secondary);
+}
+
+.bt-credview-content.bt-credview-content-value {
+    --bt-credview-role: value;
+    color: var(--mud-palette-text-primary);
+}
+
+.bt-credview-text-schema {
+    color: var(--mud-palette-text-secondary);
+}
+
+.bt-credview-text-acdc {
+}
+
+.bt-credview-disclosure-tag {
+    margin-left: 0.5rem;
+    font-size: 0.8em;
+    color: var(--mud-palette-text-secondary);
+    font-style: italic;
+}
+
 /* Print styles for multi-page printing */
 @media print {
     /* Reset positioning and viewport constraints on root containers */
