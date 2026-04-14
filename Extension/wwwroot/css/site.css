@@ -610,7 +610,12 @@
 }
 
 .bt-credview-gutter {
-    flex: 0 0 1.75rem;
+    /* Fixed-width left column for elision checkboxes. Width accommodates a Dense MudCheckBox
+       so the content column aligns identically on rows with and without a checkbox. min-width:0
+       defeats flex's default auto-growing-to-min-content behavior; without it, a slightly
+       wider-than-basis MudCheckBox would shift the content column right. */
+    flex: 0 0 2rem;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -619,7 +624,7 @@
 .bt-credview-content {
     flex: 1 1 auto;
     overflow-wrap: anywhere;
-    
+    padding-left: var(--bt-indent, 0);
 }
 
 .bt-credview-content.bt-credview-content-field {
@@ -637,6 +642,7 @@
 }
 
 .bt-credview-text-acdc {
+    font-weight: 600;
 }
 
 .bt-credview-disclosure-tag {

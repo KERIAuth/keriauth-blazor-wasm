@@ -100,6 +100,7 @@
   - [A. Saidify Verification Harness (Developer Test Page)](#a-saidify-verification-harness-developer-test-page)
   - [B. Credential Presentation Page — Undisclosed SAID Preview](#b-credential-presentation-page--undisclosed-said-preview)
   - [C. Credential Presentation Selector — Fill on Switch](#c-credential-presentation-selector--fill-on-switch)
+  - [D. Unified Tree Rendering (Presentation and Non-Presentation Parity)](#d-unified-tree-rendering-presentation-and-non-presentation-parity)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -944,5 +945,22 @@ These tests verify the extension's behavior when network connectivity is unstabl
     - [ ] Progress bar briefly appears on each new selection while saidification runs
     - [ ] Previously-filled credentials re-render without a progress bar on return (fill is keyed by `sad.d`)
     - [ ] Disclosure tree shows SAID previews on undisclosed Edges/Rules for the currently-selected credential
+
+## D. Unified Tree Rendering (Presentation and Non-Presentation Parity)
+1. Prerequisite: a credential with at least one chained credential (e.g., ECR vLEI or LE vLEI)
+2. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>` (no `isPresentation` query param; non-presentation mode)
+
+    Expected:
+    - [ ] Root credential's sections (`a`, `e`, `r`) render as indented tree rows using the same `bt-credview-row` styling as in presentation mode
+    - [ ] Each chained credential shows a **single header row** at the left margin (same indent as root's section headers) labeled with the chained credential's `ShortName` or `SchemaTitle` — NO `MudExpansionPanel` / collapsible affordance
+    - [ ] The chained credential's own sections are indented one level deeper than its header row (e.g., at `padding-left: 1.25rem`)
+    - [ ] Attribute rows inside the chained credential are indented deeper still
+    - [ ] Two-level nesting (chain-within-chain) shows three distinct indent levels
+3. Navigate to the same credential with `?isPresentation=true`
+
+    Expected:
+    - [ ] Structural layout (indentation, row placement) is **identical** to the non-presentation view
+    - [ ] The only added visual elements are the disclosure checkboxes (in the gutter column) and the `[disclosed]`/`[undisclosed]`/`[partially disclosed]` tags on elision-toggleable rows
+    - [ ] SAID-preview rows on undisclosed sections still appear at `Depth+1` below the checkbox row (behavior from "B. Credential Presentation Page")
 
 
