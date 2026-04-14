@@ -42,6 +42,7 @@ public static class CredentialViewPipeline {
         var schemaSaid = credential.SchemaSaid ?? "";
         var schemaTitle = schema?.QueryPath("title")?.StringValue ?? "Credential";
         var schemaDescription = schema?.QueryPath("description")?.StringValue;
+        var credentialSaid = sad.QueryPath("d")?.StringValue;
 
         var schemaProperties = schema?.QueryPath("properties")?.Dictionary;
 
@@ -51,6 +52,7 @@ public static class CredentialViewPipeline {
             SchemaSaid = schemaSaid,
             SchemaTitle = schemaTitle,
             SchemaDescription = schemaDescription,
+            CredentialSaid = credentialSaid,
             Children = children,
         };
     }

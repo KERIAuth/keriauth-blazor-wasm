@@ -101,6 +101,7 @@
   - [B. Credential Presentation Page — Undisclosed SAID Preview](#b-credential-presentation-page--undisclosed-said-preview)
   - [C. Credential Presentation Selector — Fill on Switch](#c-credential-presentation-selector--fill-on-switch)
   - [D. Unified Tree Rendering (Presentation and Non-Presentation Parity)](#d-unified-tree-rendering-presentation-and-non-presentation-parity)
+  - [E. Inline Chained Credential Under Matching SaidReference (Display Only)](#e-inline-chained-credential-under-matching-saidreference-display-only)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -962,5 +963,24 @@ These tests verify the extension's behavior when network connectivity is unstabl
     - [ ] Structural layout (indentation, row placement) is **identical** to the non-presentation view
     - [ ] The only added visual elements are the disclosure checkboxes (in the gutter column) and the `[disclosed]`/`[undisclosed]`/`[partially disclosed]` tags on elision-toggleable rows
     - [ ] SAID-preview rows on undisclosed sections still appear at `Depth+1` below the checkbox row (behavior from "B. Credential Presentation Page")
+
+## E. Inline Chained Credential Under Matching SaidReference (Display Only)
+1. Prerequisite: a credential with at least one edge whose `n` field references a chained credential's SAID (e.g., ECR vLEI whose `sad.e.<edge>.n` matches the bundled chain's `sad.d`)
+2. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>` (non-presentation)
+
+    Expected:
+    - [ ] The SaidReference node (edge's `n`) renders with the chained credential's full tree indented below it (one indent level deeper than the SaidReference row)
+    - [ ] The chained credential does **NOT** additionally appear as a top-level sibling of the root's sections — it's consumed into the inline position
+    - [ ] If an edge's `n` does not match any chained credential (orphan), the existing SAID digest row renders instead (no crash, no inline)
+3. Navigate with `?isPresentation=true` and toggle the disclosure checkbox on the SaidReference row
+
+    Expected:
+    - [ ] When **undisclosed** (checkbox off): the SAID digest row shows (abbreviated), chained credential hidden
+    - [ ] When **disclosed** (checkbox on): the chained credential's full tree renders inline in place of the digest row, with its own elision checkboxes usable independently
+    - [ ] Either way, the chained credential is not duplicated at top level
+4. Confirm the data model integrity
+
+    Expected:
+    - [ ] On the Developer Test Page Saidify Verification Harness (section A), the "Edge references" table still shows `MATCHED → chains[i]` and the "Back-check" table still shows `USED` for the referenced chain — the display restructuring is purely visual; the underlying credential remains unchanged
 
 

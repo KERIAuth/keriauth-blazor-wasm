@@ -604,27 +604,35 @@
 }
 
 .bt-credview-row {
+    /* Row reserves a 2rem left gutter for checkboxes via padding-left. The gutter itself is
+       absolutely positioned within the row (see below) so it always sits at the row's left
+       edge regardless of content padding. */
     display: flex;
     align-items: anchor-center;
-    gap: 0.25rem;
+    position: relative;
+    padding-left: 2rem;
 }
 
 .bt-credview-gutter {
-    /* Fixed-width left column for elision checkboxes. Width accommodates a Dense MudCheckBox
-       so the content column aligns identically on rows with and without a checkbox. min-width:0
-       defeats flex's default auto-growing-to-min-content behavior; without it, a slightly
-       wider-than-basis MudCheckBox would shift the content column right. */
-    flex: 0 0 2rem;
-    min-width: 0;
+    /* Absolutely positioned so the checkbox (when present) always sits at the row's left
+       edge, independent of how deeply the content is indented. */
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2rem;
     display: flex;
     align-items: center;
     justify-content: flex-start;
 }
 
 .bt-credview-content {
+    /* Small gap after the gutter plus the depth-based indent from --bt-indent.
+       Because the gutter is absolutely positioned, only this padding contributes to the
+       content's offset — so the indent math flows directly from the custom property. */
     flex: 1 1 auto;
     overflow-wrap: anywhere;
-    padding-left: var(--bt-indent, 0);
+    padding-left: calc(0.25rem + var(--bt-indent, 0));
 }
 
 .bt-credview-content.bt-credview-content-field {

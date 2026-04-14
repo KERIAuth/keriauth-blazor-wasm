@@ -101,6 +101,12 @@ public record CredentialViewTree {
     /// <summary>Schema description text.</summary>
     public string? SchemaDescription { get; init; }
 
+    /// <summary>
+    /// The credential's own SAID (sad.d). Populated by the pipeline; used at render time
+    /// to resolve edge `n` references to their target chained credential.
+    /// </summary>
+    public string? CredentialSaid { get; init; }
+
     /// <summary>Top-level child nodes of this credential's view tree.</summary>
     public required List<CredentialViewNode> Children { get; init; }
 
