@@ -21,6 +21,9 @@
 @inject IPendingBwAppRequestService pendingBwAppRequestService
 @inject IWebExtensionsApi webExtensionsApi
 @inject IWebsiteConfigService websiteConfigService
+@using Extension.Helper
+@using Extension.Models.Messages.AppBw.Requests
+@using Extension.Models.Messages.AppBw.Responses
 
 @implements IDisposable
 
@@ -388,6 +391,197 @@
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
         var dialog = await dialogService.ShowAsync<AddConnectionDialog>("Add connection", parameters, options);
     }
+
+    // Saider verification state
+    private record SaidifyRow(string Path, int Depth, string? StoredSaid, string? ComputedSaid, string Status);
+    private record EdgeRefRow(string EdgePath, string ReferencedSaid, string Status);
+    private record ChainUsageRow(string ChainPath, string ChainSaid, string Status);
+
+    private string? _selectedCredentialSaid;
+    private List<SaidifyRow> _saidifyResults = [];
+    private List<EdgeRefRow> _edgeRefResults = [];
+    private List<ChainUsageRow> _chainUsageResults = [];
+    private bool _saidifyRunning;
+
+    static string TruncateSaid(string? s) =>
+        string.IsNullOrEmpty(s) ? "(empty)" : (s.Length > 16 ? s[..16] + "…" : s);
+
+    static string BuildPath(string prefix, string segment) =>
+        string.IsNullOrEmpty(prefix) ? segment : $"{prefix}.{segment}";
+
+    void OnSaidifyCredentialSelected(string? said)
+    {
+        _selectedCredentialSaid = said;
+        _saidifyResults = [];
+        _edgeRefResults = [];
+        _chainUsageResults = [];
+    }
+
+    async Task RunSaidifyVerificationAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedCredentialSaid)) return;
+        _saidifyRunning = true;
+        _saidifyResults = [];
+        _edgeRefResults = [];
+        _chainUsageResults = [];
+        try
+        {
+            var cred = appCache.MyCachedCredentials.FirstOrDefault(
+                c => c.QueryPath("sad.d")?.StringValue == _selectedCredentialSaid);
+            if (cred is null)
+            {
+                snackbar.Add("Credential not found in cache", MudBlazor.Severity.Error);
+                return;
+            }
+
+            // chainIndex: path -> sad.d of every credential in the tree (root + all chains, recursively)
+            var chainIndex = new List<(string Path, string Said)>();
+            // edgeRefs: every descendant 'n' field across the whole tree
+            var edgeRefs = new List<(string EdgePath, string RefSaid)>();
+
+            await WalkCredentialAsync(cred, pathPrefix: "", depth: 0, chainIndex, edgeRefs);
+
+            // Resolve edge references — each 'n' value should match some credential's sad.d
+            foreach (var (edgePath, refSaid) in edgeRefs)
+            {
+                var match = chainIndex.FirstOrDefault(c => c.Said == refSaid);
+                var status = match.Said is not null ? $"MATCHED → {match.Path}" : "UNMATCHED";
+                _edgeRefResults.Add(new EdgeRefRow(edgePath, refSaid, status));
+            }
+
+            // Back-check — every non-root chained credential should appear in some edge's 'n'
+            var referencedSaids = edgeRefs.Select(e => e.RefSaid).ToHashSet();
+            foreach (var (path, said) in chainIndex)
+            {
+                if (path == "(root)") continue;
+                if (string.IsNullOrEmpty(said)) continue;
+                var status = referencedSaids.Contains(said) ? "USED" : "ORPHAN";
+                _chainUsageResults.Add(new ChainUsageRow(path, said, status));
+            }
+
+            var passes = _saidifyResults.Count(r => r.Status == "PASS");
+            var fails = _saidifyResults.Count(r => r.Status == "FAIL");
+            var nas = _saidifyResults.Count - passes - fails;
+            var unmatched = _edgeRefResults.Count(r => r.Status == "UNMATCHED");
+            var orphans = _chainUsageResults.Count(r => r.Status == "ORPHAN");
+            var severity = (fails > 0 || unmatched > 0 || orphans > 0)
+                ? MudBlazor.Severity.Warning
+                : MudBlazor.Severity.Normal;
+            snackbar.Add(
+                $"Saidify: {passes} PASS, {fails} FAIL, {nas} N/A — refs: {unmatched} UNMATCHED, chains: {orphans} ORPHAN",
+                severity);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, nameof(RunSaidifyVerificationAsync) + " failed");
+            snackbar.Add($"Saidify error: {ex.Message}", MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            _saidifyRunning = false;
+        }
+    }
+
+    async Task WalkCredentialAsync(
+        RecursiveDictionary credential,
+        string pathPrefix,
+        int depth,
+        List<(string Path, string Said)> chainIndex,
+        List<(string EdgePath, string RefSaid)> edgeRefs)
+    {
+        var sad = credential.QueryPath("sad")?.Dictionary;
+        if (sad is null) return;
+
+        var credSaid = sad.QueryPath("d")?.StringValue ?? "";
+        chainIndex.Add((string.IsNullOrEmpty(pathPrefix) ? "(root)" : pathPrefix, credSaid));
+
+        foreach (var kv in sad)
+        {
+            var sectionKey = kv.Key;
+            var sectionDict = kv.Value.Dictionary;
+            if (sectionDict is null) continue;
+            if (!sectionDict.ContainsKey("d")) continue;
+
+            await SaidifySectionAsync(sectionDict, BuildPath(pathPrefix, sectionKey), depth);
+        }
+
+        var edgeDict = sad.QueryPath("e")?.Dictionary;
+        if (edgeDict is not null)
+        {
+            CollectNReferences(edgeDict, BuildPath(pathPrefix, "sad.e"), edgeRefs);
+        }
+
+        var chains = credential.QueryPath("chains")?.List;
+        if (chains is null) return;
+        for (var i = 0; i < chains.Count; i++)
+        {
+            var chainDict = chains[i].Dictionary;
+            if (chainDict is null) continue;
+            var childPath = BuildPath(pathPrefix, $"chains[{i}]");
+            await WalkCredentialAsync(chainDict, childPath, depth + 1, chainIndex, edgeRefs);
+        }
+    }
+
+    async Task SaidifySectionAsync(RecursiveDictionary sectionDict, string pathKey, int depth)
+    {
+        var storedSaid = sectionDict.QueryPath("d")?.StringValue ?? "";
+        var clone = new RecursiveDictionary();
+        foreach (var entry in sectionDict)
+        {
+            clone[entry.Key] = entry.Key == "d"
+                ? new RecursiveValue { StringValue = "" }
+                : entry.Value;
+        }
+
+        var rpc = await appBwPortService.SendRequestAsync<RequestSaidifyPayload, SaidifyResponse>(
+            new AppBwRequestSaidifyMessage(clone));
+
+        string? computed;
+        string status;
+        if (rpc.IsFailed || rpc.Value is null)
+        {
+            computed = null;
+            var msg = rpc.IsFailed
+                ? (rpc.Errors.Count > 0 ? rpc.Errors[0].Message : "RPC failed")
+                : "Null response";
+            status = $"ERROR: {msg}";
+        }
+        else if (!rpc.Value.Success)
+        {
+            computed = null;
+            status = $"ERROR: {rpc.Value.Error ?? "unknown"}";
+        }
+        else
+        {
+            computed = rpc.Value.Said;
+            status = string.IsNullOrEmpty(storedSaid)
+                ? "N/A"
+                : (computed == storedSaid ? "PASS" : "FAIL");
+        }
+
+        _saidifyResults.Add(new SaidifyRow(pathKey, depth, storedSaid, computed, status));
+    }
+
+    // Walks a dict tree collecting every descendant string-valued 'n' field as an edge reference.
+    // Per ACDC spec, the 'n' field of an edge node holds the SAID of the referenced credential.
+    static void CollectNReferences(
+        RecursiveDictionary dict,
+        string pathPrefix,
+        List<(string EdgePath, string RefSaid)> refs)
+    {
+        foreach (var kv in dict)
+        {
+            var childPath = $"{pathPrefix}.{kv.Key}";
+            if (kv.Key == "n" && kv.Value.StringValue is { Length: > 0 } nVal)
+            {
+                refs.Add((childPath, nVal));
+            }
+            if (kv.Value.Dictionary is { } nestedDict)
+            {
+                CollectNReferences(nestedDict, childPath, refs);
+            }
+        }
+    }
 }
 
 <div id="@this.GetType().Name" class="bt-body-page">
@@ -523,6 +717,99 @@
             <MudText Class="bt-section-title">Port testing</MudText>
             <MudStack>
                 <MudText>To disconnect/stop/inactivate: navigate to chrome://serviceworker-internals and Stop the service-worker. Should restart based on its listener events.</MudText>
+            </MudStack>
+
+            <MudText Class="bt-section-title">Saider operations</MudText>
+            <MudStack Class="ml-4" Spacing="2">
+                <MudText Typo="Typo.body2">
+                    Pick a cached credential, then run saidify on each of its <code>sad.*</code> sub-dictionaries (<code>a</code>, <code>e</code>, <code>r</code>). PASS means the computed SAID matches the stored <code>d</code>; FAIL indicates JSON canonical-form divergence between C# and signify-ts.
+                </MudText>
+                <MudSelect T="string" Value="@_selectedCredentialSaid"
+                           ValueChanged="@OnSaidifyCredentialSelected"
+                           Label="Credential (by sad.d)" Dense="true" Margin="Margin.Dense"
+                           Disabled="@(appCache.MyCachedCredentials.Count == 0)">
+                    @foreach (var cred in appCache.MyCachedCredentials)
+                    {
+                        var said = cred.QueryPath("sad.d")?.StringValue ?? "(no SAID)";
+                        <MudSelectItem T="string" Value="@said">@said</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="@RunSaidifyVerificationAsync"
+                           Disabled="@(_saidifyRunning || string.IsNullOrEmpty(_selectedCredentialSaid))">
+                    @(_saidifyRunning ? "Running…" : "Verify saidify on sections")
+                </MudButton>
+                @if (_saidifyResults.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle2">Section saidify (root + chained credentials, recursive)</MudText>
+                    <MudSimpleTable Dense="true" Bordered="true" Hover="true">
+                        <thead>
+                            <tr>
+                                <th>Path</th>
+                                <th>Stored d</th>
+                                <th>Computed SAID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _saidifyResults)
+                            {
+                                <tr>
+                                    <td style="@($"padding-left: {row.Depth * 1.5 + 0.5}rem;")"><code>@row.Path</code></td>
+                                    <td><code>@TruncateSaid(row.StoredSaid)</code></td>
+                                    <td><code>@TruncateSaid(row.ComputedSaid)</code></td>
+                                    <td>@row.Status</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                @if (_edgeRefResults.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle2">Edge references (descendant <code>n</code> fields → expected chain SAIDs)</MudText>
+                    <MudSimpleTable Dense="true" Bordered="true" Hover="true">
+                        <thead>
+                            <tr>
+                                <th>Edge path</th>
+                                <th>Referenced SAID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _edgeRefResults)
+                            {
+                                <tr>
+                                    <td><code>@row.EdgePath</code></td>
+                                    <td><code>@TruncateSaid(row.ReferencedSaid)</code></td>
+                                    <td>@row.Status</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                @if (_chainUsageResults.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle2">Chained credentials back-check (each chain should be referenced by some edge)</MudText>
+                    <MudSimpleTable Dense="true" Bordered="true" Hover="true">
+                        <thead>
+                            <tr>
+                                <th>Chain path</th>
+                                <th>Chain SAID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _chainUsageResults)
+                            {
+                                <tr>
+                                    <td><code>@row.ChainPath</code></td>
+                                    <td><code>@TruncateSaid(row.ChainSaid)</code></td>
+                                    <td>@row.Status</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
             </MudStack>
         </div>
     </div>

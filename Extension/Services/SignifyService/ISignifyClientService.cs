@@ -221,5 +221,12 @@ namespace Extension.Services.SignifyService {
         /// signify-ts recomputes the top-level d via Saider.saidify before granting.
         /// </summary>
         Task<Result<RecursiveDictionary>> GrantWithElidedAcdc(string senderAidNameOrPrefix, string elidedAcdcJson, string credentialSaid, string recipientPrefix, TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Compute the SAID of a credential block/object via signify-ts' Saider.saidify.
+        /// Pure crypto (no client or network). The returned SAID is what the block's `d` field
+        /// would be if the issuer had computed it at issuance time.
+        /// </summary>
+        Task<Result<string>> Saidify(RecursiveDictionary block);
     }
 }

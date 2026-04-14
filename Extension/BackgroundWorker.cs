@@ -1605,6 +1605,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestGetSessionPasscodeRpcAsync(portId, request);
                     return;
 
+                case AppBwMessageType.Values.RequestSaidify:
+                    await HandleAppRequestSaidifyRpcAsync(portId, request, payload);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2857,6 +2861,49 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestGetKeyStateRpcAsync) + ": Error during get key state");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new GetKeyStateResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Handles a Saidify request from App. Computes the SAID of the provided section via
+    /// signify-ts' Saider.saidify. Pure crypto — no KERIA connection required. Not brokered
+    /// because it neither reads nor writes the signify client state.
+    /// </summary>
+    private async Task HandleAppRequestSaidifyRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestSaidifyRpcAsync) + ": called");
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SaidifyResponse(false, Error: "Missing payload"));
+                return;
+            }
+
+            var saidifyRequest = JsonSerializer.Deserialize<RequestSaidifyPayload>(
+                payload.Value.GetRawText(), JsonOptions.RecursiveDictionary);
+
+            if (saidifyRequest?.Section is null || saidifyRequest.Section.Count == 0) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SaidifyResponse(false, Error: "Invalid or missing section"));
+                return;
+            }
+
+            var result = await _signifyClientService.Saidify(saidifyRequest.Section);
+
+            if (result.IsSuccess) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SaidifyResponse(true, Said: result.Value));
+            }
+            else {
+                var errorMsg = result.Errors.Count > 0 ? result.Errors[0].Message : "Saidify failed";
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new SaidifyResponse(false, Error: errorMsg));
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestSaidifyRpcAsync) + ": Error during saidify");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new SaidifyResponse(false, Error: ex.Message));
         }
     }
 

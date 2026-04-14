@@ -132,6 +132,9 @@ public interface ISignifyClientBinding {
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>JSON string of SignDataResult with aid prefix and signed items</returns>
     ValueTask<string> SignDataAsync(string aidNameOrPrefix, string dataItemsJson, CancellationToken cancellationToken = default);
+
+    // ===================== Saider Operations =====================
+    ValueTask<string> SaidifyAsync(string acdcJson, CancellationToken cancellationToken = default);
 }
 
 [SupportedOSPlatform("browser")]
@@ -424,4 +427,9 @@ public class SignifyClientBinding(IJsModuleLoader moduleLoader, ILogger<SignifyC
         _logger.LogDebug(nameof(SignDataAsync) + ": result: {Result}", result);
         return result;
     }
+
+    // ===================== Saider Operations =====================
+
+    public ValueTask<string> SaidifyAsync(string acdcJson, CancellationToken cancellationToken = default) =>
+        Module.InvokeAsync<string>("saidify", cancellationToken, acdcJson);
 }

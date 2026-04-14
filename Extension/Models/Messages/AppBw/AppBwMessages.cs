@@ -205,6 +205,11 @@ namespace Extension.Models.Messages.AppBw {
             public const string RequestGetSessionPasscode = "AppBw.RequestGetSessionPasscode";
             public const string RequestConfigure = "AppBw.RequestConfigure";
             public const string RequestResetConfigure = "AppBw.RequestResetConfigure";
+            /// <summary>
+            /// Request BW to compute the SAID of a credential block via signify-ts'
+            /// Saider.saidify. Pure crypto; does not require KERIA connection.
+            /// </summary>
+            public const string RequestSaidify = "AppBw.RequestSaidify";
         }
 
         public string Value { get; }
@@ -259,6 +264,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestGetSessionPasscode { get; } = new(Values.RequestGetSessionPasscode);
         public static AppBwMessageType RequestConfigure { get; } = new(Values.RequestConfigure);
         public static AppBwMessageType RequestResetConfigure { get; } = new(Values.RequestResetConfigure);
+        public static AppBwMessageType RequestSaidify { get; } = new(Values.RequestSaidify);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -419,6 +425,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestResetConfigure:
                     result = RequestResetConfigure;
+                    return true;
+                case Values.RequestSaidify:
+                    result = RequestSaidify;
                     return true;
                 default:
                     return false;

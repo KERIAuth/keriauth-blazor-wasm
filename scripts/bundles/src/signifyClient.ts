@@ -2088,3 +2088,30 @@ export const signData = async (aidNameOrPrefix: string, dataItems: string[]): Pr
         { AIDNameOrPrefix: aidNameOrPrefix, ItemCount: dataItems.length }
     );
 };
+
+// ===================== Saider Operations =====================
+
+/**
+ * Computes the SAID of an arbitrary block/object using signify-ts' Saider.saidify.
+ * Pure crypto operation — no client or network required. The input JSON is parsed,
+ * its 'd' field is overwritten with the computed SAID, and the SAID string is returned.
+ * Used by the credential-presentation pipeline to fill in missing `d` fields on
+ * edges/rules blocks (and to verify the canonical JSON round-trip from C# to signify-ts).
+ */
+export const saidify = async (acdcJson: string): Promise<string> => {
+    try {
+        const obj = JSON.parse(acdcJson);
+        const [, saidifiedObj] = Saider.saidify(obj);
+        const said = saidifiedObj.d as string;
+        const wrapped: ResultOk<string> = { ok: true, value: said };
+        return JSON.stringify(wrapped);
+    } catch (error) {
+        console.error('signifyClient: saidify error', error);
+        const wrapped: ResultErr = {
+            ok: false,
+            code: 'validation_error',
+            message: error instanceof Error ? error.message : String(error),
+        };
+        return JSON.stringify(wrapped);
+    }
+};

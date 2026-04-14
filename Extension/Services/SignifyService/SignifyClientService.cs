@@ -1740,5 +1740,28 @@ namespace Extension.Services.SignifyService {
                 return Result.Fail<RecursiveDictionary>(new JavaScriptInteropError(nameof(GrantWithElidedAcdc), e.Message, e));
             }
         }
+
+        public async Task<Result<string>> Saidify(RecursiveDictionary block) {
+            try {
+                // Serialize preserving insertion order; the RecursiveDictionaryConverter in
+                // JsonOptions.RecursiveDictionary is what guarantees the canonical field ordering
+                // that signify-ts' Saider.saidify expects.
+                var acdcJson = JsonSerializer.Serialize(block, JsonOptions.RecursiveDictionary);
+                var jsonString = await _binding.SaidifyAsync(acdcJson);
+
+                var unwrapped = UnwrapJsResult(jsonString);
+                if (unwrapped.IsFailed) return Result.Fail<string>(unwrapped.Errors);
+
+                var said = JsonSerializer.Deserialize<string>(unwrapped.Value);
+                if (string.IsNullOrEmpty(said)) {
+                    return Result.Fail<string>(new JavaScriptInteropError(nameof(Saidify), "Empty SAID from saidify"));
+                }
+                return Result.Ok(said);
+            }
+            catch (JSException e) {
+                logger.LogError(e, "{Op}: Unexpected JSException", nameof(Saidify));
+                return Result.Fail<string>(new JavaScriptInteropError(nameof(Saidify), e.Message, e));
+            }
+        }
     }
 }
