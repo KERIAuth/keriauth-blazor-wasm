@@ -96,6 +96,10 @@
   - [C. Retry on Transient Network Failure](#c-retry-on-transient-network-failure)
   - [D. Service Worker Dormancy and Network State Recovery](#d-service-worker-dormancy-and-network-state-recovery)
   - [E. Developer State Page Accuracy](#e-developer-state-page-accuracy)
+- [Credential Presentation](#credential-presentation)
+  - [A. Saidify Verification Harness (Developer Test Page)](#a-saidify-verification-harness-developer-test-page)
+  - [B. Credential Presentation Page — Undisclosed SAID Preview](#b-credential-presentation-page--undisclosed-said-preview)
+  - [C. Credential Presentation Selector — Fill on Switch](#c-credential-presentation-selector--fill-on-switch)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -903,5 +907,42 @@ These tests verify the extension's behavior when network connectivity is unstabl
     - [ ] `IsNetworkOnline` shows at top of state tree with label "Browser reports network available"
     - [ ] `IsKeriaReachable` shows with label "KERIA endpoint reachable"
     - [ ] Both update reactively when connectivity changes (no page refresh needed)
+
+# Credential Presentation
+
+## A. Saidify Verification Harness (Developer Test Page)
+1. Prerequisite: Onboard, unlock, and have at least one issued credential in cache (ideally ECR vLEI with chained credentials)
+2. Navigate to Developer > Test, scroll to **Saider operations**
+3. Pick a credential from the dropdown (labeled by `sad.d`), click **Verify saidify on sections**
+
+    Expected:
+    - [ ] A "Section saidify" table appears with one row per `sad.<key>` for the root credential and every chained credential at any depth
+    - [ ] Path column shows `a`, `e`, `r` for the root and `chains[0].a`, `chains[0].chains[1].e`, etc. for nested; indentation reflects chain depth
+    - [ ] Rows with a populated stored `d` show Status `PASS` (computed SAID equals stored `d`)
+    - [ ] Rows with empty stored `d` (e.g. `e`, `r`) show Status `N/A (no stored SAID)` and a non-empty Computed SAID for manual inspection
+    - [ ] An "Edge references" table lists every descendant `n` field; each shows `MATCHED → <chain path>` if the referenced SAID matches some chained credential, else `UNMATCHED`
+    - [ ] A "Chained credentials back-check" table lists every non-root chained credential with `USED` or `ORPHAN`
+    - [ ] Snackbar summary reports `Saidify: X PASS, Y FAIL, Z N/A — refs: U UNMATCHED, chains: O ORPHAN`; FAIL/UNMATCHED/ORPHAN counts should all be zero on a well-formed credential
+
+## B. Credential Presentation Page — Undisclosed SAID Preview
+1. Prerequisite: A credential whose `sad.e.d` or `sad.r.d` is empty in the raw ACDC (most issuer-output vLEI credentials)
+2. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>&isPresentation=true`
+
+    Expected:
+    - [ ] A brief `MudProgressLinear` appears at the top of the credential panel while SAIDs are computed
+    - [ ] Once filled, the tree shows disclosure checkboxes for `Attributes`, `Edges`, `Rules` (and any nested `oneOf` sections)
+    - [ ] With a section **undisclosed**, a monospace SAID preview row appears at indent N+1 below the checkbox row — **including for Edges and Rules** (these blocks had empty `d` in the raw credential; the displayed SAID is computed via signify-ts' `Saider.saidify`)
+    - [ ] Toggling the checkbox to disclosed collapses the preview and expands the children; toggling back restores the preview
+    - [ ] Each disclosure tag reads `[undisclosed]`, `[disclosed]`, or `[partially disclosed]` consistent with whether nested oneOf/chained descendants are all disclosed
+
+## C. Credential Presentation Selector — Fill on Switch
+1. Prerequisite: Multiple credentials matching the same schema, with at least one having empty `sad.e.d`
+2. Trigger an IPEX Apply (presentation) flow that surfaces `CredentialPresentationSelector`
+3. Switch between credentials in the selector dropdown
+
+    Expected:
+    - [ ] Progress bar briefly appears on each new selection while saidification runs
+    - [ ] Previously-filled credentials re-render without a progress bar on return (fill is keyed by `sad.d`)
+    - [ ] Disclosure tree shows SAID previews on undisclosed Edges/Rules for the currently-selected credential
 
 
