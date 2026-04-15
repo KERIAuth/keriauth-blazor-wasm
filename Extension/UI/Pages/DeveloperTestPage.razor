@@ -403,9 +403,6 @@
     private List<ChainUsageRow> _chainUsageResults = [];
     private bool _saidifyRunning;
 
-    static string TruncateSaid(string? s) =>
-        string.IsNullOrEmpty(s) ? "(empty)" : (s.Length > 16 ? s[..16] + "…" : s);
-
     static string BuildPath(string prefix, string segment) =>
         string.IsNullOrEmpty(prefix) ? segment : $"{prefix}.{segment}";
 
@@ -756,8 +753,8 @@
                             {
                                 <tr>
                                     <td style="@($"padding-left: {row.Depth * 1.5 + 0.5}rem;")"><code>@row.Path</code></td>
-                                    <td><code>@TruncateSaid(row.StoredSaid)</code></td>
-                                    <td><code>@TruncateSaid(row.ComputedSaid)</code></td>
+                                    <td><SaidDisplay Said="@row.StoredSaid" Abbreviate="true" /></td>
+                                    <td><SaidDisplay Said="@row.ComputedSaid" Abbreviate="true" /></td>
                                     <td>@row.Status</td>
                                 </tr>
                             }
@@ -780,7 +777,7 @@
                             {
                                 <tr>
                                     <td><code>@row.EdgePath</code></td>
-                                    <td><code>@TruncateSaid(row.ReferencedSaid)</code></td>
+                                    <td><SaidDisplay Said="@row.ReferencedSaid" Abbreviate="true" /></td>
                                     <td>@row.Status</td>
                                 </tr>
                             }
@@ -803,7 +800,7 @@
                             {
                                 <tr>
                                     <td><code>@row.ChainPath</code></td>
-                                    <td><code>@TruncateSaid(row.ChainSaid)</code></td>
+                                    <td><SaidDisplay Said="@row.ChainSaid" Abbreviate="true" /></td>
                                     <td>@row.Status</td>
                                 </tr>
                             }

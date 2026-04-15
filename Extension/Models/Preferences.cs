@@ -77,5 +77,13 @@
         /// </summary>
         [JsonPropertyName("IsConsoleDebugLogged")]
         public bool IsConsoleDebugLogged { get; init; }
+
+        /// <summary>
+        /// When true, SAID values in the credential view render in abbreviated form
+        /// (head+tail with an ellipsis) via the <c>SaidDisplay</c> component. When false,
+        /// the full SAID is shown. Default true for visual density.
+        /// </summary>
+        [JsonPropertyName("AbbreviateSaids")]
+        public bool AbbreviateSaids { get; init; } = true;
     }
 }

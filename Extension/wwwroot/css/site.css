@@ -660,6 +660,13 @@
     font-style: italic;
 }
 
+/* Used by SaidDisplay; applied to every SAID rendered in the UI. */
+.bt-said {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: large;
+}
+
 /* Print styles for multi-page printing */
 @media print {
     /* Reset positioning and viewport constraints on root containers */

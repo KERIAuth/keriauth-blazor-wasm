@@ -1,0 +1,64 @@
+@using Extension.Services
+@using Extension.UI.Components
+@implements IDisposable
+
+@inject AppCache appCache
+
+@*
+    Renders an ACDC SAID value as a monospace span, abbreviated according to the user's
+    Preferences.AbbreviateSaids setting (or per-render override via the Abbreviate parameter).
+    The full SAID is exposed via a native browser title tooltip so users can inspect it on hover
+    regardless of abbreviation. Empty or null Said renders nothing.
+
+    Subscribes to AppCache so the component re-renders when AbbreviateSaids changes live.
+    Unsubscribes in Dispose.
+*@
+
+@code {
+    [Parameter, EditorRequired]
+    public string? Said { get; set; }
+
+    /// <summary>Characters shown from the start of the SAID when abbreviated. Default 8.</summary>
+    [Parameter]
+    public int HeadChars { get; set; } = 4;
+
+    /// <summary>Characters shown from the end of the SAID when abbreviated. Default 4.</summary>
+    [Parameter]
+    public int TailChars { get; set; } = 4;
+
+    /// <summary>
+    /// Per-render override for the Preferences.AbbreviateSaids flag. When null (default),
+    /// reads the user preference. Pass true or false to force-abbreviate / force-full on a
+    /// specific call site (e.g., compact tables that would wrap without abbreviation).
+    /// </summary>
+    [Parameter]
+    public bool? Abbreviate { get; set; }
+
+    string? DisplayText {
+        get {
+            if (string.IsNullOrEmpty(Said)) return null;
+            var abbreviate = Abbreviate ?? appCache.MyPreferences.AbbreviateSaids;
+            if (!abbreviate) return Said;
+            if (Said.Length <= HeadChars + TailChars + 1) return Said;
+            return TailChars > 0
+                ? $"{Said[..HeadChars]}…{Said[^TailChars..]}"
+                : $"{Said[..HeadChars]}…";
+        }
+    }
+
+    protected override async Task OnInitializedAsync() {
+        // Ensures this component re-renders when the AbbreviateSaids preference toggles even
+        // though the component's parameters didn't change. Parent re-renders alone don't
+        // always propagate down through MudBlazor / cascading-value layers reliably.
+        await this.SubscribeToAppCache(appCache);
+    }
+
+    public void Dispose() {
+        this.UnsubscribeFromAppCache();
+    }
+}
+
+@if (!string.IsNullOrEmpty(Said))
+{
+    <span class="bt-said" title="@Said">@DisplayText</span>
+}

@@ -102,6 +102,7 @@
   - [C. Credential Presentation Selector — Fill on Switch](#c-credential-presentation-selector--fill-on-switch)
   - [D. Unified Tree Rendering (Presentation and Non-Presentation Parity)](#d-unified-tree-rendering-presentation-and-non-presentation-parity)
   - [E. Inline Chained Credential Under Matching SaidReference (Display Only)](#e-inline-chained-credential-under-matching-saidreference-display-only)
+  - [F. Abbreviate SAIDs Preference](#f-abbreviate-saids-preference)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -982,5 +983,27 @@ These tests verify the extension's behavior when network connectivity is unstabl
 
     Expected:
     - [ ] On the Developer Test Page Saidify Verification Harness (section A), the "Edge references" table still shows `MATCHED → chains[i]` and the "Back-check" table still shows `USED` for the referenced chain — the display restructuring is purely visual; the underlying credential remains unchanged
+
+## F. Abbreviate SAIDs Preference
+1. Prerequisite: Credential with visible SAIDs in the tree view (any ECR vLEI, ideally with chained credentials so multiple SAIDs appear)
+2. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>`
+3. Click the gear icon (top-right of CredentialViewPrefsComponent); verify a new **"Abbreviate SAIDs"** checkbox appears, defaulted to **on**
+4. Observe the tree view
+
+    Expected (abbreviate on):
+    - [ ] All SAID displays (undisclosed preview rows, SaidReference digest rows) render truncated with an ellipsis (e.g., `EGxR_dXx…WhjK`), with the full SAID available via browser tooltip on hover
+    - [ ] The Developer Test Page Saidify Verification Harness tables continue to render SAIDs in abbreviated form (regardless of user preference — they are forced-abbreviated for table compactness)
+
+5. Uncheck "Abbreviate SAIDs" in the prefs
+
+    Expected (abbreviate off):
+    - [ ] SAIDs in the credential tree render in full (no ellipsis)
+    - [ ] The change is immediate (no page reload required) and persists across extension reloads
+    - [ ] Developer Test Page tables remain abbreviated (override in effect)
+
+6. Re-check the preference
+
+    Expected:
+    - [ ] Reverts cleanly to abbreviated form
 
 
