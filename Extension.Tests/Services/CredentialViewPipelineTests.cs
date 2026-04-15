@@ -74,6 +74,17 @@ public class CredentialViewPipelineTests {
         }
 
         [Fact]
+        public void PopulatesCredentialSaidFromSadD() {
+            var cloned = LoadEcrClonedCredential();
+            var expected = cloned.Sad.QueryPath("d")?.StringValue;
+            Assert.False(string.IsNullOrEmpty(expected), "ECR fixture should have a populated sad.d");
+
+            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+
+            Assert.Equal(expected, tree.CredentialSaid);
+        }
+
+        [Fact]
         public void TopLevelChildren_ContainAllSadKeys() {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
