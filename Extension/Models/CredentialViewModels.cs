@@ -1,5 +1,3 @@
-using Extension.Helper;
-
 namespace Extension.Models;
 
 /// <summary>
@@ -16,10 +14,12 @@ public record CredentialFieldSpec(
 /// View specification for a credential schema. Loaded from credentialViewSpecs.json.
 /// </summary>
 public record CredentialViewSpec(
-    string SchemaSaid,                                   // Schema SAID this spec applies to
-    string ShortName,                                    // Abbreviated display name (e.g., "LE vLEI")
-    List<CredentialFieldSpec> Fields,                     // Field display specs, ordered by display position
-    List<SchemaIndependentDetail>? HiddenDetails = null  // Top-level keys hidden by default
+    string SchemaSaid,                  // Schema SAID this spec applies to
+    string ShortName,                   // Abbreviated display name (e.g., "LE vLEI")
+    List<CredentialFieldSpec> Fields    // Field display specs, ordered by display position.
+                                        // To hide framing keys (v, d, ri, s) at low detail, give them
+                                        // entries here with MinDetailLevel: 9 — they'll only render at
+                                        // the most-detailed setting.
 );
 
 public enum CredentialDisplayType { Card, Tree }

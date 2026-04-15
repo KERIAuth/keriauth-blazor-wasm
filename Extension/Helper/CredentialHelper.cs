@@ -4,13 +4,6 @@ using System.Text.Json;
 namespace Extension.Helper;
 
 /// <summary>
-/// Corresponds to ACDC top-level keys that are schema-independent boilerplate.
-/// Used to hide fields from display (cosmetic only).
-/// Underscore prefix preserves the original key casing for readability.
-/// </summary>
-public enum SchemaIndependentDetail { _v, _d, _i, _ri, _s, _e, _r }
-
-/// <summary>
 /// Helper methods for credential display and identification.
 /// </summary>
 public static class CredentialHelper {

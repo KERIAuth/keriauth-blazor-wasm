@@ -103,6 +103,7 @@
   - [D. Unified Tree Rendering (Presentation and Non-Presentation Parity)](#d-unified-tree-rendering-presentation-and-non-presentation-parity)
   - [E. Inline Chained Credential Under Matching SaidReference (Display Only)](#e-inline-chained-credential-under-matching-saidreference-display-only)
   - [F. Abbreviate SAIDs Preference](#f-abbreviate-saids-preference)
+  - [G. Label Provenance Tooltip](#g-label-provenance-tooltip)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -1005,5 +1006,30 @@ These tests verify the extension's behavior when network connectivity is unstabl
 
     Expected:
     - [ ] Reverts cleanly to abbreviated form
+
+## G. Label Provenance Tooltip
+1. Prerequisite: any held credential, ideally one whose view spec applies a label override (e.g., LE vLEI's `r.usageDisclaimer.l` → "Usage Disclaimer", or ECR vLEI's `a.personLegalName` → "Legal Name")
+2. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>`
+3. Move the mouse over a label in the tree (any label — section header, field label, chained-credential header)
+
+    Expected:
+    - [ ] A small `?` icon (MudBlazor `HelpOutline` style) appears at the end of the label as the row is hovered, fading in smoothly (~150ms)
+    - [ ] Hovering the label/icon shows a tooltip with **three rows**:
+      - `viewSpec label:` — the override from `credentialViewSpecs.json` if any, else `n/a`
+      - `schema label:` — the schema's `description` field for that path if any, else `n/a`
+      - `acdc field:` — the dot-path as it would appear in `credentialViewSpecs.json` (e.g., `a.personLegalName`, `e.qvi.n`, `r.usageDisclaimer.l`) in monospace; for chained-credential headers, the chained credential's SAID
+    - [ ] Moving the mouse off the row hides the icon (no row reflow)
+4. Find a field where the view spec overrides the schema description (e.g., `personLegalName` on an ECR credential)
+
+    Expected:
+    - [ ] Tooltip rows show distinct values for `viewSpec label` and `schema label` (e.g., "Legal Name" vs "Person legal name")
+5. Find a field with no view spec entry (e.g., a top-level field like `v` if visible at the current detail level)
+
+    Expected:
+    - [ ] `viewSpec label:` shows `n/a`; `schema label:` shows the description; `acdc field:` shows the key
+6. Hover a chained-credential header (e.g., the QVI block under ECR)
+
+    Expected:
+    - [ ] Tooltip shows the chained credential's `ShortName` (or n/a) as viewSpec label, its `SchemaTitle` as schema label, and its SAID in the `acdc field` row
 
 

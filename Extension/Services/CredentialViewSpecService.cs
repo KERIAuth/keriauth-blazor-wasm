@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Extension.Helper;
 using Extension.Models;
 
 namespace Extension.Services;
@@ -12,8 +11,7 @@ public record CredentialViewSpecManifest(
 public record CredentialViewSpecJson(
     [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
     [property: JsonPropertyName("shortName")] string ShortName,
-    [property: JsonPropertyName("fields")] CredentialFieldSpecJson[] Fields,
-    [property: JsonPropertyName("hiddenDetails")] string[]? HiddenDetails = null
+    [property: JsonPropertyName("fields")] CredentialFieldSpecJson[] Fields
 );
 
 public record CredentialFieldSpecJson(
@@ -63,19 +61,10 @@ public class CredentialViewSpecService : ICredentialViewSpecService {
                     .Select(f => new CredentialFieldSpec(f.Path, f.MinDetailLevel, f.Label, f.Format))
                     .ToList();
 
-                List<SchemaIndependentDetail>? hiddenDetails = null;
-                if (specJson.HiddenDetails is not null) {
-                    hiddenDetails = specJson.HiddenDetails
-                        .Where(h => Enum.TryParse<SchemaIndependentDetail>(h, out _))
-                        .Select(h => Enum.Parse<SchemaIndependentDetail>(h))
-                        .ToList();
-                }
-
                 specs[specJson.SchemaSaid] = new CredentialViewSpec(
                     specJson.SchemaSaid,
                     specJson.ShortName,
-                    fields,
-                    hiddenDetails
+                    fields
                 );
             }
 
@@ -104,8 +93,7 @@ public class CredentialViewSpecService : ICredentialViewSpecService {
         return new CredentialViewSpec(
             SchemaSaid: schemaSaid,
             ShortName: "Credential",
-            Fields: [],
-            HiddenDetails: null
+            Fields: []
         );
     }
 }

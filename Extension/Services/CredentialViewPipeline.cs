@@ -46,7 +46,7 @@ public static class CredentialViewPipeline {
 
         var schemaProperties = schema?.QueryPath("properties")?.Dictionary;
 
-        var children = MergeLevel(sad, schemaProperties, depth: 0, parentSection: null);
+        var children = MergeLevel(sad, schemaProperties, depth: 0, parentSection: null, parentPath: "");
 
         return new CredentialViewTree {
             SchemaSaid = schemaSaid,
@@ -61,7 +61,8 @@ public static class CredentialViewPipeline {
         RecursiveDictionary data,
         RecursiveDictionary? schemaProperties,
         int depth,
-        string? parentSection) {
+        string? parentSection,
+        string parentPath) {
 
         var nodes = new List<CredentialViewNode>();
 
@@ -70,7 +71,7 @@ public static class CredentialViewPipeline {
             var value = kvp.Value;
 
             var schemaProp = schemaProperties?.QueryPath(key)?.Dictionary;
-            var node = MergeNode(key, value, schemaProp, depth, parentSection);
+            var node = MergeNode(key, value, schemaProp, depth, parentSection, parentPath);
             nodes.Add(node);
         }
 
@@ -82,7 +83,8 @@ public static class CredentialViewPipeline {
         RecursiveValue value,
         RecursiveDictionary? schemaProp,
         int depth,
-        string? parentSection) {
+        string? parentSection,
+        string parentPath) {
 
         var isOneOf = HasOneOf(schemaProp);
         var resolvedSchema = schemaProp;
@@ -94,6 +96,7 @@ public static class CredentialViewPipeline {
         var description = resolvedSchema?.QueryPath("description")?.StringValue;
         var format = resolvedSchema?.QueryPath("format")?.StringValue;
         var label = description ?? key;
+        var path = string.IsNullOrEmpty(parentPath) ? key : $"{parentPath}.{key}";
 
         var componentHint = DetectComponentHint(key, format, parentSection);
         var rawStringValue = value.StringValue;
@@ -102,10 +105,11 @@ public static class CredentialViewPipeline {
             if (isOneOf && rawStringValue == null) {
                 // Expanded object where schema has oneOf — it's a disclosed oneOf section
                 var subProperties = resolvedSchema?.QueryPath("properties")?.Dictionary;
-                var children = MergeLevel(dictValue, subProperties, depth + 1, key);
+                var children = MergeLevel(dictValue, subProperties, depth + 1, key, path);
 
                 return new CredentialViewNode {
                     Key = key,
+                    Path = path,
                     Label = label,
                     Kind = CredentialViewNodeKind.Dictionary,
                     Depth = depth,
@@ -118,10 +122,11 @@ public static class CredentialViewPipeline {
 
             // Regular dictionary (no oneOf, or non-oneOf sub-object)
             var subProps = resolvedSchema?.QueryPath("properties")?.Dictionary;
-            var dictChildren = MergeLevel(dictValue, subProps, depth + 1, parentSection ?? key);
+            var dictChildren = MergeLevel(dictValue, subProps, depth + 1, parentSection ?? key, path);
 
             return new CredentialViewNode {
                 Key = key,
+                Path = path,
                 Label = label,
                 Kind = CredentialViewNodeKind.Dictionary,
                 Depth = depth,
@@ -135,12 +140,13 @@ public static class CredentialViewPipeline {
             var arrayChildren = new List<CredentialViewNode>();
             for (var i = 0; i < listValue.Count; i++) {
                 var item = listValue[i];
-                var child = MergeNode(i.ToString(System.Globalization.CultureInfo.InvariantCulture), item, itemSchema, depth + 1, parentSection);
+                var child = MergeNode(i.ToString(System.Globalization.CultureInfo.InvariantCulture), item, itemSchema, depth + 1, parentSection, path);
                 arrayChildren.Add(child);
             }
 
             return new CredentialViewNode {
                 Key = key,
+                Path = path,
                 Label = label,
                 Kind = CredentialViewNodeKind.Array,
                 Depth = depth,
@@ -153,6 +159,7 @@ public static class CredentialViewPipeline {
         if (isOneOf && rawStringValue != null) {
             return new CredentialViewNode {
                 Key = key,
+                Path = path,
                 Label = label,
                 Kind = CredentialViewNodeKind.SaidReference,
                 Depth = depth,
@@ -168,6 +175,7 @@ public static class CredentialViewPipeline {
 
         return new CredentialViewNode {
             Key = key,
+            Path = path,
             Label = label,
             Kind = CredentialViewNodeKind.Value,
             Depth = depth,
@@ -271,22 +279,14 @@ public static class CredentialViewPipeline {
         CredentialViewSpec? spec,
         CredentialViewOptions options) {
 
-        var hiddenKeys = BuildHiddenKeySet(spec);
         var fieldOverrides = BuildFieldOverrideMap(spec);
 
-        var prunedChildren = PruneNodes(tree.Children, hiddenKeys, fieldOverrides, options, prefix: "");
+        var prunedChildren = PruneNodes(tree.Children, fieldOverrides, options, prefix: "");
 
         return tree with {
             ShortName = spec?.ShortName ?? tree.ShortName,
             Children = prunedChildren,
         };
-    }
-
-    private static HashSet<string> BuildHiddenKeySet(CredentialViewSpec? spec) {
-        if (spec?.HiddenDetails == null) return [];
-        return spec.HiddenDetails
-            .Select(d => d.ToString().TrimStart('_'))
-            .ToHashSet();
     }
 
     private static Dictionary<string, CredentialFieldSpec> BuildFieldOverrideMap(CredentialViewSpec? spec) {
@@ -296,7 +296,6 @@ public static class CredentialViewPipeline {
 
     private static List<CredentialViewNode> PruneNodes(
         List<CredentialViewNode> nodes,
-        HashSet<string> hiddenKeys,
         Dictionary<string, CredentialFieldSpec> fieldOverrides,
         CredentialViewOptions options,
         string prefix) {
@@ -305,12 +304,6 @@ public static class CredentialViewPipeline {
 
         foreach (var node in nodes) {
             var path = string.IsNullOrEmpty(prefix) ? node.Key : $"{prefix}.{node.Key}";
-
-            // Remove hidden keys (top-level only, matching SchemaIndependentDetail pattern)
-            if (hiddenKeys.Contains(node.Key) && node.Depth == 0) {
-                continue;
-            }
-
             var current = node;
 
             // Apply field spec overrides and detail level filtering
@@ -322,7 +315,7 @@ public static class CredentialViewPipeline {
                 current = current with { MinDetailLevel = fieldSpec.MinDetailLevel };
 
                 if (fieldSpec.Label != null) {
-                    current = current with { Label = fieldSpec.Label };
+                    current = current with { Label = fieldSpec.Label, ViewSpecLabel = fieldSpec.Label };
                 }
                 if (fieldSpec.Format != null) {
                     var formattedValue = current.FormattedValue;
@@ -341,7 +334,7 @@ public static class CredentialViewPipeline {
 
             // Recurse into children
             if (current.Children.Count > 0) {
-                var prunedChildren = PruneNodes(current.Children, hiddenKeys, fieldOverrides, options, path);
+                var prunedChildren = PruneNodes(current.Children, fieldOverrides, options, path);
                 current = current with { Children = prunedChildren };
             }
 

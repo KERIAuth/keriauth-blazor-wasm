@@ -1,0 +1,53 @@
+@*
+    Renders a credential field label as bold text followed by an info icon. Hovering the
+    label/row reveals a structured tooltip showing where the displayed label came from:
+    the view-spec override (if any), the schema description (if any), and the raw ACDC
+    field key. Useful when a deliberate view-spec label hides the underlying schema
+    description, so developers (and curious users) can see all three sources at a glance.
+
+    The icon is faded by default and becomes opaque on row hover via .bt-label-help-icon
+    + .bt-credview-content-field:hover rules in site.css.
+*@
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Label { get; init; }
+
+    /// <summary>
+    /// View-spec label override (from credentialViewSpecs.json), if applied. Null when
+    /// no override exists for this field.
+    /// </summary>
+    [Parameter]
+    public string? ViewSpecLabel { get; set; }
+
+    /// <summary>
+    /// Schema description (from the embedded ACDC schema's "description" property), if any.
+    /// </summary>
+    [Parameter]
+    public string? SchemaDescription { get; set; }
+
+    /// <summary>
+    /// Raw ACDC field key (e.g., "d", "n", "personLegalName"). For chained-credential
+    /// headers, callers may pass the credential's SAID since there's no field key.
+    /// </summary>
+    [Parameter]
+    public string? FieldKey { get; set; }
+
+    static string OrNa(string? value) =>
+        string.IsNullOrEmpty(value) ? "n/a" : value;
+}
+
+<MudTooltip Placement="Placement.Top" Arrow="true">
+    <ChildContent>
+        <b>@Label</b><MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
+                              Size="Size.Small"
+                              Class="bt-label-help-icon" />
+    </ChildContent>
+    <TooltipContent>
+        <table class="bt-label-provenance">
+            <tr><td>viewSpec label:</td><td>@OrNa(ViewSpecLabel)</td></tr>
+            <tr><td>schema label:</td><td>@OrNa(SchemaDescription)</td></tr>
+            <tr><td>acdc field:</td><td><code>@OrNa(FieldKey)</code></td></tr>
+        </table>
+    </TooltipContent>
+</MudTooltip>

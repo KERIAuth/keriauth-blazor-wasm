@@ -32,8 +32,23 @@ public record CredentialViewNode {
     /// <summary>Field key from the credential (e.g., "LEI", "a", "auth").</summary>
     public required string Key { get; init; }
 
+    /// <summary>
+    /// Dot-separated path from this credential's <c>sad</c> root to this node, matching the
+    /// convention used in <c>credentialViewSpecs.json</c> (e.g. <c>a.LEI</c>, <c>e.qvi.n</c>,
+    /// <c>r.usageDisclaimer.l</c>). For inline-rendered chained credentials, paths are local
+    /// to the chain's own sad — the host's <c>PathPrefix</c> handles cross-tree disambiguation.
+    /// </summary>
+    public string Path { get; init; } = "";
+
     /// <summary>Display label (from schema description, view spec override, or key fallback).</summary>
     public required string Label { get; init; }
+
+    /// <summary>
+    /// View-spec label override, if one was applied during Prune. Preserved separately from
+    /// <see cref="Label"/> so consumers (e.g., a label-provenance tooltip) can distinguish
+    /// schema-sourced labels from explicit view-spec overrides. Null when no override exists.
+    /// </summary>
+    public string? ViewSpecLabel { get; init; }
 
     /// <summary>Discriminates how this node should be rendered.</summary>
     public required CredentialViewNodeKind Kind { get; init; }

@@ -42,15 +42,7 @@ public class CredentialViewPipelineTests {
                         formatEl.ValueKind == JsonValueKind.String ? formatEl.GetString() : null);
                 }).ToList();
 
-                List<SchemaIndependentDetail>? hiddenDetails = null;
-                if (specEl.TryGetProperty("hiddenDetails", out var hdEl)) {
-                    hiddenDetails = hdEl.EnumerateArray()
-                        .Where(h => Enum.TryParse<SchemaIndependentDetail>(h.GetString(), out _))
-                        .Select(h => Enum.Parse<SchemaIndependentDetail>(h.GetString()!))
-                        .ToList();
-                }
-
-                _specs[said] = new CredentialViewSpec(said, specEl.GetProperty("shortName").GetString()!, fields, hiddenDetails);
+                _specs[said] = new CredentialViewSpec(said, specEl.GetProperty("shortName").GetString()!, fields);
             }
         }
 
@@ -58,7 +50,7 @@ public class CredentialViewPipelineTests {
             _specs.TryGetValue(schemaSaid, out var spec) ? spec : null;
 
         public CredentialViewSpec GetOrCreateFallback(string schemaSaid) =>
-            GetViewSpec(schemaSaid) ?? new CredentialViewSpec(schemaSaid, "Credential", [], null);
+            GetViewSpec(schemaSaid) ?? new CredentialViewSpec(schemaSaid, "Credential", []);
     }
 
     public class MergeAcdcAndSchemaTests : CredentialViewPipelineTests {
@@ -71,6 +63,29 @@ public class CredentialViewPipelineTests {
             Assert.Equal("EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw", tree.SchemaSaid);
             Assert.Equal("Legal Entity Engagement Context Role vLEI Credential", tree.SchemaTitle);
             Assert.NotNull(tree.SchemaDescription);
+        }
+
+        [Fact]
+        public void Path_MatchesCredentialViewSpecsConvention() {
+            var cloned = LoadEcrClonedCredential();
+            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+
+            // Top-level: just the key (no sad. prefix).
+            var aNode = tree.Children.First(n => n.Key == "a");
+            Assert.Equal("a", aNode.Path);
+
+            // Nested: dot-joined from the credential root.
+            var leiNode = aNode.Children.First(n => n.Key == "LEI");
+            Assert.Equal("a.LEI", leiNode.Path);
+
+            // Deeper: e.qvi.n style.
+            var eNode = tree.Children.First(n => n.Key == "e");
+            // 'e' is a Dict (oneOf, expanded); its children include 'd' and edge subdicts.
+            // Find a nested 'n' if any — otherwise just confirm e's children carry "e.<key>".
+            var firstChildOfE = eNode.Children.FirstOrDefault();
+            if (firstChildOfE is not null) {
+                Assert.Equal($"e.{firstChildOfE.Key}", firstChildOfE.Path);
+            }
         }
 
         [Fact]
@@ -270,24 +285,30 @@ public class CredentialViewPipelineTests {
         }
 
         [Fact]
-        public void HiddenDetails_RemovesTopLevelKeys() {
+        public void FramingKeys_HiddenAtDefaultDetailLevel_VisibleAtNine() {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
-            var options = new CredentialViewOptions();
 
-            var pruned = CredentialViewPipeline.Prune(tree, spec, options);
+            // At default detail level (5), v/d/ri/s have minDetailLevel 9 → filtered out.
+            var prunedDefault = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions());
+            var keysDefault = prunedDefault.Children.Select(n => n.Key).ToList();
+            Assert.DoesNotContain("v", keysDefault);
+            Assert.DoesNotContain("d", keysDefault);
+            Assert.DoesNotContain("ri", keysDefault);
+            Assert.DoesNotContain("s", keysDefault);
+            // Sections that aren't field-overridden should remain.
+            Assert.Contains("a", keysDefault);
+            Assert.Contains("e", keysDefault);
+            Assert.Contains("r", keysDefault);
 
-            var keys = pruned.Children.Select(n => n.Key).ToList();
-            Assert.DoesNotContain("v", keys);
-            Assert.DoesNotContain("d", keys);
-            Assert.DoesNotContain("ri", keys);
-            Assert.DoesNotContain("s", keys);
-            // These should remain
-            Assert.Contains("i", keys);
-            Assert.Contains("a", keys);
-            Assert.Contains("e", keys);
-            Assert.Contains("r", keys);
+            // At detail level 9, the framing keys appear.
+            var prunedAll = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions(DetailLevel: 9));
+            var keysAll = prunedAll.Children.Select(n => n.Key).ToList();
+            Assert.Contains("v", keysAll);
+            Assert.Contains("d", keysAll);
+            Assert.Contains("ri", keysAll);
+            Assert.Contains("s", keysAll);
         }
 
         [Fact]
@@ -343,6 +364,37 @@ public class CredentialViewPipelineTests {
 
             var dtNode = aNode.Children.First(n => n.Key == "dt");
             Assert.Equal("Issued", dtNode.Label);
+        }
+
+        [Fact]
+        public void ViewSpecLabel_PopulatedWhenOverrideExists() {
+            var cloned = LoadEcrClonedCredential();
+            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+            var spec = LoadEcrViewSpec();
+            var options = new CredentialViewOptions(DetailLevel: 9);
+
+            var pruned = CredentialViewPipeline.Prune(tree, spec, options);
+
+            // personLegalName has a "label": "Legal Name" override in the test spec.
+            var aNode = pruned.Children.First(n => n.Key == "a");
+            var nameNode = aNode.Children.First(n => n.Key == "personLegalName");
+            Assert.Equal("Legal Name", nameNode.ViewSpecLabel);
+            Assert.Equal("Legal Name", nameNode.Label); // also the resolved label
+        }
+
+        [Fact]
+        public void ViewSpecLabel_NullWhenNoOverride() {
+            var cloned = LoadEcrClonedCredential();
+            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+            var spec = LoadEcrViewSpec();
+            var options = new CredentialViewOptions(DetailLevel: 9);
+
+            var pruned = CredentialViewPipeline.Prune(tree, spec, options);
+
+            // LEI has minDetailLevel 0 in the spec but no "label" override.
+            var aNode = pruned.Children.First(n => n.Key == "a");
+            var leiNode = aNode.Children.First(n => n.Key == "LEI");
+            Assert.Null(leiNode.ViewSpecLabel);
         }
 
         [Fact]

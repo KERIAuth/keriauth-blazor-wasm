@@ -667,6 +667,34 @@
     font-size: large;
 }
 
+/* LabelWithProvenance: faded help icon that becomes opaque on row hover.
+   opacity (not display) keeps layout stable. */
+.bt-label-help-icon {
+    margin-left: 0.25rem;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.bt-credview-content-field:hover .bt-label-help-icon {
+    opacity: 0.55;
+}
+
+/* Tooltip body: 3-row provenance table. */
+.bt-label-provenance td {
+    padding: 0.125rem 0.5rem 0.125rem 0;
+    vertical-align: top;
+    text-align: left;
+    font-weight: bold;
+}
+
+.bt-label-provenance td:first-child {
+    /* color: var(--mud-palette-text-secondary); */
+    white-space: nowrap;
+    text-align: right;
+    font-weight: normal;
+}
+
 /* Print styles for multi-page printing */
 @media print {
     /* Reset positioning and viewport constraints on root containers */
