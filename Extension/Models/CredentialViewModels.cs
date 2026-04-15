@@ -1,13 +1,122 @@
 namespace Extension.Models;
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+/// <summary>
+/// Format hint controlling how a field value renders.
+/// Values come from view-spec overrides (camelCase customs like
+/// <c>"identicon"</c>, <c>"dateTimeAsUtc"</c>) or from a credential's JSON Schema
+/// (kebab-case standards like <c>"date-time"</c>, <c>"idn-email"</c>).
+/// </summary>
+[JsonConverter(typeof(CredentialFieldFormatJsonConverter))]
+public enum CredentialFieldFormat {
+    // Custom (view-spec only)
+    DateAsLocal,
+    DateTimeAsLocal,
+    DateAsUtc,
+    DateTimeAsUtc,
+    Identicon,
+    Lei,
+
+    // JSON Schema 2020-12 standard formats
+    Date,
+    Time,
+    DateTime,
+    Duration,
+    Email,
+    IdnEmail,
+    Hostname,
+    IdnHostname,
+    Ipv4,
+    Ipv6,
+    Uri,
+    UriReference,
+    Iri,
+    IriReference,
+    Uuid,
+    UriTemplate,
+    JsonPointer,
+    RelativeJsonPointer,
+    Regex,
+}
+
+/// <summary>
+/// Bidirectional string ↔ <see cref="CredentialFieldFormat"/> mapping. Used by both
+/// the JSON deserializer (view-spec parsing) and the runtime schema-fallback path.
+/// </summary>
+public static class CredentialFieldFormatNames {
+    private static readonly Dictionary<string, CredentialFieldFormat> s_byName =
+        new(StringComparer.OrdinalIgnoreCase) {
+            // Customs
+            ["dateAsLocal"] = CredentialFieldFormat.DateAsLocal,
+            ["dateTimeAsLocal"] = CredentialFieldFormat.DateTimeAsLocal,
+            ["dateAsUtc"] = CredentialFieldFormat.DateAsUtc,
+            ["dateTimeAsUtc"] = CredentialFieldFormat.DateTimeAsUtc,
+            ["identicon"] = CredentialFieldFormat.Identicon,
+            ["lei"] = CredentialFieldFormat.Lei,
+            // JSON Schema 2020-12
+            ["date"] = CredentialFieldFormat.Date,
+            ["time"] = CredentialFieldFormat.Time,
+            ["date-time"] = CredentialFieldFormat.DateTime,
+            ["duration"] = CredentialFieldFormat.Duration,
+            ["email"] = CredentialFieldFormat.Email,
+            ["idn-email"] = CredentialFieldFormat.IdnEmail,
+            ["hostname"] = CredentialFieldFormat.Hostname,
+            ["idn-hostname"] = CredentialFieldFormat.IdnHostname,
+            ["ipv4"] = CredentialFieldFormat.Ipv4,
+            ["ipv6"] = CredentialFieldFormat.Ipv6,
+            ["uri"] = CredentialFieldFormat.Uri,
+            ["uri-reference"] = CredentialFieldFormat.UriReference,
+            ["iri"] = CredentialFieldFormat.Iri,
+            ["iri-reference"] = CredentialFieldFormat.IriReference,
+            ["uuid"] = CredentialFieldFormat.Uuid,
+            ["uri-template"] = CredentialFieldFormat.UriTemplate,
+            ["json-pointer"] = CredentialFieldFormat.JsonPointer,
+            ["relative-json-pointer"] = CredentialFieldFormat.RelativeJsonPointer,
+            ["regex"] = CredentialFieldFormat.Regex,
+        };
+
+    private static readonly Dictionary<CredentialFieldFormat, string> s_toName =
+        s_byName.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
+
+    public static bool TryParse(string? name, out CredentialFieldFormat format) {
+        if (name is not null && s_byName.TryGetValue(name, out format)) {
+            return true;
+        }
+        format = default;
+        return false;
+    }
+
+    /// <summary>Schema-fallback parser: returns null when <paramref name="name"/> is null or unknown.</summary>
+    public static CredentialFieldFormat? ParseSchemaFormat(string? name) =>
+        TryParse(name, out var f) ? f : null;
+
+    public static string ToName(CredentialFieldFormat format) => s_toName[format];
+}
+
+internal sealed class CredentialFieldFormatJsonConverter : JsonConverter<CredentialFieldFormat> {
+    public override CredentialFieldFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+        var raw = reader.GetString();
+        if (CredentialFieldFormatNames.TryParse(raw, out var format)) {
+            return format;
+        }
+        throw new JsonException($"Unknown {nameof(CredentialFieldFormat)} value: '{raw}'");
+    }
+
+    public override void Write(Utf8JsonWriter writer, CredentialFieldFormat value, JsonSerializerOptions options) {
+        writer.WriteStringValue(CredentialFieldFormatNames.ToName(value));
+    }
+}
+
 /// <summary>
 /// Specifies display properties for one field within a credential view.
 /// </summary>
 public record CredentialFieldSpec(
-    string Path,             // Dot-separated path in ACDC (e.g., "a.LEI", "e.qvi.n")
-    int MinDetailLevel,      // Field shown when user's detail level >= this value (0 = always shown)
-    string? Label = null,    // Override label (null = use schema description or field key)
-    string? Format = null    // Override format (null = use schema format or raw string)
+    string Path,                            // Dot-separated path in ACDC (e.g., "a.LEI", "e.qvi.n")
+    int MinDetailLevel,                     // Field shown when user's detail level >= this value (0 = always shown)
+    string? Label = null,                   // Override label (null = use schema description or field key)
+    CredentialFieldFormat? Format = null    // Override format (null = use schema-derived format)
 );
 
 /// <summary>

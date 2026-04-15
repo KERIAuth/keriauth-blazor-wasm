@@ -59,11 +59,11 @@ public record CredentialViewNode {
     /// <summary>Raw string value for Value nodes.</summary>
     public string? RawValue { get; init; }
 
-    /// <summary>Formatted value after applying Format (e.g., date-time formatting).</summary>
-    public string? FormattedValue { get; init; }
-
-    /// <summary>Format hint from schema or view spec (e.g., "date-time", "ISO 17442").</summary>
-    public string? Format { get; init; }
+    /// <summary>
+    /// Format hint from view spec (preferred) or JSON Schema fallback. Drives rendering in
+    /// <c>CredentialFieldValueDisplay</c>. Null means render as plain text.
+    /// </summary>
+    public CredentialFieldFormat? Format { get; init; }
 
     /// <summary>Tooltip text, typically the schema description.</summary>
     public string? TooltipText { get; init; }

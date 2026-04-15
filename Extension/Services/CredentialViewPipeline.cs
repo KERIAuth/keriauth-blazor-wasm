@@ -171,8 +171,6 @@ public static class CredentialViewPipeline {
         }
 
         // Leaf value node
-        var formattedValue = FormatValue(value, format);
-
         return new CredentialViewNode {
             Key = key,
             Path = path,
@@ -180,8 +178,7 @@ public static class CredentialViewPipeline {
             Kind = CredentialViewNodeKind.Value,
             Depth = depth,
             RawValue = rawStringValue ?? value.Value?.ToString(),
-            FormattedValue = formattedValue,
-            Format = format,
+            Format = CredentialFieldFormatNames.ParseSchemaFormat(format),
             TooltipText = description,
             ComponentHint = componentHint,
             ComponentData = componentHint != null ? (rawStringValue ?? value.Value?.ToString()) : null,
@@ -318,12 +315,7 @@ public static class CredentialViewPipeline {
                     current = current with { Label = fieldSpec.Label, ViewSpecLabel = fieldSpec.Label };
                 }
                 if (fieldSpec.Format != null) {
-                    var formattedValue = current.FormattedValue;
-                    if (current.RawValue != null && fieldSpec.Format == "date-time" &&
-                        DateTimeOffset.TryParse(current.RawValue, out var dto)) {
-                        formattedValue = dto.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
-                    }
-                    current = current with { Format = fieldSpec.Format, FormattedValue = formattedValue };
+                    current = current with { Format = fieldSpec.Format };
                 }
             }
 
@@ -348,14 +340,4 @@ public static class CredentialViewPipeline {
         return result;
     }
 
-    private static string? FormatValue(RecursiveValue value, string? format) {
-        var raw = value.StringValue ?? value.Value?.ToString();
-        if (raw == null) return null;
-
-        if (format == "date-time" && DateTimeOffset.TryParse(raw, out var dto)) {
-            return dto.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
-        }
-
-        return raw;
-    }
 }

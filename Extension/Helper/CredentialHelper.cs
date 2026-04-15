@@ -175,17 +175,6 @@ public static class CredentialHelper {
     }
 
     /// <summary>
-    /// Formats a field value based on its schema format hint.
-    /// </summary>
-    public static string FormatFieldValue(string? value, string? format) =>
-        (value, format) switch {
-            (null, _) => "",
-            (_, "date") => value.Length >= 10 ? value[..10] : value,
-            (_, "date-time") => value.Length >= 10 ? value[..10] : value,
-            _ => value
-        };
-
-    /// <summary>
     /// Returns the credential-specific display fields for a given credential type.
     /// Each field has a name (matching the schema's attribute property key) and a default label
     /// used when the schema description is unavailable.

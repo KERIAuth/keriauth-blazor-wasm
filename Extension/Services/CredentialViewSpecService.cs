@@ -18,7 +18,7 @@ public record CredentialFieldSpecJson(
     [property: JsonPropertyName("path")] string Path,
     [property: JsonPropertyName("minDetailLevel")] int MinDetailLevel,
     [property: JsonPropertyName("label")] string? Label = null,
-    [property: JsonPropertyName("format")] string? Format = null
+    [property: JsonPropertyName("format")] CredentialFieldFormat? Format = null
 );
 
 public interface ICredentialViewSpecService {

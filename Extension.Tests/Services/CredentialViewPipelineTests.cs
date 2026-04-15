@@ -290,7 +290,7 @@ public class CredentialViewPipelineTests {
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
 
-            // At default detail level (5), v/d/ri/s have minDetailLevel 9 → filtered out.
+            // At default detail level (WithOptionalSections), v/d/ri/s have minDetailLevel 9 → filtered out.
             var prunedDefault = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions());
             var keysDefault = prunedDefault.Children.Select(n => n.Key).ToList();
             Assert.DoesNotContain("v", keysDefault);
@@ -303,7 +303,7 @@ public class CredentialViewPipelineTests {
             Assert.Contains("r", keysDefault);
 
             // At detail level 9, the framing keys appear.
-            var prunedAll = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions(DetailLevel: 9));
+            var prunedAll = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails));
             var keysAll = prunedAll.Children.Select(n => n.Key).ToList();
             Assert.Contains("v", keysAll);
             Assert.Contains("d", keysAll);
@@ -317,16 +317,16 @@ public class CredentialViewPipelineTests {
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
 
-            // Detail level 2 should show minDetailLevel 0 fields but hide level 3 and 5 fields
-            var options = new CredentialViewOptions(DetailLevel: 2);
+            // Basic level should show minDetailLevel 0 fields but hide level 1 and 2 fields
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.Basic);
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
             var aNode = pruned.Children.First(n => n.Key == "a");
             var childKeys = aNode.Children.Select(n => n.Key).ToList();
             Assert.Contains("LEI", childKeys);          // minDetailLevel 0
             Assert.Contains("personLegalName", childKeys); // minDetailLevel 0
-            Assert.DoesNotContain("i", childKeys);        // minDetailLevel 3 — hidden
-            Assert.DoesNotContain("dt", childKeys);       // minDetailLevel 5 — hidden
+            Assert.DoesNotContain("i", childKeys);        // minDetailLevel 1 — hidden
+            Assert.DoesNotContain("dt", childKeys);       // minDetailLevel 2 — hidden
         }
 
         [Fact]
@@ -335,7 +335,7 @@ public class CredentialViewPipelineTests {
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
 
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
             var aNode = pruned.Children.First(n => n.Key == "a");
@@ -351,7 +351,7 @@ public class CredentialViewPipelineTests {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
@@ -371,7 +371,7 @@ public class CredentialViewPipelineTests {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
@@ -387,7 +387,7 @@ public class CredentialViewPipelineTests {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
@@ -402,7 +402,7 @@ public class CredentialViewPipelineTests {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
             var spec = LoadEcrViewSpec();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var pruned = CredentialViewPipeline.Prune(tree, spec, options);
 
@@ -475,7 +475,7 @@ public class CredentialViewPipelineTests {
         public void BuildsFullTreeWith4LevelChain() {
             var cloned = LoadEcrClonedCredential();
             var service = LoadTestViewSpecService();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var tree = CredentialViewPipeline.BuildFullTree(cloned, service, options);
 
@@ -507,7 +507,7 @@ public class CredentialViewPipelineTests {
         public void EachChainLevel_HasPrunedChildren() {
             var cloned = LoadEcrClonedCredential();
             var service = LoadTestViewSpecService();
-            var options = new CredentialViewOptions(DetailLevel: 5);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.Detailed);
 
             var tree = CredentialViewPipeline.BuildFullTree(cloned, service, options);
 
@@ -527,7 +527,7 @@ public class CredentialViewPipelineTests {
         public void EachChainLevel_HasAttributeNodes() {
             var cloned = LoadEcrClonedCredential();
             var service = LoadTestViewSpecService();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var tree = CredentialViewPipeline.BuildFullTree(cloned, service, options);
 
@@ -550,7 +550,7 @@ public class CredentialViewPipelineTests {
             // The QVI schema SAID may not have a view spec — depends on test fixture
             var cloned = LoadEcrClonedCredential();
             var service = LoadTestViewSpecService();
-            var options = new CredentialViewOptions(DetailLevel: 9);
+            var options = new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails);
 
             var tree = CredentialViewPipeline.BuildFullTree(cloned, service, options);
 
@@ -565,7 +565,7 @@ public class CredentialViewPipelineTests {
         public void PresentationMode_ChainedCredentialsRendered() {
             var cloned = LoadEcrClonedCredential();
             var service = LoadTestViewSpecService();
-            var options = new CredentialViewOptions(IsPresentation: true, DetailLevel: 5);
+            var options = new CredentialViewOptions(IsPresentation: true, DetailLevel: CredentialDetailLevel.Detailed);
 
             var tree = CredentialViewPipeline.BuildFullTree(cloned, service, options);
 
