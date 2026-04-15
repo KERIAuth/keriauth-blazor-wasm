@@ -119,6 +119,20 @@
     gap: 0.25rem;
 }
 
+.bt-aid-prefix-display .bt-aid-copy {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease-in-out;
+}
+
+/* :focus-visible matches keyboard focus only, not mouse-click focus, so clicking
+   the copy button does not pin it visible — moving the mouse away fades it out. */
+.bt-aid-prefix-display:hover .bt-aid-copy,
+.bt-aid-prefix-display:has(:focus-visible) .bt-aid-copy {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .bt-aid-text {
     display: flex;
     flex-direction: column;

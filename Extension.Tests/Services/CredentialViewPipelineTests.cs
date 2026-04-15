@@ -39,7 +39,9 @@ public class CredentialViewPipelineTests {
                         f.GetProperty("path").GetString()!,
                         f.GetProperty("minDetailLevel").GetInt32(),
                         labelEl.ValueKind == JsonValueKind.String ? labelEl.GetString() : null,
-                        formatEl.ValueKind == JsonValueKind.String ? formatEl.GetString() : null);
+                        formatEl.ValueKind == JsonValueKind.String
+                            ? CredentialFieldFormatNames.ParseSchemaFormat(formatEl.GetString())
+                            : null);
                 }).ToList();
 
                 _specs[said] = new CredentialViewSpec(said, specEl.GetProperty("shortName").GetString()!, fields);
@@ -155,13 +157,12 @@ public class CredentialViewPipelineTests {
 
             var leiNode = aNode.Children.First(n => n.Key == "LEI");
             Assert.Equal("LEI of the Legal Entity", leiNode.Label);
-            Assert.Equal("ISO 17442", leiNode.Format);
+            Assert.Equal(CredentialFieldFormat.Lei, leiNode.Format);
             Assert.Equal("254900OPPU84GM83MG36", leiNode.RawValue);
 
             var dtNode = aNode.Children.First(n => n.Key == "dt");
             Assert.Equal("Issuance date time", dtNode.Label);
-            Assert.Equal("date-time", dtNode.Format);
-            Assert.NotNull(dtNode.FormattedValue);
+            Assert.Equal(CredentialFieldFormat.DateTime, dtNode.Format);
 
             var nameNode = aNode.Children.First(n => n.Key == "personLegalName");
             Assert.Equal("Recipient name as provided during identity assurance", nameNode.Label);
@@ -408,7 +409,7 @@ public class CredentialViewPipelineTests {
 
             var aNode = pruned.Children.First(n => n.Key == "a");
             var dtNode = aNode.Children.First(n => n.Key == "dt");
-            Assert.Equal("date-time", dtNode.Format);
+            Assert.Equal(CredentialFieldFormat.DateTimeAsUtc, dtNode.Format);
         }
 
         [Fact]
