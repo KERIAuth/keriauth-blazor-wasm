@@ -119,6 +119,18 @@
     gap: 0.25rem;
 }
 
+/* Default size for the abbreviated prefix text inside AidPrefixDisplay. */
+.bt-aid-prefix-text {
+    font-size: 0.75rem;
+}
+
+/* In credential-view value cells, let the prefix inherit the row's value styling
+   (size + bold) so it visually matches sibling value text. */
+.bt-credview-content-value .bt-aid-prefix-text {
+    font-size: inherit;
+    font-weight: inherit;
+}
+
 .bt-aid-prefix-display .bt-aid-copy {
     opacity: 0;
     pointer-events: none;
@@ -657,6 +669,7 @@
 .bt-credview-content.bt-credview-content-value {
     --bt-credview-role: value;
     color: var(--mud-palette-text-primary);
+    font-weight: bold;
 }
 
 .bt-credview-text-schema {
