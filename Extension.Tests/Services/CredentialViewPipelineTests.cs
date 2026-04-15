@@ -456,17 +456,24 @@ public class CredentialViewPipelineTests {
         }
 
         [Fact]
-        public void NullSpec_NoPruning() {
+        public void NullSpec_HidesValueLeavesByDefault_VisibleAtNine() {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
-            var options = new CredentialViewOptions();
 
-            var pruned = CredentialViewPipeline.Prune(tree, null, options);
+            // With no spec, Value leaves default to MinDetailLevel 9: hidden at the default level (WithOptionalSections).
+            // Container nodes (Dictionary kind: a, e, r) remain visible.
+            var prunedDefault = CredentialViewPipeline.Prune(tree, null, new CredentialViewOptions());
+            var keysDefault = prunedDefault.Children.Select(n => n.Key).ToList();
+            Assert.DoesNotContain("v", keysDefault);
+            Assert.DoesNotContain("d", keysDefault);
+            Assert.Contains("a", keysDefault);
 
-            // All top-level keys should remain (no hidden details)
-            var keys = pruned.Children.Select(n => n.Key).ToList();
-            Assert.Contains("v", keys);
-            Assert.Contains("d", keys);
+            // At WithTechnicalDetails (level 9), every leaf is visible regardless of spec presence.
+            var prunedAll = CredentialViewPipeline.Prune(tree, null,
+                new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails));
+            var keysAll = prunedAll.Children.Select(n => n.Key).ToList();
+            Assert.Contains("v", keysAll);
+            Assert.Contains("d", keysAll);
         }
     }
 

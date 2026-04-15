@@ -94,7 +94,8 @@
         "*.tsx": "typescriptreact",
         "tsconfig.json": "jsonc",
         ".eslintrc.json": "jsonc",
-        "eslint.config.js": "javascript"
+        "eslint.config.js": "javascript",
+        "credentialViewSpecs.json": "jsonc"
     },
     
     // Exclude patterns for search and file explorer

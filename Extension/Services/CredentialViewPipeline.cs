@@ -317,6 +317,12 @@ public static class CredentialViewPipeline {
                 if (fieldSpec.Format != null) {
                     current = current with { Format = fieldSpec.Format };
                 }
+            } else if (current.Kind == CredentialViewNodeKind.Value
+                       && (int)options.DetailLevel < (int)CredentialDetailLevel.WithTechnicalDetails) {
+                // No spec entry — Value leaves default to MinDetailLevel 9 (visible only at WithTechnicalDetails).
+                // Container kinds (Dictionary, Array, SaidReference, ChainedCredential) stay visible
+                // since their children may include spec-listed fields.
+                continue;
             }
 
             // Mark elision-toggleable sections in presentation mode
