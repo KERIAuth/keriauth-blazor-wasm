@@ -25,11 +25,24 @@ public record CredentialViewSpec(
 public enum CredentialDisplayType { Card, Tree }
 
 /// <summary>
+/// Detail level presets used throughout the UI. Integer values are the thresholds
+/// the pipeline compares against <see cref="CredentialFieldSpec.MinDetailLevel"/>
+/// in credentialViewSpecs.json (that file stores raw ints so non-preset values
+/// remain expressible).
+/// </summary>
+public enum CredentialDetailLevel {
+    Basic = 0,
+    WithOptionalSections = 1,
+    Detailed = 2,
+    WithTechnicalDetails = 9,
+}
+
+/// <summary>
 /// Runtime display options for a CredentialComponent.
 /// </summary>
 public record CredentialViewOptions(
     CredentialDisplayType DisplayType = CredentialDisplayType.Card,
-    int DetailLevel = 5,                          // 0 (most summary) to 9 (most detailed)
+    CredentialDetailLevel DetailLevel = CredentialDetailLevel.WithOptionalSections,
     bool IsPresentation = false,                  // When true: enables elision controls and disclosure presets
     bool IsAidPrefixDisplay = true,               // When true: AIDs shown via display component; false: raw string
     bool IsJsonShown = false,                     // When true: show raw JSON expansion panel

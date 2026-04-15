@@ -27,6 +27,11 @@ public interface ICredentialViewSpecService {
 }
 
 public class CredentialViewSpecService : ICredentialViewSpecService {
+    private static readonly JsonSerializerOptions s_jsonOptions = new() {
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
+
     private readonly Dictionary<string, CredentialViewSpec> _viewSpecs;
     private readonly ILogger<CredentialViewSpecService> _logger;
 
@@ -49,7 +54,7 @@ public class CredentialViewSpecService : ICredentialViewSpecService {
             using var reader = new StreamReader(stream);
             var json = reader.ReadToEnd();
 
-            var manifest = JsonSerializer.Deserialize<CredentialViewSpecManifest>(json);
+            var manifest = JsonSerializer.Deserialize<CredentialViewSpecManifest>(json, s_jsonOptions);
             if (manifest is null) {
                 _logger.LogWarning(nameof(LoadViewSpecs) + ": Failed to deserialize view specs manifest");
                 return new Dictionary<string, CredentialViewSpec>();

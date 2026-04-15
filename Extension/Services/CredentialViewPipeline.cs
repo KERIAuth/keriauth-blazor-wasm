@@ -308,7 +308,7 @@ public static class CredentialViewPipeline {
 
             // Apply field spec overrides and detail level filtering
             if (fieldOverrides.TryGetValue(path, out var fieldSpec)) {
-                if (fieldSpec.MinDetailLevel > options.DetailLevel) {
+                if (fieldSpec.MinDetailLevel > (int)options.DetailLevel) {
                     continue;
                 }
 

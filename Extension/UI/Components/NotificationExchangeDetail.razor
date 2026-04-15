@@ -97,8 +97,8 @@
 
     CredentialViewOptions CredentialViewOpts => new(
         DisplayType: appCache.MyPreferences.CredentialsDisplayType,
-        DetailLevel: appCache.MyPreferences.CredentialsDetailLevel,
-        IsJsonShown: appCache.MyPreferences.CredentialsDetailLevel >= 9
+        DetailLevel: (CredentialDetailLevel)appCache.MyPreferences.CredentialsDetailLevel,
+        IsJsonShown: appCache.MyPreferences.CredentialsDetailLevel >= (int)CredentialDetailLevel.WithTechnicalDetails
     );
 }
 
