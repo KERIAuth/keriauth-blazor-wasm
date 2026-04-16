@@ -302,27 +302,22 @@ public static class CredentialViewPipeline {
         foreach (var node in nodes) {
             var path = string.IsNullOrEmpty(prefix) ? node.Key : $"{prefix}.{node.Key}";
             var current = node;
+            var hasOverride = fieldOverrides.TryGetValue(path, out var fieldSpec);
 
-            // Apply field spec overrides and detail level filtering
-            if (fieldOverrides.TryGetValue(path, out var fieldSpec)) {
-                if (fieldSpec.MinDetailLevel > (int)options.DetailLevel) {
-                    continue;
-                }
+            // Explicit hide via spec entry
+            if (hasOverride && fieldSpec!.MinDetailLevel > (int)options.DetailLevel) {
+                continue;
+            }
 
-                current = current with { MinDetailLevel = fieldSpec.MinDetailLevel };
-
+            // Apply field spec overrides
+            if (hasOverride) {
+                current = current with { MinDetailLevel = fieldSpec!.MinDetailLevel };
                 if (fieldSpec.Label != null) {
                     current = current with { Label = fieldSpec.Label, ViewSpecLabel = fieldSpec.Label };
                 }
                 if (fieldSpec.Format != null) {
                     current = current with { Format = fieldSpec.Format };
                 }
-            } else if (current.Kind == CredentialViewNodeKind.Value
-                       && (int)options.DetailLevel < (int)CredentialDetailLevel.WithTechnicalDetails) {
-                // No spec entry — Value leaves default to MinDetailLevel 9 (visible only at WithTechnicalDetails).
-                // Container kinds (Dictionary, Array, SaidReference, ChainedCredential) stay visible
-                // since their children may include spec-listed fields.
-                continue;
             }
 
             // Mark elision-toggleable sections in presentation mode
@@ -330,10 +325,31 @@ public static class CredentialViewPipeline {
                 current = current with { IsElisionToggleable = true };
             }
 
-            // Recurse into children
+            // Recurse into children FIRST (bottom-up), so container visibility
+            // can be decided based on surviving children below.
             if (current.Children.Count > 0) {
                 var prunedChildren = PruneNodes(current.Children, fieldOverrides, options, path);
                 current = current with { Children = prunedChildren };
+            }
+
+            // Implicit visibility for unmatched paths: default MinDetailLevel 9.
+            // - Value / SaidReference (leaf-like): hidden at <9.
+            // - Dictionary / Array (containers): hidden if no surviving children, except
+            //   IsOneOf containers in presentation mode (they're elision-toggleable and
+            //   meaningful even when empty).
+            if (!hasOverride && (int)options.DetailLevel < (int)CredentialDetailLevel.WithTechnicalDetails) {
+                switch (current.Kind) {
+                    case CredentialViewNodeKind.Value:
+                    case CredentialViewNodeKind.SaidReference:
+                        continue;
+                    case CredentialViewNodeKind.Dictionary:
+                    case CredentialViewNodeKind.Array:
+                        if (current.Children.Count == 0
+                            && !(options.IsPresentation && current.IsOneOf)) {
+                            continue;
+                        }
+                        break;
+                }
             }
 
             result.Add(current);

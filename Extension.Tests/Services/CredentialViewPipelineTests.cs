@@ -298,10 +298,13 @@ public class CredentialViewPipelineTests {
             Assert.DoesNotContain("d", keysDefault);
             Assert.DoesNotContain("ri", keysDefault);
             Assert.DoesNotContain("s", keysDefault);
-            // Sections that aren't field-overridden should remain.
+            // Section "a" survives because it has a spec-listed child (a.LEI at level 0).
+            // Sections "e" and "r" have no spec-listed descendants in the test fixture, so
+            // they end up empty after pruning and are dropped (containers with no surviving
+            // children + no explicit spec entry are hidden under the default-9 rule).
             Assert.Contains("a", keysDefault);
-            Assert.Contains("e", keysDefault);
-            Assert.Contains("r", keysDefault);
+            Assert.DoesNotContain("e", keysDefault);
+            Assert.DoesNotContain("r", keysDefault);
 
             // At detail level 9, the framing keys appear.
             var prunedAll = CredentialViewPipeline.Prune(tree, spec, new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails));
@@ -456,17 +459,15 @@ public class CredentialViewPipelineTests {
         }
 
         [Fact]
-        public void NullSpec_HidesValueLeavesByDefault_VisibleAtNine() {
+        public void NullSpec_HidesEverythingByDefault_VisibleAtNine() {
             var cloned = LoadEcrClonedCredential();
             var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
 
-            // With no spec, Value leaves default to MinDetailLevel 9: hidden at the default level (WithOptionalSections).
-            // Container nodes (Dictionary kind: a, e, r) remain visible.
+            // With no spec, every Value leaf defaults to MinDetailLevel 9, every container
+            // ends up empty after children are filtered, so containers also drop. At default
+            // level (WithOptionalSections), nothing survives.
             var prunedDefault = CredentialViewPipeline.Prune(tree, null, new CredentialViewOptions());
-            var keysDefault = prunedDefault.Children.Select(n => n.Key).ToList();
-            Assert.DoesNotContain("v", keysDefault);
-            Assert.DoesNotContain("d", keysDefault);
-            Assert.Contains("a", keysDefault);
+            Assert.Empty(prunedDefault.Children);
 
             // At WithTechnicalDetails (level 9), every leaf is visible regardless of spec presence.
             var prunedAll = CredentialViewPipeline.Prune(tree, null,
@@ -474,6 +475,7 @@ public class CredentialViewPipelineTests {
             var keysAll = prunedAll.Children.Select(n => n.Key).ToList();
             Assert.Contains("v", keysAll);
             Assert.Contains("d", keysAll);
+            Assert.Contains("a", keysAll);
         }
     }
 
