@@ -119,6 +119,23 @@
     gap: 0.25rem;
 }
 
+/* Credential card layout */
+.bt-card-title {
+    color: var(--mud-palette-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.bt-card-content {
+    padding-left: 1rem;
+}
+
+.bt-chain-separator {
+    border-top: 2px solid var(--mud-palette-lines-default);
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
 /* Default size for the abbreviated prefix text inside AidPrefixDisplay. */
 .bt-aid-prefix-text {
     font-size: 0.75rem;
@@ -658,7 +675,7 @@
        content's offset — so the indent math flows directly from the custom property. */
     flex: 1 1 auto;
     overflow-wrap: anywhere;
-    padding-left: calc(0.25rem + var(--bt-indent, 0));
+    margin-left: calc(0.25rem + var(--bt-indent, 0));
 }
 
 .bt-credview-content.bt-credview-content-field {
