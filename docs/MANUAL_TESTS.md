@@ -104,6 +104,7 @@
   - [E. Inline Chained Credential Under Matching SaidReference (Display Only)](#e-inline-chained-credential-under-matching-saidreference-display-only)
   - [F. Abbreviate SAIDs Preference](#f-abbreviate-saids-preference)
   - [G. Label Provenance Tooltip](#g-label-provenance-tooltip)
+  - [H. View Spec Coverage](#h-view-spec-coverage)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -1032,4 +1033,61 @@ These tests verify the extension's behavior when network connectivity is unstabl
     Expected:
     - [ ] Tooltip shows the chained credential's `ShortName` (or n/a) as viewSpec label, its `SchemaTitle` as schema label, and its SAID in the `acdc field` row
 
+## H. View Spec Coverage
+
+Verify that each credential type renders with correct per-schema labels, detail-level filtering, format hints, and chained credential hierarchy.
+
+**Prerequisites**: at least one held credential of each type below, or the ECR chain (ECR vLEI → ECR Auth → LE vLEI → QVI).
+
+### Per-credential expected rendering
+
+| Credential | ShortName | Key visible fields at Basic (level 0) |
+|---|---|---|
+| QVI | QVI | Issuer (identicon), Attributes → LEI (lei link) |
+| LE vLEI | LE vLEI | Issuer (identicon), Attributes → LEI (lei link) |
+| OOR vLEI | OOR vLEI | Issuer (identicon), Attributes → LEI (lei link), Legal Name, Official Role |
+| OOR Auth | OOR Auth | Issuer (identicon), Attributes → Recipient AID (identicon), LEI (lei link), Legal Name, Official Role |
+| ECR vLEI | ECR vLEI | Issuer (identicon), Attributes → Issuee (identicon), LEI (lei link), Person's legal name, Engagement Context Role |
+| ECR Auth | ECR Auth | Issuer (identicon), Attributes → Recipient AID (identicon), LEI (lei link), Legal Name, Engagement Context Role |
+| iXBRL | iXBRL | Issuer (identicon) |
+| SEDI | SEDI | Issuer (identicon), Attributes → Issuee (identicon), First Name, Last Name |
+
+### Steps
+
+1. Navigate to `chrome-extension://<id>/Credential.html?said=<SAID>` for a credential with chains (e.g., ECR vLEI)
+2. Set Detail level to **basic** in the selector. Check Tree mode, primarily
+
+    Expected:
+    - [ ] ShortName in the title matches the table above
+    - [ ] Only the fields listed for Basic are visible (framing keys v/d/ri/s/u, block SAIDs a.d, and nonces a.u are hidden)
+    - [ ] Empty sections do not appear (no bare "Edges block", "Rules block" labels)
+    - [ ] Issuer field renders with identicon + abbreviated AID text; copy button appears on hover
+    - [ ] LEI values render as teal GLEIF search link
+    - [ ] `a.dt` ("Issued") appears at level **w/ optional sections** (1) but not Basic (0)
+
+3. Set Detail level to **w/ optional sections**
+
+    Expected:
+    - [ ] `a.i` (Issuee, identicon) and `a.dt` (Issued, UTC datetime without seconds, " UTC" suffix) appear
+
+4. Set Detail level to **w/ technical details**
+
+    Expected:
+    - [ ] All fields visible including framing keys (v, d, ri, s), block SAIDs (a.d), nonces (u, a.u)
+    - [ ] "Raw JSON" expansion panel appears at the bottom of the tree; clicking "Copy JSON" copies the ACDC to clipboard
+
+5. Verify chained credential hierarchy (ECR chain at Basic)
+
+    Expected:
+    - [ ] Chain header "ECR Auth" aligns left with root's "Attributes" label
+    - [ ] ECR Auth's children (Issuer, Attributes, Recipient AID, …) are indented one level deeper than the header
+    - [ ] Chain header "LE vLEI" aligns with ECR Auth's "Attributes"
+    - [ ] Chain header "QVI" aligns with LE vLEI's "Attributes"
+    - [ ] No empty containers leak at Basic (Edges, Rules sections hidden on all chain levels)
+
+6. Switch to **Card** view, repeat spot checks at each detail level
+
+    Expected:
+    - [ ] Card renders analogous fields per the view spec (minor label/layout differences between card and tree are acceptable)
+    - [ ] LEI link works in card view
 
