@@ -245,12 +245,11 @@ public static class CredentialViewPipeline {
         return oneOfList[0].Dictionary;
     }
 
-    /// <summary>
-    /// Detects if a field should use an embedded component (AidPrefixDisplay, LEI link).
-    /// </summary>
+    // TODO P3 DetectComponentHint + ComponentHints are largely redundant now that
+    // credentialViewSpecs.json carries explicit "format": "identicon" / "lei" entries and
+    // CredentialFieldValueDisplay handles rendering. The hint path remains as a fallback for
+    // credentials whose specs don't yet declare format. Remove once all specs are audited.
     private static string? DetectComponentHint(string key, string? format, string? parentSection) {
-        // "i" in the attributes section is an AID (issuee)
-        // "i" at top level is the issuer AID
         if (key == "i") {
             return ComponentHints.AidPrefix;
         }
@@ -354,10 +353,6 @@ public static class CredentialViewPipeline {
 
             result.Add(current);
         }
-
-        // TODO P2 Reordering fields may break SAID integrity for presentations.
-        // Clarify whether display order can differ from serialization order,
-        // or whether reordering must be view-only.
 
         return result;
     }
