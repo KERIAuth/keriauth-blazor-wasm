@@ -130,6 +130,12 @@
     padding-left: 1rem;
 }
 
+.bt-exchange-type {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-secondary);
+}
+
 .bt-chain-separator {
     border-top: 2px solid var(--mud-palette-lines-default);
     padding-top: 0.5rem;
