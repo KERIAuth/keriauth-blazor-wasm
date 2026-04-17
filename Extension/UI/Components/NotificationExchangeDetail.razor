@@ -1,10 +1,7 @@
-@using System.Text.Json
 @using Extension.Models
 @using Extension.Services
 @using Extension.Services.SignifyService.Models
 @using Extension.Services.Storage
-@inject IJSRuntime js
-@inject ISnackbar snackbar
 @inject AppCache appCache
 @inject IStorageGateway storageGateway
 
@@ -66,22 +63,25 @@
     [Parameter]
     public bool IsOfferingPresentation { get; set; }
 
+    [Parameter]
+    public bool ShowActions { get; set; } = true;
+
+    [Parameter]
+    public bool CredentialExpandable { get; set; } = true;
+
     string? SenderAid => Exchange.I;
     string? RecipientAid => Exchange.Rp;
     string? ExchangeSaid => Exchange.D;
 
-    string? ExchangeJson => JsonSerializer.Serialize(Exchange.RawExn.ToObjectDictionary(), Helper.JsonOptions.Display);
+    string ExchangeTypeLabel => Route switch {
+        "/exn/ipex/apply" => "Credential Request \u2013 Apply",
+        "/exn/ipex/offer" => "Credential \u2013 Offer",
+        "/exn/ipex/agree" => "Credential \u2013 Agree",
+        "/exn/ipex/grant" => "Credential \u2013 Grant",
+        "/exn/ipex/admit" => "Credential \u2013 Admit",
+        _ => Route ?? "Exchange"
+    };
 
-
-
-    async Task CopyJsonToClipboard()
-    {
-        if (ExchangeJson is not null)
-        {
-            await js.InvokeVoidAsync("navigator.clipboard.writeText", ExchangeJson);
-            snackbar.Add("Exchange JSON copied to clipboard.", Severity.Success);
-        }
-    }
 
     // Stub handlers for unimplemented IPEX actions
     Task HandleSpurn() => Task.CompletedTask;
@@ -110,213 +110,142 @@
             <SaidDisplay Said="@ExchangeSaid" />
         </MudStack>
     }
+    @* // TODO P2 should have unique class *@
+    <MudText Class="bt-page-title">@ExchangeTypeLabel</MudText>
 
-    @* Route-aware IPEX action buttons *@
+    @* Status chips — always visible *@
+    @switch (Route)
+    {
+        case "/exn/ipex/apply" when IsAlreadyOffered:
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.LocalOffer">Credential offered</MudChip>
+            break;
+        case "/exn/ipex/apply" when IsAlreadyGranted:
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
+            break;
+        case "/exn/ipex/offer" when IsAlreadyAgreed:
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.Handshake">Agreed — awaiting grant</MudChip>
+            break;
+        case "/exn/ipex/agree" when IsAlreadyGranted:
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
+            break;
+        case "/exn/ipex/grant" when IsAlreadyAdmitted:
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.CheckCircle">Already Admitted</MudChip>
+            break;
+        case "/exn/ipex/admit":
+            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text"
+                     Icon="@Icons.Material.Filled.Done">Final state</MudChip>
+            break;
+    }
+
+    @* Route-aware IPEX action buttons — suppressed when ShowActions=false (page renders them in button tray) *@
+    @if (ShowActions)
+    {
     <MudStack Row="true" Class="mt-2 flex-wrap" Spacing="1" Justify="Justify.FlexEnd">
         @switch (Route)
         {
-            case "/exn/ipex/apply":
-                @if (IsAlreadyOffered)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.LocalOffer">Credential offered</MudChip>
-                }
-                else if (IsAlreadyGranted)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
-                }
-                else
-                {
-                    @if (OnOfferIssuance.HasDelegate)
-                    {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.LocalOffer"
-                                   OnClick="OnOfferIssuance"
-                                   Disabled="@(IsOffering || IsGranting)">
-                            @if (IsOffering)
-                            {
-                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Offering…</text>
-                            }
-                            else
-                            {
-                                <text>Offer credential</text>
-                            }
-                        </MudButton>
-                    }
-                    @if (OnOfferPresentation.HasDelegate)
-                    {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.LocalOffer"
-                                   OnClick="OnOfferPresentation"
-                                   Disabled="@(IsOfferingPresentation || IsGrantingPresentation || IsGranting || IsOffering)">
-                            @if (IsOfferingPresentation)
-                            {
-                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Offering…</text>
-                            }
-                            else
-                            {
-                                <text>Offer presentation</text>
-                            }
-                        </MudButton>
-                    }
-                    @if (OnGrant.HasDelegate)
-                    {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.CardGiftcard"
-                                   OnClick="OnGrant"
-                                   Disabled="@(IsGranting || IsOffering)">
-                            @if (IsGranting)
-                            {
-                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Granting…</text>
-                            }
-                            else
-                            {
-                                <text>Grant credential</text>
-                            }
-                        </MudButton>
-                    }
-                    @if (OnGrantPresentation.HasDelegate)
-                    {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Visibility"
-                                   OnClick="OnGrantPresentation"
-                                   Disabled="@(IsGrantingPresentation || IsGranting || IsOffering)">
-                            @if (IsGrantingPresentation)
-                            {
-                                <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <text>Granting…</text>
-                            }
-                            else
-                            {
-                                <text>Grant presentation</text>
-                            }
-                        </MudButton>
-                    }
-                    <MudTooltip Text="Not yet implemented">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                                   OnClick="HandleSpurn">Reject</MudButton>
-                    </MudTooltip>
-                }
-                break;
-
-            case "/exn/ipex/offer":
-                @if (IsAlreadyAgreed)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.Handshake">Agreed — awaiting grant</MudChip>
-                }
-                else if (OnAgree.HasDelegate)
+            case "/exn/ipex/apply" when !IsAlreadyOffered && !IsAlreadyGranted:
+                @if (OnOfferIssuance.HasDelegate)
                 {
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Handshake"
-                               OnClick="OnAgree"
-                               Disabled="@IsAgreeing">
-                        @if (IsAgreeing)
-                        {
-                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Agreeing…</text>
-                        }
-                        else
-                        {
-                            <text>Agree</text>
-                        }
+                               OnClick="OnOfferIssuance"
+                               Disabled="@(IsOffering || IsGranting)">
+                        @if (IsOffering) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Offering…</text> }
+                        else { <text>Offer credential</text> }
                     </MudButton>
-                    <MudTooltip Text="Not yet implemented">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                                   OnClick="HandleSpurn">Reject</MudButton>
-                    </MudTooltip>
                 }
-                break;
-
-            case "/exn/ipex/agree":
-                @if (IsAlreadyGranted)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.CardGiftcard">Credential granted</MudChip>
-                }
-                else if (OnGrant.HasDelegate)
+                @if (OnOfferPresentation.HasDelegate)
                 {
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.CardGiftcard"
+                               OnClick="OnOfferPresentation"
+                               Disabled="@(IsOfferingPresentation || IsGrantingPresentation || IsGranting || IsOffering)">
+                        @if (IsOfferingPresentation) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Offering…</text> }
+                        else { <text>Offer presentation</text> }
+                    </MudButton>
+                }
+                @if (OnGrant.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Small"
                                OnClick="OnGrant"
-                               Disabled="@IsGranting">
-                        @if (IsGranting)
-                        {
-                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Granting…</text>
-                        }
-                        else
-                        {
-                            <text>Grant</text>
-                        }
+                               Disabled="@(IsGranting || IsOffering)">
+                        @if (IsGranting) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Granting…</text> }
+                        else { <text>Grant credential</text> }
                     </MudButton>
-                    <MudTooltip Text="Not yet implemented">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                                   OnClick="HandleSpurn">Reject</MudButton>
-                    </MudTooltip>
                 }
-                break;
-
-            case "/exn/ipex/grant":
-                @if (IsAlreadyAdmitted)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text"
-                             Icon="@Icons.Material.Filled.CheckCircle">Already Admitted</MudChip>
-                }
-                else if (OnAdmit.HasDelegate)
+                @if (OnGrantPresentation.HasDelegate)
                 {
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.CheckCircle"
-                               OnClick="OnAdmit"
-                               Disabled="@IsAdmitting">
-                        @if (IsAdmitting)
-                        {
-                            <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <text>Admitting…</text>
-                        }
-                        else
-                        {
-                            <text>Admit</text>
-                        }
+                               OnClick="OnGrantPresentation"
+                               Disabled="@(IsGrantingPresentation || IsGranting || IsOffering)">
+                        @if (IsGrantingPresentation) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Granting…</text> }
+                        else { <text>Grant presentation</text> }
                     </MudButton>
                 }
-                @if (!IsAlreadyAdmitted)
-                {
-                    <MudTooltip Text="Not yet implemented">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
-                                   StartIcon="@Icons.Material.Filled.Block" Disabled="true"
-                                   OnClick="HandleSpurn">Reject</MudButton>
-                    </MudTooltip>
-                }
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               Disabled="true" OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
                 break;
 
-            case "/exn/ipex/admit":
-                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text"
-                         Icon="@Icons.Material.Filled.Done">Final state</MudChip>
+            case "/exn/ipex/offer" when !IsAlreadyAgreed && OnAgree.HasDelegate:
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           OnClick="OnAgree"
+                           Disabled="@IsAgreeing">
+                    @if (IsAgreeing) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Agreeing…</text> }
+                    else { <text>Agree</text> }
+                </MudButton>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               Disabled="true" OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
+                break;
+
+            case "/exn/ipex/agree" when !IsAlreadyGranted && OnGrant.HasDelegate:
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           OnClick="OnGrant"
+                           Disabled="@IsGranting">
+                    @if (IsGranting) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Granting…</text> }
+                    else { <text>Grant</text> }
+                </MudButton>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               Disabled="true" OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
+                break;
+
+            case "/exn/ipex/grant" when !IsAlreadyAdmitted && OnAdmit.HasDelegate:
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           OnClick="OnAdmit"
+                           Disabled="@IsAdmitting">
+                    @if (IsAdmitting) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Admitting…</text> }
+                    else { <text>Admit</text> }
+                </MudButton>
+                <MudTooltip Text="Not yet implemented">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               Disabled="true" OnClick="HandleSpurn">Reject</MudButton>
+                </MudTooltip>
                 break;
         }
     </MudStack>
+    }
 
     @if (AcdcCredential is not null)
     {
@@ -324,22 +253,8 @@
 
         <CredentialComponent Credential="@AcdcCredential"
                              ViewOptions="@CredentialViewOpts"
+                             IsExpandable="@CredentialExpandable"
                              Expanded="true" />
     }
 
-    <MudExpansionPanels Dense="true">
-        <MudExpansionPanel Text="Raw JSON" Dense="true">
-            <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
-                <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem;">
-                    @ExchangeJson
-                </MudText>
-                <MudButton Variant="Variant.Text"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.ContentCopy"
-                           OnClick="CopyJsonToClipboard">
-                    Copy JSON
-                </MudButton>
-            </MudPaper>
-        </MudExpansionPanel>
-    </MudExpansionPanels>
 </MudStack>

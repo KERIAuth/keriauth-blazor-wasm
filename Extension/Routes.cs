@@ -80,6 +80,7 @@ public static class Routes {
         public const string DeveloperTest = "/DeveloperTest.html";
         public const string CreateTestData = "/CreateTestData.html";
         public const string Credential = "/Credential.html";
+        public const string Notification = "/Notification.html";
 
         public const string DeveloperTheme = "/DeveloperTheme.html";
         public const string DeveloperState = "/DeveloperState.html";
@@ -150,6 +151,7 @@ public static class Routes {
         [typeof(CreateTestDataPage)] = new("PrimeData", Paths.CreateTestData, RequiresAuth: true,
             Icons.Material.Filled.DataObject, Color.Surface),
         [typeof(CredentialPage)] = new("Credential", Paths.Credential, RequiresAuth: true),
+        [typeof(NotificationPage)] = new("Notification", Paths.Notification, RequiresAuth: true),
 
         [typeof(DeveloperStatePage)] = new("DeveloperState", Paths.DeveloperState, RequiresAuth: false,
             Icons.Material.Filled.TempleBuddhist, Color.Surface),

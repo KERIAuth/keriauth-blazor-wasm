@@ -9,6 +9,7 @@
 @implements IDisposable
 
 @inject ILogger<NotificationsPage> logger
+@inject NavigationManager navManager
 @inject IStorageGateway storageGateway
 @inject IJSRuntime js
 @inject ISnackbar snackbar
@@ -628,92 +629,40 @@
         }
     }
 
-    Task GrantPresentationFromNotification(Notification notification) =>
-        PresentationFromNotification(notification, isOffer: false);
+    void GrantPresentationFromNotification(Notification notification) =>
+        NavigateToPresentation(notification, isOffer: false);
 
-    Task OfferPresentationFromNotification(Notification notification) =>
-        PresentationFromNotification(notification, isOffer: true);
+    void OfferPresentationFromNotification(Notification notification) =>
+        NavigateToPresentation(notification, isOffer: true);
 
-    async Task PresentationFromNotification(Notification notification, bool isOffer) {
-        if (IsGrantingPresentation || IsOfferingPresentation || ExpandedExchangeData is null) return;
+    void NavigateToPresentation(Notification notification, bool isOffer) {
+        if (ExpandedExchangeData is null) return;
 
         var view = ExpandedExchangeData.Value;
-        var actionLabel = isOffer ? "Offer" : "Grant";
-
-        var parameters = new DialogParameters<OfferOrGrantPresentationDialog>
-        {
-            { x => x.ApplyExchange, view },
-            { x => x.IsOffer, isOffer }
-        };
-        var options = new DialogOptions {
-            CloseOnEscapeKey = true,
-            MaxWidth = MaxWidth.Small,
-            FullWidth = true,
-            BackdropClick = false,
-            CloseButton = true,
-            Position = DialogPosition.Center,
-        };
-        var dialog = await dialogService.ShowAsync<OfferOrGrantPresentationDialog>($"{actionLabel} Presentation", parameters, options);
-        var dialogResult = await dialog.Result;
-
-        if (dialogResult is null || dialogResult.Canceled) return;
-
-        var presentationResult = dialogResult.Data as OfferOrGrantPresentationDialog.GrantPresentationResult;
-        if (presentationResult is null) return;
-
-        var ourPrefix = view.Rp;
+        var schemaSaid = view.A?.GetValueByPath("s")?.Value?.ToString();
+        var holderPrefix = view.Rp;
         var verifierPrefix = view.I;
         var applySaid = notification.ExchangeSaid;
 
-        if (ourPrefix is null || verifierPrefix is null || applySaid is null) {
+        if (schemaSaid is null || holderPrefix is null || verifierPrefix is null || applySaid is null) {
             snackbar.Add("Missing data from Apply exchange", Severity.Error);
             return;
         }
 
-        if (isOffer) IsOfferingPresentation = true;
-        else IsGrantingPresentation = true;
+        var matching = Helper.CredentialHelper.FilterCredentials(
+            appCache.MyCachedCredentials.ToList(), [("sad.s", schemaSaid), ("sad.a.i", holderPrefix)]);
 
-        try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestIpexGrantPresentation,
-                new { payload = new IpexGrantPresentationRequestPayload(
-                    SenderNameOrPrefix: ourPrefix,
-                    RecipientPrefix: verifierPrefix,
-                    ApplySaid: applySaid,
-                    CredentialSaid: presentationResult.CredentialSaid,
-                    ElisionMap: presentationResult.ElisionMap,
-                    IsOffer: isOffer) },
-                timeout: TimeSpan.FromMinutes(3));
-
-            if (!response.Ok) {
-                snackbar.Add($"{actionLabel} presentation failed: {response.Error}", Severity.Error);
-                return;
-            }
-
-            var grantResult = response.Result is JsonElement grantJsonEl
-                ? JsonSerializer.Deserialize<IpexGrantResponsePayload>(grantJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
-
-            if (grantResult is not null && grantResult.Success) {
-                if (notification.ExchangeSaid is not null) _grantedApplySaids.Add(notification.ExchangeSaid);
-                IsAlreadyGranted = true;
-                snackbar.Add($"Credential presentation {(isOffer ? "offered" : "granted")}", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-            else {
-                snackbar.Add($"{actionLabel} presentation failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
-            }
+        if (matching.Count == 0) {
+            snackbar.Add("No matching credentials found for this presentation request", Severity.Warning);
+            return;
         }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX {Action} presentation", actionLabel);
-            snackbar.Add($"Error {(isOffer ? "offering" : "granting")} credential presentation", Severity.Error);
-        }
-        finally {
-            IsGrantingPresentation = false;
-            IsOfferingPresentation = false;
-        }
+
+        var credSaid = matching[0].GetValueByPath("sad.d")?.Value?.ToString();
+        if (credSaid is null) return;
+
+        var intent = isOffer ? "offer" : "grant";
+        navManager.NavigateTo(
+            $"{Routes.Paths.Credential}?said={credSaid}&isPresentation=true&intent={intent}&applySaid={applySaid}&senderPrefix={holderPrefix}&recipientPrefix={verifierPrefix}");
     }
 
     async Task MarkAsRead(Notification notification) {
@@ -902,6 +851,11 @@
                         {
                             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">Unread</MudChip>
                         }
+                        <span @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                           Size="Size.Small"
+                                           OnClick="@(() => navManager.NavigateTo($"{Routes.Paths.Notification}?id={n.Id}"))" />
+                        </span>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             @if (!n.IsRead)
                             {
