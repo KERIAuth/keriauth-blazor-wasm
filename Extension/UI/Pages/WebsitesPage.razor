@@ -123,7 +123,8 @@
                             <MudTd DataLabel="Profile" Class="bt-td-center">
                                 @if (context.RememberedPrefixOrNothing is not null)
                                 {
-                                    <MudIcon ViewBox="0 0 100 100" Icon="@(Helper.Identicon.MakeIdenticon(context.RememberedPrefixOrNothing))" Class="bt-identicon" />
+                                    <AidPrefixDisplay Prefix="@context.RememberedPrefixOrNothing"
+                                                      ShowPrefix="false" ShowName="false" ShowCopyButton="false" />
                                 }
                             </MudTd>
                             <MudTd DataLabel="Credential" Class="bt-td-center">

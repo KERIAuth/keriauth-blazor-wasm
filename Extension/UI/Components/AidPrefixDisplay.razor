@@ -1,5 +1,7 @@
 @using static Extension.Helper.Identicon
+@using Extension.Services
 @inject IJSRuntime js
+@inject AppCache appCache
 
 @* Displays an AID prefix with identicon, abbreviated text, abbreviated tooltip, and optional name/alias. 
 // TODO P3: consider adding option to show a full-prefix tooltip
@@ -74,19 +76,32 @@
     [Parameter]
     public TextSide TextPosition { get; set; } = TextSide.Right;
 
+    [Parameter]
+    public bool DisplayNameInParentheses { get; set; }
 
+    // Auto-resolve name from AppCache when Name is not explicitly passed.
+    // Priority: user's profile (AID) name → connection name → null.
+    string? AutoResolvedName =>
+        appCache.Aids?.FirstOrDefault(a => a.Prefix == Prefix)?.Name
+        ?? appCache.MyConnections?.FirstOrDefault(c => c.ReceiverPrefix == Prefix)?.Name;
+
+    string? EffectiveName => Name ?? AutoResolvedName;
+
+    string? DisplayName => DisplayNameInParentheses && EffectiveName is not null
+        ? $"({EffectiveName})"
+        : EffectiveName;
 
     string TextBlockClass => $"{(TextPosition == TextSide.Left ? "bt-aid-text bt-aid-text-left" : "bt-aid-text bt-aid-text-right")}{(TextClass is not null ? $" {TextClass}" : "")}";
 
-    bool ShowTextBlock => ShowName && Name is not null || ShowPrefix;
+    bool ShowTextBlock => ShowName && DisplayName is not null || ShowPrefix;
 
     RenderFragment TextBlock => __builder =>
     {
         if (!ShowTextBlock) return;
         <div class="@TextBlockClass" style="@TextStyle">
-        @if (ShowName && Name is not null)
+        @if (ShowName && DisplayName is not null)
         {
-            <MudText Typo="Typo.caption" Class="bt-aid-name">@Name</MudText>
+            <MudText Typo="Typo.caption" Class="bt-aid-name">@DisplayName</MudText>
         }
         @if (ShowPrefix)
         {

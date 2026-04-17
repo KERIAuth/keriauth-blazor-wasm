@@ -35,7 +35,6 @@
     // computed properties ...
     Object ActiveAidObject => (object?)ActivePrefix ?? "";
     string ActivePrefix => appCache.SelectedPrefix ?? "";
-    string ActivePrefixIdenticon => Helper.Identicon.MakeIdenticon(ActivePrefix);
     string ActiveAlias => string.IsNullOrEmpty(ActivePrefix) || appCache.Aids.Count == 0
         ? ""
         : appCache.Aids.Find(x => x.Prefix == ActivePrefix)?.Name ?? "";

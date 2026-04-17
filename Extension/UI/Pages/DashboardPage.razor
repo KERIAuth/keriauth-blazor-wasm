@@ -48,7 +48,6 @@
     // Not meaningful until all exns are cached.
     bool IsNotificationsProfileCountLoading => IsNotificationsLoading || !appCache.IsAllExnsCached;
 
-    string SelectedIdenticon => Helper.Identicon.MakeIdenticon(SelectedPrefix);
     string? SelectedAlias => SelectedAid?.Name ?? (string.IsNullOrEmpty(SelectedPrefix) ? "none" : "");
 
     Aid? SelectedAid => appCache?.MyCachedIdentifiers?.IdentifiersList?
