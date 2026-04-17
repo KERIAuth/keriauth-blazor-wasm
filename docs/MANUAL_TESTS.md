@@ -105,6 +105,19 @@
   - [F. Abbreviate SAIDs Preference](#f-abbreviate-saids-preference)
   - [G. Label Provenance Tooltip](#g-label-provenance-tooltip)
   - [H. View Spec Coverage](#h-view-spec-coverage)
+- [Credentials List and Detail Page Navigation](#credentials-list-and-detail-page-navigation)
+  - [A. CredentialsPage Navigate-on-Click](#a-credentialspage-navigate-on-click)
+  - [B. CredentialPage View Options and Display](#b-credentialpage-view-options-and-display)
+- [Notification List and Detail Page Navigation](#notification-list-and-detail-page-navigation)
+  - [A. NotificationsPage Navigate-on-Click](#a-notificationspage-navigate-on-click)
+  - [B. NotificationPage Layout and Auto-Mark-Read](#b-notificationpage-layout-and-auto-mark-read)
+  - [C. NotificationPage Delete](#c-notificationpage-delete)
+  - [D. NotificationPage — Credential Offer (Apply)](#d-notificationpage--credential-offer-apply)
+  - [E. NotificationPage — Credential Grant (Apply)](#e-notificationpage--credential-grant-apply)
+  - [F. NotificationPage — Grant from Agree (Inline)](#f-notificationpage--grant-from-agree-inline)
+  - [G. NotificationPage — Agree to Offer](#g-notificationpage--agree-to-offer)
+  - [H. NotificationPage — Admit Credential](#h-notificationpage--admit-credential)
+  - [I. NotificationPage — Presentation Flow](#i-notificationpage--presentation-flow)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -1090,4 +1103,166 @@ Verify that each credential type renders with correct per-schema labels, detail-
     Expected:
     - [ ] Card renders analogous fields per the view spec (minor label/layout differences between card and tree are acceptable)
     - [ ] LEI link works in card view
+
+# Credentials List and Detail Page Navigation
+
+## A. CredentialsPage Navigate-on-Click
+1. Prerequisite: Authenticated with at least one credential held
+2. Navigate to Credentials page
+
+    Expected:
+    - [ ] Credentials display as clickable summary rows (ShortName, Subtitle, RoleOrContext) — no expansion panels
+    - [ ] Each row has a background color based on schema type
+    - [ ] ViewSelector (filter dropdown + counts) is visible at the top
+    - [ ] Clicking a credential row navigates to the Credential detail page
+
+3. Click a credential row
+
+    Expected:
+    - [ ] CredentialPage loads showing the full credential with view prefs gear icon
+    - [ ] Back button returns to CredentialsPage
+
+## B. CredentialPage View Options and Display
+1. Prerequisite: Navigated to a CredentialPage from the list
+2. Click the gear icon for view options
+
+    Expected:
+    - [ ] Card/Tree toggle and detail-level selector appear
+    - [ ] Switching between Card/Tree updates display
+    - [ ] Detail level changes show/hide fields appropriately
+    - [ ] Credential renders without expansion panel wrapping (not collapsible)
+
+# Notification List and Detail Page Navigation
+
+## A. NotificationsPage Navigate-on-Click
+1. Prerequisite: Authenticated with at least one notification
+2. Navigate to Notifications page
+
+    Expected:
+    - [ ] Notification cards display as clickable rows with sender → target AID prefixes, route label, timestamp, and elided ID
+    - [ ] Unread notifications show "Unread" chip
+    - [ ] Three-dot menu on each row offers "Mark as Read" (if unread) and "Delete"
+    - [ ] ViewSelector and route/status filters are visible
+
+3. Click a notification row
+
+    Expected:
+    - [ ] NotificationPage loads with "Notification" heading
+    - [ ] Sender → Target AID prefix display appears next to heading (wraps on small screens)
+
+## B. NotificationPage Layout and Auto-Mark-Read
+1. Prerequisite: Navigate to an unread notification's detail page
+
+    Expected:
+    - [ ] Page title is "Notification"
+    - [ ] Sender → Target AID prefixes with arrow shown next to the heading
+    - [ ] Exchange SAID row and exchange type label (e.g., "Credential - Offer") visible
+    - [ ] Notification auto-marked as read on entry (no explicit user action needed)
+    - [ ] "Mark unread" button visible but disabled (tooltip: "Not yet supported by KERIA")
+    - [ ] "Delete notification" button visible and enabled
+    - [ ] Back button returns to NotificationsPage
+
+2. For `/exn/ipex/grant` and `/exn/ipex/admit` notifications
+
+    Expected:
+    - [ ] Embedded credential renders below the exchange header (non-collapsible)
+
+## C. NotificationPage Delete
+1. Navigate to any notification's detail page
+2. Click "Delete notification"
+
+    Expected:
+    - [ ] "Delete notification" button is immediately clickable (not disabled by auto-mark-as-read)
+    - [ ] After clicking, snackbar shows "Notification deleted" and page navigates back to NotificationsPage
+    - [ ] No "Notification not found" error flashes before navigation
+
+## D. NotificationPage — Credential Offer (Apply)
+1. Prerequisite: `/exn/ipex/apply` notification received
+2. Navigate to the notification's detail page
+
+    Expected:
+    - [ ] "Step 1: Review the application" heading visible
+    - [ ] Apply attributes shown as pretty-printed JSON
+    - [ ] "Step 2: Choose an action" heading visible below JSON
+    - [ ] Four primary action buttons in button tray: "Offer credential...", "Offer presentation", "Grant credential...", "Grant presentation"
+
+3. Click "Offer credential..."
+
+    Expected:
+    - [ ] Multi-step issuance dialog opens
+    - [ ] After completing the dialog, page updates:
+      - [ ] Header changes from "Step 1: Review the application" to "Application"
+      - [ ] "Step 2: Choose an action" replaced with "Offered Credential" heading
+      - [ ] Credential component with view prefs gear icon shown below the heading
+      - [ ] All four action buttons disabled
+      - [ ] Status chip "Credential offered" visible at top
+
+## E. NotificationPage — Credential Grant (Apply)
+1. Prerequisite: same `/exn/ipex/apply` notification (or a new one)
+2. Click "Grant credential..."
+
+    Expected:
+    - [ ] Multi-step issuance dialog opens (same as offer, with "Grant" labels)
+    - [ ] After completing: "Application" heading, "Granted Credential" heading with credential displayed
+    - [ ] All four action buttons disabled
+
+## F. NotificationPage — Grant from Agree (Inline)
+1. Prerequisite: `/exn/ipex/agree` notification received (from a prior offer)
+2. Navigate to the notification's detail page
+
+    Expected:
+    - [ ] Exchange type shows "Credential - Agree"
+    - [ ] Text: "The holder has agreed to receive the credential offered previously."
+    - [ ] "Review the credential to be granted" heading appears
+    - [ ] Credential from the prior offer renders with view prefs gear icon (non-collapsible)
+    - [ ] "Grant credential" button in tray (primary, right-most)
+
+3. Click "Grant credential"
+
+    Expected:
+    - [ ] Button shows "Granting..." with no additional dialog (inline RPC call)
+    - [ ] On success: status chip "Credential granted" appears, credential still visible, button disabled
+    - [ ] Snackbar shows "Credential granted"
+
+## G. NotificationPage — Agree to Offer
+1. Prerequisite: `/exn/ipex/offer` notification received
+2. Navigate to the notification's detail page
+
+    Expected:
+    - [ ] Embedded credential visible (from offer's ACDC)
+    - [ ] "Agree" button in tray (primary)
+
+3. Click "Agree"
+
+    Expected:
+    - [ ] Button shows "Agreeing..." then becomes disabled with label "Agree"
+    - [ ] Status chip "Agreed — awaiting grant" appears
+    - [ ] "Agree" button remains visible but disabled
+
+## H. NotificationPage — Admit Credential
+1. Prerequisite: `/exn/ipex/grant` notification received
+2. Navigate to the notification's detail page
+
+    Expected:
+    - [ ] Embedded credential visible (from grant's ACDC)
+    - [ ] "Admit" button in tray (primary)
+
+3. Click "Admit"
+
+    Expected:
+    - [ ] Button shows "Admitting..." then becomes disabled
+    - [ ] Status chip "Already Admitted" appears
+    - [ ] Snackbar shows "Credential admitted"
+
+## I. NotificationPage — Presentation Flow
+1. Prerequisite: `/exn/ipex/apply` notification with presentation request
+2. Navigate to the notification's detail page
+3. Click "Grant presentation" or "Offer presentation"
+
+    Expected:
+    - [ ] Navigates to CredentialPage with matching credential in presentation mode
+    - [ ] Disclosure checkboxes visible for elision-toggleable sections
+    - [ ] "Grant presentation" or "Offer presentation" button in CredentialPage tray
+    - [ ] Submitting calls the presentation RPC and shows success snackbar
+    - [ ] Back button returns to NotificationsPage
 
