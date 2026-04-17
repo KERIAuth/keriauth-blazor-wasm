@@ -195,6 +195,9 @@
         selectedWorkflow = IpexWorkflow.Apply;
         SelectDefaults();
 
+        // Restore saved test prefs from the active KERIA config
+        await LoadTestPrefsAsync();
+
         // Restore state from any in-progress or recently-completed operation
         var existing = await storageGateway.GetItem<PrimeDataProgress>(StorageArea.Session);
         if (existing.IsSuccess && existing.Value is { } progress)
@@ -271,6 +274,97 @@
     static string GenerateRandomRole()
     {
         return Random.Shared.Next(1000, 10000).ToString();
+    }
+
+    // Cached issue credentials prefs for passing to dialog
+    IssueCredentialsTestPrefs? _issueCredentialsPrefs;
+
+    async Task LoadTestPrefsAsync()
+    {
+        var ctxResult = await GetCurrentConfigContextAsync();
+        if (ctxResult.IsFailed) return;
+        var (_, _, config) = ctxResult.Value;
+        if (config.TestPrefs?.CreateIpex is { } ipexPrefs)
+        {
+            isPresentation = ipexPrefs.IsPresentation;
+            if (ipexPrefs.DiscloserPrefix is not null)
+                selectedDiscloserPrefix = ipexPrefs.DiscloserPrefix;
+            if (ipexPrefs.Workflow is not null)
+                selectedWorkflow = ipexPrefs.Workflow;
+            if (ipexPrefs.DiscloseePrefix is not null)
+                selectedDiscloseePrefix = ipexPrefs.DiscloseePrefix;
+            if (!string.IsNullOrEmpty(ipexPrefs.RoleName))
+                ipexEcrRole = ipexPrefs.RoleName;
+        }
+        _issueCredentialsPrefs = config.TestPrefs?.IssueCredentials;
+    }
+
+    async Task SaveCreateIpexPrefsAsync()
+    {
+        var prefs = new CreateIpexTestPrefs
+        {
+            IsPresentation = isPresentation,
+            DiscloserPrefix = selectedDiscloserPrefix,
+            Workflow = selectedWorkflow,
+            DiscloseePrefix = selectedDiscloseePrefix,
+            RoleName = ipexEcrRole
+        };
+        await SaveTestPrefsAsync(createIpex: prefs);
+    }
+
+    async Task SaveIssueCredentialsPrefsAsync(IssueCredentialsTestPrefs prefs)
+    {
+        _issueCredentialsPrefs = prefs;
+        await SaveTestPrefsAsync(issueCredentials: prefs);
+    }
+
+    async Task SaveTestPrefsAsync(CreateIpexTestPrefs? createIpex = null, IssueCredentialsTestPrefs? issueCredentials = null)
+    {
+        var ctxResult = await GetCurrentConfigContextAsync();
+        if (ctxResult.IsFailed)
+        {
+            logger.LogWarning("SaveTestPrefsAsync: skipped — {Errors}", string.Join(", ", ctxResult.Errors));
+            return;
+        }
+        var (configs, digest, config) = ctxResult.Value;
+
+        var existing = config.TestPrefs ?? new PerConfigTestPrefs();
+        var updated = existing with
+        {
+            CreateIpex = createIpex ?? existing.CreateIpex,
+            IssueCredentials = issueCredentials ?? existing.IssueCredentials
+        };
+
+        var updatedConfig = config with { TestPrefs = updated };
+        var updatedConfigs = configs with
+        {
+            Configs = new Dictionary<string, KeriaConnectConfig>(configs.Configs) { [digest] = updatedConfig }
+        };
+        var setResult = await storageGateway.SetItem(updatedConfigs);
+        if (setResult.IsFailed)
+            logger.LogWarning("SaveTestPrefsAsync: SetItem failed — {Errors}", string.Join(", ", setResult.Errors));
+        else
+            logger.LogInformation("SaveTestPrefsAsync: saved TestPrefs for digest {Digest}", digest[..8]);
+    }
+
+    async Task<Result<(KeriaConnectConfigs configs, string digest, KeriaConnectConfig config)>> GetCurrentConfigContextAsync()
+    {
+        var prefsResult = await storageGateway.GetItem<Preferences>();
+        if (prefsResult.IsFailed || prefsResult.Value is null)
+            return Result.Fail("Could not fetch preferences");
+
+        var selectedDigest = prefsResult.Value.SelectedKeriaConnectionDigest;
+        if (string.IsNullOrEmpty(selectedDigest))
+            return Result.Fail("No KERIA connection selected");
+
+        var configsResult = await storageGateway.GetItem<KeriaConnectConfigs>();
+        if (configsResult.IsFailed || configsResult.Value is null)
+            return Result.Fail("Could not fetch KERIA configs");
+
+        if (!configsResult.Value.Configs.TryGetValue(selectedDigest, out var config))
+            return Result.Fail($"No config for digest {selectedDigest[..8]}");
+
+        return Result.Ok((configsResult.Value, selectedDigest, config));
     }
 
     async Task OnGo()
@@ -366,7 +460,9 @@
         {
             { x => x.IsOffer, isOffer },
             { x => x.LocalAids, appCache.Aids },
-            { x => x.Connections, appCache.MyConnections }
+            { x => x.Connections, appCache.MyConnections },
+            { x => x.InitialIssuerPrefix, _issueCredentialsPrefs?.IssuerPrefix },
+            { x => x.InitialHolderPrefix, _issueCredentialsPrefs?.HolderPrefix },
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -384,6 +480,12 @@
             var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
             if (result is not null && result.Submitted) {
                 snackbar.Add($"Credential {(isOffer ? "offered" : "granted")} successfully", Severity.Success);
+                await SaveIssueCredentialsPrefsAsync(new IssueCredentialsTestPrefs
+                {
+                    IssuerPrefix = result.IssuerPrefix,
+                    HolderPrefix = result.HolderPrefix,
+                    RoleName = result.RoleName ?? ""
+                });
             }
         }
     }
@@ -445,11 +547,12 @@
                     </TitleContent>
                     <ChildContent>
                         <MudStack Class="ml-5" Spacing="2">
-                            <MudRadioGroup T="bool" @bind-Value="@isPresentation" >
+                            <MudRadioGroup T="bool" @bind-Value="@isPresentation" @bind-Value:after="SaveCreateIpexPrefsAsync">
                                 <MudRadio T="bool" Value="false" Color="Color.Primary">Credential issuance</MudRadio>
                                 <MudRadio T="bool" Value="true" Color="Color.Primary">Credential presentation</MudRadio>
                             </MudRadioGroup>
                             <MudSelect Label="@DiscloserLabel" @bind-value="@selectedDiscloserPrefix"
+                                       @bind-value:after="SaveCreateIpexPrefsAsync"
                                        Variant="Variant.Outlined"
                                        Dense="true"
                                        Modal="true">
@@ -462,6 +565,7 @@
                             </MudSelect>
 
                             <MudSelect T="IpexWorkflow?" Label="Workflow" @bind-value="@selectedWorkflow"
+                                       @bind-value:after="SaveCreateIpexPrefsAsync"
                                        Variant="Variant.Outlined" Placeholder="Select workflow">
                                 @foreach (var wf in Enum.GetValues<IpexWorkflow>())
                                 {
@@ -472,6 +576,7 @@
                             </MudSelect>
 
                             <MudSelect Label="@DiscloseeLabel" @bind-value="@selectedDiscloseePrefix"
+                                       @bind-value:after="SaveCreateIpexPrefsAsync"
                                        Variant="Variant.Outlined"
                                        Dense="true"
                                        Modal="true">
@@ -483,8 +588,8 @@
                                 }
                             </MudSelect>
 
-                            <MudTextField T="string" Label="Role" @bind-Value="@ipexEcrRole" Variant="Variant.Outlined"
-                                          Required="true" RequiredError="Role is required" />
+                            <MudTextField T="string" Label="Role" @bind-Value="@ipexEcrRole" @bind-Value:after="SaveCreateIpexPrefsAsync"
+                                          Variant="Variant.Outlined" Required="true" RequiredError="Role is required" />
                             @if (ValidationRules.Count > 0)
                             {
                                 <MudStack Spacing="0" Class="mt-1">

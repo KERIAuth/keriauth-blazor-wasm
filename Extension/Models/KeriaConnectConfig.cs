@@ -77,6 +77,9 @@ namespace Extension.Models {
         [JsonPropertyName("WebsiteConfigs")]
         public List<WebsiteConfig> WebsiteConfigs { get; init; } = [];
 
+        [JsonPropertyName("TestPrefs")]
+        public PerConfigTestPrefs? TestPrefs { get; init; }
+
         public Result<bool> ValidateConfiguration() {
             var errors = new List<IError>();
 
