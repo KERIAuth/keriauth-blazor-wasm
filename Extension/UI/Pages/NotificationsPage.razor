@@ -1,10 +1,8 @@
 @page "/Notifications.html"
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
-@using Extension.Services.SignifyService.Models
 @using Extension.Services.Storage
 @using Extension.Services.Port
-@using Extension.UI.Components
 @inherits AuthenticatedPageBase
 @implements IDisposable
 
@@ -15,7 +13,6 @@
 @inject ISnackbar snackbar
 @inject AppCache appCache
 @inject IAppBwPortService appBwPortService
-@inject IDialogService dialogService
 
 @code {
     bool IsProcessing { get; set; }
@@ -127,18 +124,6 @@
         return "(unknown)";
     }
 
-    // Resolve an AID prefix to a display name using the "(ext)" suffix convention
-    // for non-local AIDs, matching the pattern used on CreateTestDataPage.
-    // Returns null (not "(unknown)") so AidPrefixDisplay falls back to prefix-only display.
-    string? ResolveAidNameWithExt(string? prefix) {
-        if (prefix is null) return null;
-        var profile = appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix);
-        if (profile is not null) return profile.Name;
-        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
-        if (conn is not null) return $"{conn.Name} (ext)";
-        return null;
-    }
-
     string RouteLabel(string route, Notification? notification = null) {
         if (route == "/exn/ipex/apply") return "Credential Request \u2013 Apply";
 
@@ -188,27 +173,6 @@
     int MarkAllProgress { get; set; }
     int MarkAllTotal { get; set; }
 
-    // Expansion state
-    string? ExpandedNotificationId { get; set; }
-    ExchangeView? ExpandedExchangeData { get; set; }
-    bool IsLoadingExchange { get; set; }
-    string? ExchangeLoadError { get; set; }
-    bool IsAdmitting { get; set; }
-    bool IsAlreadyAdmitted { get; set; }
-    bool IsAgreeing { get; set; }
-    bool IsAlreadyAgreed { get; set; }
-    HashSet<string> _agreedOfferSaids = [];
-    bool IsOffering { get; set; }
-    bool IsAlreadyOffered { get; set; }
-    HashSet<string> _offeredApplySaids = [];
-    bool IsGranting { get; set; }
-    bool IsAlreadyGranted { get; set; }
-    HashSet<string> _grantedAgreeSaids = [];
-    HashSet<string> _grantedApplySaids = [];
-    bool IsGrantingPresentation { get; set; }
-    bool IsOfferingPresentation { get; set; }
-    bool IsLoadingPrior { get; set; }
-
     // Deferred-render gate: keep the heavy notification list out of the first synchronous render
     // so navigation feels snappy. Blazor doesn't paint until OnInitializedAsync completes AND the
     // first synchronous render builds the entire DOM. With ~77 notifications each rendering several
@@ -245,424 +209,6 @@
             [nameof(NotificationsPage)] = newId
         };
         await storageGateway.SetItem(appCache.MyPreferences with { SelectedViewDefIds = updatedIds });
-    }
-
-    async Task ToggleNotificationDetail(Notification notification) {
-        if (ExpandedNotificationId == notification.Id) {
-            ExpandedNotificationId = null;
-            ExpandedExchangeData = null;
-            ExchangeLoadError = null;
-            return;
-        }
-
-        ExpandedNotificationId = notification.Id;
-        ExpandedExchangeData = null;
-        ExchangeLoadError = null;
-        IsAlreadyAdmitted = false;
-        IsAlreadyAgreed = notification.Route == "/exn/ipex/offer"
-            && notification.ExchangeSaid is not null
-            && _agreedOfferSaids.Contains(notification.ExchangeSaid);
-        IsAlreadyOffered = notification.Route == "/exn/ipex/apply"
-            && notification.ExchangeSaid is not null
-            && _offeredApplySaids.Contains(notification.ExchangeSaid);
-        IsAlreadyGranted = notification.ExchangeSaid is not null
-            && ((notification.Route == "/exn/ipex/agree" && _grantedAgreeSaids.Contains(notification.ExchangeSaid))
-                || (notification.Route == "/exn/ipex/apply" && _grantedApplySaids.Contains(notification.ExchangeSaid)));
-        IsLoadingPrior = false;
-
-        if (notification.ExchangeSaid is null) {
-            ExchangeLoadError = "No exchange SAID available";
-            return;
-        }
-
-        IsLoadingExchange = true;
-
-        try {
-            // Cache-first: check AppCache for previously fetched exchange
-            RecursiveDictionary? exchange = null;
-            if (appCache.MyCachedExns.TryGetValue(notification.ExchangeSaid, out var cachedRawJson)) {
-                exchange = JsonSerializer.Deserialize<RecursiveDictionary>(cachedRawJson, JsonOptions.RecursiveDictionary);
-            }
-
-            if (exchange is null) {
-                // Cache miss: fetch via RPC (BackgroundWorker will cache it)
-                // Longer timeout: can be delayed behind in-progress IPEX commands in the broker
-                var response = await appBwPortService.SendRpcRequestAsync(
-                    AppBwMessageType.Values.RequestGetExchange,
-                    new { payload = new { said = notification.ExchangeSaid } },
-                    timeout: TimeSpan.FromMinutes(3));
-
-                if (!response.Ok) {
-                    ExchangeLoadError = response.Error ?? "Failed to load exchange details";
-                    return;
-                }
-
-                var exchangeResult = response.Result is JsonElement jsonEl
-                    ? JsonSerializer.Deserialize<GetExchangeResponsePayload>(jsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                    : null;
-
-                if (exchangeResult is not null && exchangeResult.Success && exchangeResult.Exchange is not null) {
-                    exchange = exchangeResult.Exchange;
-                }
-                else {
-                    ExchangeLoadError = exchangeResult?.Error ?? "Unknown error loading exchange";
-                    return;
-                }
-            }
-
-            if (exchange is not null) {
-                ExpandedExchangeData = ExchangeView.FromRecursiveDictionary(exchange);
-
-                // For grant notifications, check if credential has already been admitted
-                if (notification.Route == "/exn/ipex/grant") {
-                    var credSaid = ExpandedExchangeData.Value.E?.GetValueByPath("acdc.d")?.Value?.ToString();
-                    if (credSaid is not null) {
-                        IsAlreadyAdmitted = appCache.MyCachedCredentials.Any(c =>
-                            c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid);
-                    }
-
-                    if (IsAlreadyAdmitted && !notification.IsRead) {
-                        _ = MarkAsRead(notification);
-                    }
-                }
-
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error fetching exchange details");
-            ExchangeLoadError = "Error loading exchange details";
-        }
-        finally {
-            IsLoadingExchange = false;
-        }
-    }
-
-    async Task AdmitCredential(Notification notification) {
-        if (IsAdmitting || ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-        var issuerPrefix = view.I;
-        var recipientPrefix = view.Rp;
-
-        // Validate the recipient is one of our AIDs
-        if (recipientPrefix is null || !appCache.Aids.Any(a => a.Prefix == recipientPrefix)) {
-            snackbar.Add("Could not find matching AID for this grant", Severity.Error);
-            return;
-        }
-
-        if (notification.ExchangeSaid is null || issuerPrefix is null) {
-            snackbar.Add("Missing exchange data for admit", Severity.Error);
-            return;
-        }
-
-        IsAdmitting = true;
-
-        try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestIpexAdmit,
-                new { payload = new IpexAdmitRequestPayload(
-                    SenderNameOrPrefix: recipientPrefix,
-                    RecipientPrefix: issuerPrefix,
-                    GrantSaid: notification.ExchangeSaid) },
-                timeout: TimeSpan.FromMinutes(2));
-
-            if (!response.Ok) {
-                snackbar.Add($"Admit failed: {response.Error}", Severity.Error);
-                return;
-            }
-
-            var admitResult = response.Result is JsonElement admitJsonEl
-                ? JsonSerializer.Deserialize<IpexAdmitResponsePayload>(admitJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
-
-            if (admitResult is not null && admitResult.Success) {
-                IsAlreadyAdmitted = true;
-                snackbar.Add("Credential admitted", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-            else {
-                snackbar.Add($"Admit failed: {admitResult?.Error ?? "Unknown error"}", Severity.Error);
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX admit");
-            snackbar.Add("Error admitting credential", Severity.Error);
-        }
-        finally {
-            IsAdmitting = false;
-        }
-    }
-
-    async Task AgreeToOffer(Notification notification) {
-        if (IsAgreeing || ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-        var offerSenderPrefix = view.I;
-        var userPrefix = view.Rp;
-
-        if (userPrefix is null || !appCache.Aids.Any(a => a.Prefix == userPrefix)) {
-            snackbar.Add("Could not find matching AID for this offer", Severity.Error);
-            return;
-        }
-
-        if (notification.ExchangeSaid is null || offerSenderPrefix is null) {
-            snackbar.Add("Missing exchange data for agree", Severity.Error);
-            return;
-        }
-
-        IsAgreeing = true;
-
-        try {
-            var response = await appBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestIpexAgree,
-                new { payload = new IpexAgreeRequestPayload(
-                    SenderNameOrPrefix: userPrefix,
-                    RecipientPrefix: offerSenderPrefix,
-                    OfferSaid: notification.ExchangeSaid) },
-                timeout: TimeSpan.FromMinutes(2));
-
-            if (!response.Ok) {
-                snackbar.Add($"Agree failed: {response.Error}", Severity.Error);
-                return;
-            }
-
-            var agreeResult = response.Result is JsonElement agreeJsonEl
-                ? JsonSerializer.Deserialize<IpexAgreeResponsePayload>(agreeJsonEl.GetRawText(), Helper.JsonOptions.PortMessaging)
-                : null;
-
-            if (agreeResult is not null && agreeResult.Success) {
-                if (notification.ExchangeSaid is not null) _agreedOfferSaids.Add(notification.ExchangeSaid);
-                IsAlreadyAgreed = true;
-                snackbar.Add("Agreed to offer", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-            else {
-                snackbar.Add($"Agree failed: {agreeResult?.Error ?? "Unknown error"}", Severity.Error);
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX agree");
-            snackbar.Add("Error agreeing to offer", Severity.Error);
-        }
-        finally {
-            IsAgreeing = false;
-        }
-    }
-
-    async Task OfferCredential(Notification notification) {
-        if (IsOffering || ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-
-        // Basic sanity — the dialog itself will show friendlier errors, but these cases mean
-        // we can't even build a meaningful apply review.
-        if (view.Rp is null || view.I is null) {
-            snackbar.Add("Missing data from Apply exchange", Severity.Error);
-            return;
-        }
-        if (!appCache.Aids.Any(a => a.Prefix == view.Rp)) {
-            snackbar.Add("Could not find matching AID for this apply", Severity.Error);
-            return;
-        }
-
-        IsOffering = true;
-        try {
-            var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
-            {
-                { x => x.ApplyExchange, view },
-                { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
-                { x => x.HolderName, ResolveAidNameWithExt(view.I) },
-                { x => x.IsOffer, true }
-            };
-            var options = new DialogOptions {
-                CloseOnEscapeKey = true,
-                MaxWidth = MaxWidth.Medium,
-                FullWidth = true,
-                BackdropClick = false,
-                CloseButton = true,
-                Position = DialogPosition.Center,
-            };
-            var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Offer credential", parameters, options);
-            var dialogResult = await dialog.Result;
-
-            if (dialogResult is null || dialogResult.Canceled) return;
-
-            var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
-            if (result is not null && result.Submitted) {
-                if (notification.ExchangeSaid is not null) _offeredApplySaids.Add(notification.ExchangeSaid);
-                IsAlreadyOffered = true;
-                snackbar.Add("Credential offered", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX offer dialog");
-            snackbar.Add("Error offering credential", Severity.Error);
-        }
-        finally {
-            IsOffering = false;
-        }
-    }
-
-    async Task GrantFromNotification(Notification notification) {
-        if (notification.Route == "/exn/ipex/apply") {
-            await GrantCredentialFromApply(notification);
-        } else {
-            await GrantCredential(notification);
-        }
-    }
-
-    async Task GrantCredentialFromApply(Notification notification) {
-        if (IsGranting || ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-        if (view.Rp is null || view.I is null) {
-            snackbar.Add("Missing data from Apply exchange", Severity.Error);
-            return;
-        }
-        if (!appCache.Aids.Any(a => a.Prefix == view.Rp)) {
-            snackbar.Add("Could not find matching AID for this apply", Severity.Error);
-            return;
-        }
-
-        IsGranting = true;
-        try {
-            var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
-            {
-                { x => x.ApplyExchange, view },
-                { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
-                { x => x.HolderName, ResolveAidNameWithExt(view.I) },
-                { x => x.IsOffer, false }
-            };
-            var options = new DialogOptions {
-                CloseOnEscapeKey = true,
-                MaxWidth = MaxWidth.Medium,
-                FullWidth = true,
-                BackdropClick = false,
-                CloseButton = true,
-                Position = DialogPosition.Center,
-            };
-            var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Grant credential", parameters, options);
-            var dialogResult = await dialog.Result;
-
-            if (dialogResult is null || dialogResult.Canceled) return;
-
-            var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
-            if (result is not null && result.Submitted) {
-                if (notification.ExchangeSaid is not null) _grantedApplySaids.Add(notification.ExchangeSaid);
-                IsAlreadyGranted = true;
-                snackbar.Add("Credential granted", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX grant-from-apply dialog");
-            snackbar.Add("Error granting credential", Severity.Error);
-        }
-        finally {
-            IsGranting = false;
-        }
-    }
-
-    async Task GrantCredential(Notification notification) {
-        if (IsGranting || ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-        if (view.Rp is null || !appCache.Aids.Any(a => a.Prefix == view.Rp)) {
-            snackbar.Add("Could not find matching AID for this agree", Severity.Error);
-            return;
-        }
-        if (notification.ExchangeSaid is null || view.I is null) {
-            snackbar.Add("Missing exchange data for grant", Severity.Error);
-            return;
-        }
-
-        IsGranting = true;
-        try {
-            // For the agree path, the issuer (us) is the recipient of the agree and the holder
-            // (them) is the agree sender. AgreeExchange.I = agree sender = holder; AgreeExchange.Rp =
-            // agree recipient = our AID acting as issuer. Same mapping used for the review display.
-            var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog>
-            {
-                { x => x.AgreeExchange, view },
-                { x => x.IssuerName, ResolveAidNameWithExt(view.Rp) },
-                { x => x.HolderName, ResolveAidNameWithExt(view.I) },
-                { x => x.IsOffer, false }
-            };
-            var options = new DialogOptions {
-                CloseOnEscapeKey = true,
-                MaxWidth = MaxWidth.Medium,
-                FullWidth = true,
-                BackdropClick = false,
-                CloseButton = true,
-                Position = DialogPosition.Center,
-            };
-            var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Grant credential", parameters, options);
-            var dialogResult = await dialog.Result;
-
-            if (dialogResult is null || dialogResult.Canceled) return;
-
-            var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
-            if (result is not null && result.Submitted) {
-                if (notification.ExchangeSaid is not null) _grantedAgreeSaids.Add(notification.ExchangeSaid);
-                IsAlreadyGranted = true;
-                snackbar.Add("Credential granted", Severity.Success);
-                if (!notification.IsRead) {
-                    await MarkAsRead(notification);
-                }
-            }
-        }
-        catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX grant-from-agree dialog");
-            snackbar.Add("Error granting credential", Severity.Error);
-        }
-        finally {
-            IsGranting = false;
-        }
-    }
-
-    void GrantPresentationFromNotification(Notification notification) =>
-        NavigateToPresentation(notification, isOffer: false);
-
-    void OfferPresentationFromNotification(Notification notification) =>
-        NavigateToPresentation(notification, isOffer: true);
-
-    void NavigateToPresentation(Notification notification, bool isOffer) {
-        if (ExpandedExchangeData is null) return;
-
-        var view = ExpandedExchangeData.Value;
-        var schemaSaid = view.A?.GetValueByPath("s")?.Value?.ToString();
-        var holderPrefix = view.Rp;
-        var verifierPrefix = view.I;
-        var applySaid = notification.ExchangeSaid;
-
-        if (schemaSaid is null || holderPrefix is null || verifierPrefix is null || applySaid is null) {
-            snackbar.Add("Missing data from Apply exchange", Severity.Error);
-            return;
-        }
-
-        var matching = Helper.CredentialHelper.FilterCredentials(
-            appCache.MyCachedCredentials.ToList(), [("sad.s", schemaSaid), ("sad.a.i", holderPrefix)]);
-
-        if (matching.Count == 0) {
-            snackbar.Add("No matching credentials found for this presentation request", Severity.Warning);
-            return;
-        }
-
-        var credSaid = matching[0].GetValueByPath("sad.d")?.Value?.ToString();
-        if (credSaid is null) return;
-
-        var intent = isOffer ? "offer" : "grant";
-        navManager.NavigateTo(
-            $"{Routes.Paths.Credential}?said={credSaid}&isPresentation=true&intent={intent}&applySaid={applySaid}&senderPrefix={holderPrefix}&recipientPrefix={verifierPrefix}");
     }
 
     async Task MarkAsRead(Notification notification) {
@@ -828,8 +374,8 @@
             {
                 var prefixes = appCache.GetExchangePrefixes(n.ExchangeSaid);
                 <MudCard Elevation="0" Class="py-0 my-1">
-                    <div class="d-flex align-center bt-notif-row"
-                         @onclick="@(() => ToggleNotificationDetail(n))">
+                    <div class="d-flex align-center bt-notif-row bt-clickable"
+                         @onclick="@(() => navManager.NavigateTo($"{Routes.Paths.Notification}?id={n.Id}"))">
                         <div class="d-flex align-center bt-notif-aids">
                             <AidPrefixDisplay Prefix="@(prefixes.Sender ?? "")"
                                               Name="@ResolveName(prefixes.Sender)"
@@ -852,53 +398,15 @@
                             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">Unread</MudChip>
                         }
                         <span @onclick:stopPropagation="true">
-                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
-                                           Size="Size.Small"
-                                           OnClick="@(() => navManager.NavigateTo($"{Routes.Paths.Notification}?id={n.Id}"))" />
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                @if (!n.IsRead)
+                                {
+                                    <MudMenuItem OnClick="@(() => MarkAsRead(n))" Icon="@Icons.Material.Filled.MarkEmailRead" Disabled="@IsProcessing">Mark as Read</MudMenuItem>
+                                }
+                                <MudMenuItem OnClick="@(() => DeleteNotification(n))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error" Disabled="@IsProcessing">Delete</MudMenuItem>
+                            </MudMenu>
                         </span>
-                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                            @if (!n.IsRead)
-                            {
-                                <MudMenuItem OnClick="@(() => MarkAsRead(n))" Icon="@Icons.Material.Filled.MarkEmailRead" Disabled="@IsProcessing">Mark as Read</MudMenuItem>
-                            }
-                            <MudMenuItem OnClick="@(() => DeleteNotification(n))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error" Disabled="@IsProcessing">Delete</MudMenuItem>
-                        </MudMenu>
                     </div>
-
-                    @if (ExpandedNotificationId == n.Id)
-                    {
-                        <MudDivider />
-                        <div class="bt-notif-detail-content">
-                            <LoadingDiv IsLoading="@IsLoadingExchange">
-                                @if (ExchangeLoadError is not null)
-                                {
-                                    <MudAlert Severity="Severity.Warning" Dense="true">@ExchangeLoadError</MudAlert>
-                                }
-                                else if (ExpandedExchangeData is not null)
-                                {
-                                    <NotificationExchangeDetail Exchange="@ExpandedExchangeData.Value"
-                                                                Route="@n.Route"
-                                                                OnAdmit="@(() => AdmitCredential(n))"
-                                                                IsAdmitting="@IsAdmitting"
-                                                                IsAlreadyAdmitted="@IsAlreadyAdmitted"
-                                                                OnAgree="@(() => AgreeToOffer(n))"
-                                                                IsAgreeing="@IsAgreeing"
-                                                                IsAlreadyAgreed="@IsAlreadyAgreed"
-                                                                OnOfferIssuance="@(() => OfferCredential(n))"
-                                                                IsOffering="@IsOffering"
-                                                                IsAlreadyOffered="@IsAlreadyOffered"
-                                                                OnGrant="@(() => GrantFromNotification(n))"
-                                                                IsGranting="@IsGranting"
-                                                                IsAlreadyGranted="@IsAlreadyGranted"
-                                                                OnGrantPresentation="@(() => GrantPresentationFromNotification(n))"
-                                                                IsGrantingPresentation="@IsGrantingPresentation"
-                                                                OnOfferPresentation="@(() => OfferPresentationFromNotification(n))"
-                                                                IsOfferingPresentation="@IsOfferingPresentation"
-                                                                IsLoadingPrior="@IsLoadingPrior" />
-                                }
-                            </LoadingDiv>
-                        </div>
-                    }
                 </MudCard>
             }
             }

@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
+@using Extension.Services
 @using Extension.Services.SignifyService.Models
 @using Extension.Services.Storage
 @using Extension.Services.Port
@@ -33,6 +34,16 @@
     bool isLoadingExchange;
     string? exchangeLoadError;
 
+    // Agree→Grant inline flow: credential from prior offer
+    RecursiveDictionary? priorOfferCredential;
+    bool isFetchingPriorOffer;
+    bool isGrantSubmitted;
+
+    // Apply action completion state
+    string? completedActionLabel;
+    string? completedCredentialSaid;
+    RecursiveDictionary? completedCredential;
+
     // IPEX action state
     bool IsAdmitting { get; set; }
     bool IsAlreadyAdmitted { get; set; }
@@ -44,8 +55,14 @@
     bool IsAlreadyGranted { get; set; }
     bool IsGrantingPresentation { get; set; }
     bool IsOfferingPresentation { get; set; }
-    bool IsLoadingPrior { get; set; }
     bool IsProcessing { get; set; }
+
+    // View options for embedded credential display
+    CredentialViewOptions CredentialViewOpts => new(
+        DisplayType: appCache.MyPreferences.CredentialsDisplayType,
+        DetailLevel: (CredentialDetailLevel)appCache.MyPreferences.CredentialsDetailLevel,
+        IsJsonShown: appCache.MyPreferences.CredentialsDetailLevel >= (int)CredentialDetailLevel.WithTechnicalDetails
+    );
 
     protected override async Task OnInitializedAsync() {
         InitializeAppCache(appCache);
@@ -57,6 +74,22 @@
         isLoaded = true;
         if (notification is not null && exchangeData is null && !isLoadingExchange) {
             await LoadExchange();
+        }
+        // Auto-mark as read on entry. Fire-and-forget without setting IsProcessing,
+        // which would disable the Delete button until mark-as-read completes.
+        // Safe: SendEventAsync is non-blocking and exceptions are caught inline.
+        if (notification is not null && !notification.IsRead) {
+            _ = AutoMarkAsReadAsync();
+        }
+    }
+
+    async Task AutoMarkAsReadAsync() {
+        try {
+            await appBwPortService.SendEventAsync(
+                AppBwMessageType.Values.RequestMarkNotification,
+                new { said = notification!.Id });
+        } catch (Exception ex) {
+            logger.LogWarning(ex, "Auto-mark-as-read failed");
         }
     }
 
@@ -112,6 +145,13 @@
                             c.GetValueByPath("sad.d")?.Value?.ToString() == credSaid);
                     }
                 }
+
+                // For agree notifications, fetch the credential from the prior offer
+                if (notification.Route == "/exn/ipex/agree") {
+                    // Fire-and-forget: fetches in background, updates priorOfferCredential, triggers re-render.
+                    // Safe: FetchPriorOfferCredential has internal try/catch and logs on failure.
+                    _ = FetchPriorOfferCredential();
+                }
             }
         }
         catch (Exception ex) {
@@ -123,7 +163,54 @@
         }
     }
 
-    // --- IPEX Action Handlers (mirror NotificationsPage) ---
+    async Task FetchPriorOfferCredential() {
+        if (exchangeData is null) return;
+        var priorOfferSaid = exchangeData.Value.P;
+        if (string.IsNullOrEmpty(priorOfferSaid)) return;
+
+        isFetchingPriorOffer = true;
+        StateHasChanged();
+
+        try {
+            RecursiveDictionary? offerExchange = null;
+            if (appCache.MyCachedExns.TryGetValue(priorOfferSaid, out var cachedRaw)) {
+                offerExchange = JsonSerializer.Deserialize<RecursiveDictionary>(cachedRaw, JsonOptions.RecursiveDictionary);
+            }
+
+            if (offerExchange is null) {
+                var response = await appBwPortService.SendRpcRequestAsync(
+                    AppBwMessageType.Values.RequestGetExchange,
+                    new { payload = new { said = priorOfferSaid } },
+                    timeout: TimeSpan.FromMinutes(3));
+
+                if (response.Ok) {
+                    var result = response.Result is JsonElement el
+                        ? JsonSerializer.Deserialize<GetExchangeResponsePayload>(el.GetRawText(), JsonOptions.PortMessaging)
+                        : null;
+                    if (result is not null && result.Success && result.Exchange is not null) {
+                        offerExchange = result.Exchange;
+                    }
+                }
+            }
+
+            if (offerExchange is not null) {
+                var offerView = ExchangeView.FromRecursiveDictionary(offerExchange);
+                var acdc = offerView.E?.GetByPath("acdc")?.Dictionary;
+                if (acdc is not null) {
+                    priorOfferCredential = new RecursiveDictionary { ["sad"] = acdc };
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "Error fetching prior offer credential");
+        }
+        finally {
+            isFetchingPriorOffer = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- IPEX Action Handlers ---
 
     async Task AdmitCredential() {
         if (IsAdmitting || exchangeData is null || notification is null) return;
@@ -256,6 +343,7 @@
             var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
             if (result is not null && result.Submitted) {
                 IsAlreadyOffered = true;
+                SetCompletedAction("Offered Credential", result.CredentialSaid);
                 snackbar.Add("Credential offered", Severity.Success);
                 if (!notification.IsRead) await MarkAsRead();
             }
@@ -265,13 +353,6 @@
             snackbar.Add("Error offering credential", Severity.Error);
         }
         finally { IsOffering = false; }
-    }
-
-    async Task GrantFromNotification() {
-        if (notification?.Route == "/exn/ipex/apply")
-            await GrantCredentialFromApply();
-        else
-            await GrantCredential();
     }
 
     async Task GrantCredentialFromApply() {
@@ -305,6 +386,7 @@
             var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
             if (result is not null && result.Submitted) {
                 IsAlreadyGranted = true;
+                SetCompletedAction("Granted Credential", result.CredentialSaid);
                 snackbar.Add("Credential granted", Severity.Success);
                 if (!notification.IsRead) await MarkAsRead();
             }
@@ -316,7 +398,7 @@
         finally { IsGranting = false; }
     }
 
-    async Task GrantCredential() {
+    async Task SubmitGrantFromAgree() {
         if (IsGranting || exchangeData is null || notification is null) return;
 
         var view = exchangeData.Value;
@@ -324,40 +406,53 @@
             snackbar.Add("Could not find matching AID for this agree", Severity.Error);
             return;
         }
-        if (notification.ExchangeSaid is null || view.I is null) {
+        if (view.I is null || view.D is null) {
             snackbar.Add("Missing exchange data for grant", Severity.Error);
             return;
         }
 
         IsGranting = true;
         try {
-            var parameters = new DialogParameters<OfferOrGrantCredentialIssuanceDialog> {
-                { x => x.AgreeExchange, view },
-                { x => x.IsOffer, false }
-            };
-            var options = new DialogOptions {
-                CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true,
-                BackdropClick = false, CloseButton = true, Position = DialogPosition.Center
-            };
-            var dialog = await dialogService.ShowAsync<OfferOrGrantCredentialIssuanceDialog>("Grant credential", parameters, options);
-            var dialogResult = await dialog.Result;
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestSubmitIpexGrant,
+                new { payload = new SubmitIpexGrantRequestPayload(
+                    SenderNameOrPrefix: view.Rp,
+                    RecipientPrefix: view.I,
+                    AgreeSaid: view.D) },
+                timeout: TimeSpan.FromMinutes(3));
 
-            if (dialogResult is null || dialogResult.Canceled) return;
+            if (!response.Ok) {
+                snackbar.Add($"Grant failed: {response.Error}", Severity.Error);
+                return;
+            }
 
-            var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
-            if (result is not null && result.Submitted) {
+            var grantResult = response.Result is JsonElement grantJsonEl
+                ? JsonSerializer.Deserialize<SubmitIpexGrantResponsePayload>(grantJsonEl.GetRawText(), JsonOptions.PortMessaging)
+                : null;
+
+            if (grantResult is not null && grantResult.Success) {
+                isGrantSubmitted = true;
                 IsAlreadyGranted = true;
                 snackbar.Add("Credential granted", Severity.Success);
                 if (!notification.IsRead) await MarkAsRead();
+            } else {
+                snackbar.Add($"Grant failed: {grantResult?.Error ?? "Unknown error"}", Severity.Error);
             }
         }
         catch (Exception ex) {
-            logger.LogError(ex, "Error during IPEX grant-from-agree dialog");
+            logger.LogError(ex, "Error during IPEX grant from agree");
             snackbar.Add("Error granting credential", Severity.Error);
         }
         finally { IsGranting = false; }
     }
 
+    // TODO P2: Presentation flow should stay on this NotificationPage instead of navigating to
+    // CredentialPage. Render the matching credential inline with isPresentation=true, elision
+    // checkboxes, and a Submit button — same UX as CredentialPage's intent flow but without
+    // leaving the notification context. After a presentation is offered or granted, show the
+    // result inline (like the credential issuance post-action display): heading "Offered
+    // Presentation" or "Granted Presentation", then the credential component showing what
+    // was disclosed.
     void NavigateToPresentation(bool isOffer) {
         if (exchangeData is null || notification is null) return;
 
@@ -405,14 +500,41 @@
         finally { IsProcessing = false; }
     }
 
-    string RouteLabel => notification?.Route switch {
-        "/exn/ipex/apply" => "Credential Request \u2013 Apply",
-        "/exn/ipex/offer" => "Credential \u2013 Offer",
-        "/exn/ipex/agree" => "Credential \u2013 Agree",
-        "/exn/ipex/grant" => "Credential \u2013 Grant",
-        "/exn/ipex/admit" => "Credential \u2013 Admit",
-        _ => notification?.Route ?? "Notification"
-    };
+    bool _isDeleting;
+
+    async Task DeleteNotification() {
+        if (notification is null || _isDeleting) return;
+        _isDeleting = true;
+        var notifId = notification.Id;
+        try {
+            await appBwPortService.SendEventAsync(
+                AppBwMessageType.Values.RequestDeleteNotification,
+                new { said = notifId });
+            snackbar.Add("Notification deleted", Severity.Info);
+            // Navigate back immediately — don't wait for AppCache update, which would
+            // trigger LoadNotification() and show "Notification not found" before GoBack.
+            navManager.NavigateTo(Routes.Paths.Notifications);
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, "Error deleting notification");
+            snackbar.Add("Error deleting notification", Severity.Error);
+            _isDeleting = false;
+        }
+    }
+
+    void SetCompletedAction(string label, string? credentialSaid) {
+        completedActionLabel = label;
+        completedCredentialSaid = credentialSaid;
+        completedCredential = credentialSaid is not null
+            ? appCache.MyCachedCredentials.FirstOrDefault(c =>
+                c.GetValueByPath("sad.d")?.Value?.ToString() == credentialSaid)
+            : null;
+    }
+
+    // Pretty-printed JSON for apply attributes
+    string? ApplyAttributesJson => exchangeData?.A is not null
+        ? JsonSerializer.Serialize(exchangeData.Value.A.ToObjectDictionary(), JsonOptions.Display)
+        : null;
 
     public void Dispose() {
         this.UnsubscribeFromAppCache();
@@ -422,7 +544,21 @@
 <div id="@this.GetType().Name" class="bt-body-page">
     <MudStack Class="bt-main">
         <div class="bt-main-inside-scroll">
-            <PageHeading Title="Notification" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+                <PageHeading Title="Notification" />
+                @if (notification?.ExchangeSaid is not null)
+                {
+                    var prefixes = appCache.GetExchangePrefixes(notification.ExchangeSaid);
+                    <div class="d-flex align-center" style="gap: 0.25rem;">
+                        <AidPrefixDisplay Prefix="@(prefixes.Sender ?? "")"
+                                          TextPosition="AidPrefixDisplay.TextSide.Left"
+                                          ShowCopyButton="false" />
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="opacity: 0.5;" />
+                        <AidPrefixDisplay Prefix="@(prefixes.Target ?? "")"
+                                          ShowCopyButton="false" />
+                    </div>
+                }
+            </MudStack>
 
             @if (isLoaded)
             {
@@ -440,6 +576,7 @@
                             }
                             else if (exchangeData is not null)
                             {
+                                @* Exchange header — shared across all routes *@
                                 <NotificationExchangeDetail Exchange="@exchangeData.Value"
                                                             Route="@notification.Route"
                                                             ShowActions="false"
@@ -453,8 +590,70 @@
                                                             IsGranting="@IsGranting"
                                                             IsAlreadyGranted="@IsAlreadyGranted"
                                                             IsGrantingPresentation="@IsGrantingPresentation"
-                                                            IsOfferingPresentation="@IsOfferingPresentation"
-                                                            IsLoadingPrior="@IsLoadingPrior" />
+                                                            IsOfferingPresentation="@IsOfferingPresentation" />
+
+                                @* Route-specific content below the shared header *@
+                                @* TODO P2: On re-navigation to a completed apply notification, detect that an
+                                   offer or grant was already submitted for this exchange SAID. This requires
+                                   scanning MyCachedExns for a child exchange whose P (prior) field matches
+                                   this notification's exchange SAID, then determining the action type (offer vs
+                                   grant, issuance vs presentation) from the child's route. Once detected, set
+                                   completedActionLabel and completedCredentialSaid so the post-action UI shows
+                                   on page load, not just during the same session. *@
+                                @switch (notification.Route)
+                                {
+                                    case "/exn/ipex/apply":
+                                        @* Apply: show attributes as pretty-printed JSON *@
+                                        @if (completedActionLabel is not null)
+                                        {
+                                            <MudText Class="bt-page-title">Application</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.subtitle2" Class="bt-credview-text-schema">Step 1: Review the application</MudText>
+                                        }
+                                        @if (ApplyAttributesJson is not null)
+                                        {
+                                            <MudPaper Class="pa-3" Style="overflow-x: auto;">
+                                                <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem;">
+                                                    @ApplyAttributesJson
+                                                </MudText>
+                                            </MudPaper>
+                                        }
+                                        @if (completedActionLabel is not null)
+                                        {
+                                            <MudText Class="bt-page-title">@completedActionLabel</MudText>
+                                            @if (completedCredential is not null)
+                                            {
+                                                <CredentialViewPrefsComponent />
+                                                <CredentialComponent Credential="@completedCredential"
+                                                                     ViewOptions="@CredentialViewOpts"
+                                                                     IsExpandable="false" />
+                                            }
+                                        }
+                                        else if (!IsAlreadyOffered && !IsAlreadyGranted)
+                                        {
+                                            <MudText Typo="Typo.subtitle2" Class="bt-credview-text-schema">Step 2: Choose an action</MudText>
+                                        }
+                                        break;
+
+                                    case "/exn/ipex/agree":
+                                        @* Agree→Grant: inline full-page flow *@
+                                        <MudText Typo="Typo.body2">The holder has agreed to receive the credential offered previously.</MudText>
+                                        @if (isFetchingPriorOffer)
+                                        {
+                                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                                        }
+                                        else if (priorOfferCredential is not null)
+                                        {
+                                            <MudText Typo="Typo.subtitle2" Class="bt-credview-text-schema">Review the credential to be granted</MudText>
+                                            <CredentialViewPrefsComponent />
+                                            <CredentialComponent Credential="@priorOfferCredential"
+                                                                 ViewOptions="@CredentialViewOpts"
+                                                                 IsExpandable="false" />
+                                        }
+                                        break;
+                                }
                             }
                         </LoadingDiv>
                     </MudStack>
@@ -464,47 +663,55 @@
     </MudStack>
     <MudStack Row="true" class="bt-button-tray">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
+        @if (notification is not null)
+        {
+            <MudTooltip Text="Not yet supported by KERIA">
+                <MudButton Variant="Variant.Outlined" Size="Size.Medium" Disabled="true">Mark unread</MudButton>
+            </MudTooltip>
+            <MudButton Variant="Variant.Outlined" OnClick="DeleteNotification"
+                       Disabled="@_isDeleting">Delete notification</MudButton>
+        }
         <MudSpacer></MudSpacer>
         @if (notification is not null && exchangeData is not null)
         {
             @switch (notification.Route)
             {
-                case "/exn/ipex/apply" when !IsAlreadyOffered && !IsAlreadyGranted:
-                    <MudButton Variant="Variant.Outlined" OnClick="OfferCredential"
-                               Disabled="@(IsOffering || IsGranting)">
-                        @(IsOffering ? "Offering..." : "Offer credential")
+                case "/exn/ipex/apply":
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OfferCredential"
+                               Disabled="@(IsOffering || IsGranting || IsAlreadyOffered || IsAlreadyGranted)">
+                        @(IsOffering ? "Offering..." : "Offer credential...")
                     </MudButton>
-                    <MudButton Variant="Variant.Outlined" OnClick="@(() => NavigateToPresentation(isOffer: true))"
-                               Disabled="@(IsOfferingPresentation || IsGrantingPresentation || IsGranting || IsOffering)">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => NavigateToPresentation(isOffer: true))"
+                               Disabled="@(IsOfferingPresentation || IsGrantingPresentation || IsGranting || IsOffering || IsAlreadyOffered || IsAlreadyGranted)">
                         @(IsOfferingPresentation ? "Offering..." : "Offer presentation")
                     </MudButton>
-                    <MudButton Variant="Variant.Outlined" OnClick="@(() => GrantCredentialFromApply())"
-                               Disabled="@(IsGranting || IsOffering)">
-                        @(IsGranting ? "Granting..." : "Grant credential")
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => GrantCredentialFromApply())"
+                               Disabled="@(IsGranting || IsOffering || IsAlreadyOffered || IsAlreadyGranted)">
+                        @(IsGranting ? "Granting..." : "Grant credential...")
                     </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => NavigateToPresentation(isOffer: false))"
-                               Disabled="@(IsGrantingPresentation || IsGranting || IsOffering)">
+                               Disabled="@(IsGrantingPresentation || IsGranting || IsOffering || IsAlreadyOffered || IsAlreadyGranted)">
                         @(IsGrantingPresentation ? "Granting..." : "Grant presentation")
                     </MudButton>
                     break;
 
-                case "/exn/ipex/offer" when !IsAlreadyAgreed:
+                case "/exn/ipex/offer":
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AgreeToOffer"
-                               Disabled="@IsAgreeing">
+                               Disabled="@(IsAgreeing || IsAlreadyAgreed)">
                         @(IsAgreeing ? "Agreeing..." : "Agree")
                     </MudButton>
                     break;
 
-                case "/exn/ipex/agree" when !IsAlreadyGranted:
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GrantFromNotification"
-                               Disabled="@IsGranting">
-                        @(IsGranting ? "Granting..." : "Grant")
+                case "/exn/ipex/agree":
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitGrantFromAgree"
+                               Disabled="@(IsGranting || isGrantSubmitted || IsAlreadyGranted)">
+                        @(IsGranting ? "Granting..." : "Grant credential")
                     </MudButton>
                     break;
 
-                case "/exn/ipex/grant" when !IsAlreadyAdmitted:
+                case "/exn/ipex/grant":
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AdmitCredential"
-                               Disabled="@IsAdmitting">
+                               Disabled="@(IsAdmitting || IsAlreadyAdmitted)">
                         @(IsAdmitting ? "Admitting..." : "Admit")
                     </MudButton>
                     break;

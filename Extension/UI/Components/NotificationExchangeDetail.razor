@@ -157,7 +157,7 @@
                                OnClick="OnOfferIssuance"
                                Disabled="@(IsOffering || IsGranting)">
                         @if (IsOffering) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Offering…</text> }
-                        else { <text>Offer credential</text> }
+                        else { <text>Offer credential...</text> }
                     </MudButton>
                 }
                 @if (OnOfferPresentation.HasDelegate)
@@ -179,7 +179,7 @@
                                OnClick="OnGrant"
                                Disabled="@(IsGranting || IsOffering)">
                         @if (IsGranting) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Granting…</text> }
-                        else { <text>Grant credential</text> }
+                        else { <text>Grant credential...</text> }
                     </MudButton>
                 }
                 @if (OnGrantPresentation.HasDelegate)
@@ -221,7 +221,7 @@
                            OnClick="OnGrant"
                            Disabled="@IsGranting">
                     @if (IsGranting) { <MudProgressCircular Color="Color.Default" Size="Size.Small" Indeterminate="true" Class="mr-2" /> <text>Granting…</text> }
-                    else { <text>Grant</text> }
+                    else { <text>Grant...</text> }
                 </MudButton>
                 <MudTooltip Text="Not yet implemented">
                     <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
