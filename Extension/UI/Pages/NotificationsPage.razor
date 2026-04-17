@@ -113,17 +113,6 @@
     bool IsFiltering => FilterRoute is not null || FilterReadStatus is not null;
 
 
-    List<Connection> AllConnections => appCache?.MyConnections ?? [];
-
-    string ResolveName(string? prefix) {
-        if (prefix is null) return "(unknown)";
-        var profile = appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix);
-        if (profile is not null) return profile.Name;
-        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
-        if (conn is not null) return $"{conn.Name} (connection)";
-        return "(unknown)";
-    }
-
     string RouteLabel(string route, Notification? notification = null) {
         if (route == "/exn/ipex/apply") return "Credential Request \u2013 Apply";
 
@@ -378,12 +367,10 @@
                          @onclick="@(() => navManager.NavigateTo($"{Routes.Paths.Notification}?id={n.Id}"))">
                         <div class="d-flex align-center bt-notif-aids">
                             <AidPrefixDisplay Prefix="@(prefixes.Sender ?? "")"
-                                              Name="@ResolveName(prefixes.Sender)"
                                               TextPosition="AidPrefixDisplay.TextSide.Left"
                                               ShowCopyButton="false" />
                             <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="bt-notif-arrow" />
                             <AidPrefixDisplay Prefix="@(prefixes.Target ?? "")"
-                                              Name="@ResolveName(prefixes.Target)"
                                               ShowCopyButton="false" />
                         </div>
                         <div class="bt-notif-details">

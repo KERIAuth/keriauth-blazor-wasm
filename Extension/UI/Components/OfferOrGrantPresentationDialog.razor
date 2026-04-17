@@ -25,12 +25,10 @@
             </div>
             <div class="d-flex justify-space-between align-center">
                 <AidPrefixDisplay Prefix="@(HolderPrefix ?? "")"
-                                  Name="@ResolveName(HolderPrefix)"
                                   TextPosition="AidPrefixDisplay.TextSide.Left"
                                   ShowCopyButton="false" />
                 <span style="display: inline-flex; align-items: center; opacity: 0.5;"><span style="width: 3rem; border-top: 1.75px solid currentColor;"></span><MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="margin-left: -4px;" /></span>
                 <AidPrefixDisplay Prefix="@(VerifierPrefix ?? "")"
-                                  Name="@ResolveName(VerifierPrefix)"
                                   ShowCopyButton="false" />
             </div>
             <div class="d-flex justify-space-between align-center">
@@ -81,18 +79,6 @@
     string? VerifierPrefix => ApplyExchange.I;
     string? HolderPrefix => ApplyExchange.Rp;
     string? SchemaName => SchemaSaid is not null ? viewSpecService.GetViewSpec(SchemaSaid)?.ShortName : null;
-
-    List<Connection> AllConnections => appCache?.MyConnections ?? [];
-
-    string ResolveName(string? prefix)
-    {
-        if (prefix is null) return "(unknown)";
-        var profile = appCache?.Aids?.FirstOrDefault(a => a.Prefix == prefix);
-        if (profile is not null) return profile.Name;
-        var conn = AllConnections.FirstOrDefault(c => c.ReceiverPrefix == prefix);
-        if (conn is not null) return conn.Name;
-        return "(unknown)";
-    }
 
     protected override void OnInitialized()
     {
