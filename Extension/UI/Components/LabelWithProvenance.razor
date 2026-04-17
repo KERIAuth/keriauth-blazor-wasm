@@ -33,13 +33,20 @@
     [Parameter]
     public string? FieldKey { get; set; }
 
+    /// <summary>
+    /// Optional CSS class applied to the label text element. When set, renders a
+    /// &lt;span class="..."&gt; instead of the default &lt;b&gt;.
+    /// </summary>
+    [Parameter]
+    public string? LabelClass { get; set; }
+
     static string OrNa(string? value) =>
         string.IsNullOrEmpty(value) ? "n/a" : value;
 }
 
 <MudTooltip Placement="Placement.Top" Arrow="true">
     <ChildContent>
-        <b>@Label</b><MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
+        @if (LabelClass is not null) { <span class="@LabelClass">@Label</span> } else { <b>@Label</b> }<MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
                               Size="Size.Small"
                               Class="bt-label-help-icon" />
     </ChildContent>
