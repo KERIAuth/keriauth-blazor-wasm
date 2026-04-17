@@ -169,29 +169,33 @@ public class CredentialViewPipelineTests {
         }
 
         [Fact]
-        public void ComponentHint_AidPrefix_DetectedForIssueeAndIssuer() {
+        public void Format_Identicon_AppliedToIssuerAndIssuee() {
             var cloned = LoadEcrClonedCredential();
-            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+            var service = LoadTestViewSpecService();
+            var tree = CredentialViewPipeline.BuildFullTree(cloned, service,
+                new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails));
 
-            // Top-level issuer "i"
+            // Top-level issuer "i" — format applied by Prune from view spec
             var issuerNode = tree.Children.First(n => n.Key == "i");
-            Assert.Equal(ComponentHints.AidPrefix, issuerNode.ComponentHint);
+            Assert.Equal(CredentialFieldFormat.Identicon, issuerNode.Format);
 
-            // Attribute issuee "i"
+            // Attribute issuee "a.i"
             var aNode = tree.Children.First(n => n.Key == "a");
             var issueeNode = aNode.Children.First(n => n.Key == "i");
-            Assert.Equal(ComponentHints.AidPrefix, issueeNode.ComponentHint);
+            Assert.Equal(CredentialFieldFormat.Identicon, issueeNode.Format);
         }
 
         [Fact]
-        public void ComponentHint_LeiLink_DetectedForLEI() {
+        public void Format_Lei_AppliedToLEI() {
             var cloned = LoadEcrClonedCredential();
-            var tree = CredentialViewPipeline.MergeAcdcAndSchema(cloned);
+            var service = LoadTestViewSpecService();
+            var tree = CredentialViewPipeline.BuildFullTree(cloned, service,
+                new CredentialViewOptions(DetailLevel: CredentialDetailLevel.WithTechnicalDetails));
 
             var aNode = tree.Children.First(n => n.Key == "a");
             var leiNode = aNode.Children.First(n => n.Key == "LEI");
-            Assert.Equal(ComponentHints.LeiLink, leiNode.ComponentHint);
-            Assert.Equal("254900OPPU84GM83MG36", leiNode.ComponentData);
+            Assert.Equal(CredentialFieldFormat.Lei, leiNode.Format);
+            Assert.Equal("254900OPPU84GM83MG36", leiNode.RawValue);
         }
 
         [Fact]

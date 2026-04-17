@@ -154,7 +154,6 @@ public record CredentialViewOptions(
     CredentialDisplayType DisplayType = CredentialDisplayType.Card,
     CredentialDetailLevel DetailLevel = CredentialDetailLevel.WithOptionalSections,
     bool IsPresentation = false,                  // When true: enables elision controls and disclosure presets
-    bool IsAidPrefixDisplay = true,               // When true: AIDs shown via display component; false: raw string
     bool IsJsonShown = false,                     // When true: show raw JSON expansion panel
     List<string>? PreselectedPresentationPaths = null  // Initial oneOf paths pre-selected for disclosure
 );

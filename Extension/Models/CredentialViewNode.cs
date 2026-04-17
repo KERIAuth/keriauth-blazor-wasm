@@ -17,14 +17,6 @@ public enum CredentialViewNodeKind {
 }
 
 /// <summary>
-/// Hints the Razor renderer to use a specific embedded component for this node's value.
-/// </summary>
-public static class ComponentHints {
-    public const string AidPrefix = "AidPrefix";
-    public const string LeiLink = "LeiLink";
-}
-
-/// <summary>
 /// A single node in the credential view tree. Self-contained with all rendering metadata.
 /// Built by the pipeline (MergeAcdcAndSchema + Prune); consumed by a recursive Razor component.
 /// </summary>
@@ -82,15 +74,6 @@ public record CredentialViewNode {
     /// Applies to oneOf sections and chained credential sections.
     /// </summary>
     public bool IsElisionToggleable { get; init; }
-
-    /// <summary>
-    /// Hint for the Razor renderer to use a specific embedded component.
-    /// See <see cref="ComponentHints"/> for constants.
-    /// </summary>
-    public string? ComponentHint { get; init; }
-
-    /// <summary>Data for the embedded component (e.g., AID prefix value, LEI value).</summary>
-    public string? ComponentData { get; init; }
 
     /// <summary>Minimum detail level for this node to be visible (from CredentialFieldSpec).</summary>
     public int MinDetailLevel { get; init; }

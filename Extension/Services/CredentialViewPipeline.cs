@@ -98,7 +98,6 @@ public static class CredentialViewPipeline {
         var label = description ?? key;
         var path = string.IsNullOrEmpty(parentPath) ? key : $"{parentPath}.{key}";
 
-        var componentHint = DetectComponentHint(key, format, parentSection);
         var rawStringValue = value.StringValue;
 
         if (value.Dictionary is { } dictValue) {
@@ -180,8 +179,6 @@ public static class CredentialViewPipeline {
             RawValue = rawStringValue ?? value.Value?.ToString(),
             Format = CredentialFieldFormatNames.ParseSchemaFormat(format),
             TooltipText = description,
-            ComponentHint = componentHint,
-            ComponentData = componentHint != null ? (rawStringValue ?? value.Value?.ToString()) : null,
         };
     }
 
@@ -243,22 +240,6 @@ public static class CredentialViewPipeline {
         }
 
         return oneOfList[0].Dictionary;
-    }
-
-    // TODO P3 DetectComponentHint + ComponentHints are largely redundant now that
-    // credentialViewSpecs.json carries explicit "format": "identicon" / "lei" entries and
-    // CredentialFieldValueDisplay handles rendering. The hint path remains as a fallback for
-    // credentials whose specs don't yet declare format. Remove once all specs are audited.
-    private static string? DetectComponentHint(string key, string? format, string? parentSection) {
-        if (key == "i") {
-            return ComponentHints.AidPrefix;
-        }
-
-        if (key == "LEI" || format == "ISO 17442") {
-            return ComponentHints.LeiLink;
-        }
-
-        return null;
     }
 
     private static string? ExtractSaidFromSection(RecursiveDictionary section) {
