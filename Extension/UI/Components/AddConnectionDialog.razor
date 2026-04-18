@@ -13,6 +13,8 @@
     [Parameter] public string Mode { get; set; } = "invite"; // "invite" or "receive"
     [Parameter] public string DefaultName { get; set; } = "";
     [Parameter] public string? GeneratedOobi { get; set; }
+    [Parameter] public string? SelectedPrefix { get; set; }
+    [Parameter] public string? SelectedProfileName { get; set; }
 
     private string? ConnectionName { get; set; }
     private string? OobiInput { get; set; }
@@ -180,6 +182,15 @@
         else
         {
             <MudText Typo="Typo.body1" Class="mb-3">Scan or paste the introduction (OOBI) provided by the other party. You can then edit the name of this new connection.</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">Creating a connection from the profile shown to the other party's profile (AID).</MudText>
+            @if (!string.IsNullOrEmpty(SelectedPrefix))
+            {
+                <div class="mb-3">
+                    <AidPrefixDisplay Prefix="@SelectedPrefix"
+                                      Name="@SelectedProfileName"
+                                      ShowCopyButton="false" />
+                </div>
+            }
             <MudButton StartIcon="@Icons.Material.Filled.QrCodeScanner"
                        OnClick="@(() => _isScannerVisible = true)"
                        Variant="Variant.Outlined"

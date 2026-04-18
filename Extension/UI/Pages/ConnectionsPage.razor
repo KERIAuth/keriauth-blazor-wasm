@@ -147,7 +147,9 @@
         };
         var receiveParams = new DialogParameters {
             { nameof(AddConnectionDialog.Mode), "receive" },
-            { nameof(AddConnectionDialog.DefaultName), "" }
+            { nameof(AddConnectionDialog.DefaultName), "" },
+            { nameof(AddConnectionDialog.SelectedPrefix), appCache.SelectedPrefix },
+            { nameof(AddConnectionDialog.SelectedProfileName), ProfileNameForPrefix(appCache.SelectedPrefix) }
         };
         var receiveDialog = await dialogService.ShowAsync<AddConnectionDialog>("Receive their introduction", receiveParams, receiveOptions);
         var receiveResult = await receiveDialog.Result;
