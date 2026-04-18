@@ -1158,7 +1158,6 @@ Verify that each credential type renders with correct per-schema labels, detail-
     - [ ] Sender → Target AID prefixes with arrow shown next to the heading
     - [ ] Exchange SAID row and exchange type label (e.g., "Credential - Offer") visible
     - [ ] Notification auto-marked as read on entry (no explicit user action needed)
-    - [ ] "Mark unread" button visible but disabled (tooltip: "Not yet supported by KERIA")
     - [ ] "Delete notification" button visible and enabled
     - [ ] Back button returns to NotificationsPage
 

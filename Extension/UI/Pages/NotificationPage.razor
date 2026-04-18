@@ -665,9 +665,6 @@
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBackIosNew" Variant="Variant.Text" OnClick='@(async () => await GoBack(js))' Class="justify-start" />
         @if (notification is not null)
         {
-            <MudTooltip Text="Not yet supported by KERIA">
-                <MudButton Variant="Variant.Outlined" Size="Size.Medium" Disabled="true">Mark unread</MudButton>
-            </MudTooltip>
             <MudButton Variant="Variant.Outlined" OnClick="DeleteNotification"
                        Disabled="@_isDeleting">Delete notification</MudButton>
         }
