@@ -1,4 +1,5 @@
 @page "/Connections.html"
+@using Extension.Helper
 @using Extension.Models
 @using Extension.Models.Storage
 @using Extension.Services.Storage
@@ -36,10 +37,10 @@
         new(ViewDefIds.ConnActive, "All (active profile)",
             FilterSets: [new("ActiveProfile", [(Connection c) => c.SenderPrefix == appCache.SelectedPrefix])],
             CountStyle: CountStyle.ForProfile,
-            SortSets: [new("Name", [new SortExpression<Connection>(c => c.Name)])]),
+            SortSets: [new("ConnectionDate", [new SortExpression<Connection>(c => c.ConnectionDate, Descending: true)])]),
         new(ViewDefIds.ConnAll, "All",
             CountStyle: CountStyle.Total,
-            SortSets: [new("Name", [new SortExpression<Connection>(c => c.Name)])])
+            SortSets: [new("ConnectionDate", [new SortExpression<Connection>(c => c.ConnectionDate, Descending: true)])])
     ];
 
     ViewDef<Connection>? SelectedViewDef => ConnectionViewDefs.FirstOrDefault(v => v.Id == selectedViewDefId);
@@ -259,7 +260,7 @@
                                           ShowCopyButton="false" />
                         </MudStack>
                         <div class="bt-conn-details">
-                            <MudText Typo="Typo.caption">@conn.ConnectionDate.ToString("yyyy-MM-dd HH:mm") UTC</MudText>
+                            <MudText Typo="Typo.caption">@DateDisplayFormatter.FormatHybrid(conn.ConnectionDate, DateTimeOffset.Now)</MudText>
                         </div>
                         <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                             <MudMenuItem OnClick="@(() => DeleteConnection(conn))" Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error">Delete</MudMenuItem>
