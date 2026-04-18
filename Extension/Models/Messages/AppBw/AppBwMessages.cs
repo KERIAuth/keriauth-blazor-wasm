@@ -210,6 +210,11 @@ namespace Extension.Models.Messages.AppBw {
             /// Saider.saidify. Pure crypto; does not require KERIA connection.
             /// </summary>
             public const string RequestSaidify = "AppBw.RequestSaidify";
+            /// <summary>
+            /// Request BW to verify well-known schemas by fetching from KERIA and comparing
+            /// SHA-256 hashes with the embedded resource bodies.
+            /// </summary>
+            public const string RequestVerifySchemas = "AppBw.RequestVerifySchemas";
         }
 
         public string Value { get; }
@@ -265,6 +270,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestConfigure { get; } = new(Values.RequestConfigure);
         public static AppBwMessageType RequestResetConfigure { get; } = new(Values.RequestResetConfigure);
         public static AppBwMessageType RequestSaidify { get; } = new(Values.RequestSaidify);
+        public static AppBwMessageType RequestVerifySchemas { get; } = new(Values.RequestVerifySchemas);
 
         /// <summary>
         /// Parse a string value into an AppBwMessageType.
@@ -428,6 +434,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestSaidify:
                     result = RequestSaidify;
+                    return true;
+                case Values.RequestVerifySchemas:
+                    result = RequestVerifySchemas;
                     return true;
                 default:
                     return false;

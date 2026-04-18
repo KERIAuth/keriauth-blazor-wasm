@@ -1609,6 +1609,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestSaidifyRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestVerifySchemas:
+                    await HandleAppRequestVerifySchemasRpcAsync(portId, request);
+                    return;
+
                 default:
                     logger.LogWarning(nameof(HandleAppRpcAsync) + ": Unknown method: {Method}", request.Method);
                     await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -2907,6 +2911,65 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         }
     }
 
+    private async Task HandleAppRequestVerifySchemasRpcAsync(string portId, RpcRequest request) {
+        logger.LogInformation(nameof(HandleAppRequestVerifySchemasRpcAsync) + ": called");
+
+        try {
+            var allSchemas = _schemaService.GetAllSchemas().ToList();
+            var results = new List<SchemaVerifyResult>();
+
+            foreach (var schema in allSchemas) {
+                string? embeddedHash = null;
+                string? fetchedHash = null;
+                string? error = null;
+
+                // Hash the embedded resource body
+                var embeddedBody = _schemaService.GetSchemaBody(schema.Said);
+                if (embeddedBody is not null) {
+                    embeddedHash = ComputeSha256Hex(embeddedBody);
+                }
+                else {
+                    error = "No embedded resource";
+                }
+
+                // Fetch from KERIA and hash
+                try {
+                    var fetchResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetSchemaRaw,
+                        svc => svc.GetSchemaRaw(schema.Said));
+                    if (fetchResult.IsSuccess) {
+                        fetchedHash = ComputeSha256Hex(fetchResult.Value);
+                    }
+                    else {
+                        error = error is null
+                            ? $"KERIA fetch failed: {fetchResult.Errors[0].Message}"
+                            : $"{error}; KERIA fetch failed: {fetchResult.Errors[0].Message}";
+                    }
+                }
+                catch (Exception ex) {
+                    var fetchError = $"KERIA fetch error: {ex.Message}";
+                    error = error is null ? fetchError : $"{error}; {fetchError}";
+                }
+
+                var match = embeddedHash is not null && fetchedHash is not null && embeddedHash == fetchedHash;
+                results.Add(new SchemaVerifyResult(schema.Said, schema.Name, embeddedHash, fetchedHash, match, error));
+            }
+
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new VerifySchemasResponse(true, Results: results));
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestVerifySchemasRpcAsync) + ": Error");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new VerifySchemasResponse(false, Error: ex.Message));
+        }
+    }
+
+    private static string ComputeSha256Hex(string input) {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        var hashBytes = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
     /// <summary>
     /// Handles GetKeyEvents request from App.
     /// Returns the key events for a specific identifier prefix.
@@ -4042,6 +4105,14 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             var cachedResult = await _storageGateway.GetItem<ResolvedSchemas>(StorageArea.Session);
             if (cachedResult.IsSuccess && cachedResult.Value?.Schemas.ContainsKey(schemaSaid) == true) {
                 logger.LogDebug("{Caller}: Schema {SchemaSaid} found in session cache", callerName, schemaSaid);
+                return true;
+            }
+
+            // Fast path: use embedded resource body if available (no KERIA call needed)
+            var embeddedBody = _schemaService.GetSchemaBody(schemaSaid);
+            if (embeddedBody is not null) {
+                logger.LogDebug("{Caller}: Schema {SchemaSaid} found in embedded resources", callerName, schemaSaid);
+                await AddToResolvedSchemaCacheAsync(schemaSaid, embeddedBody);
                 return true;
             }
 

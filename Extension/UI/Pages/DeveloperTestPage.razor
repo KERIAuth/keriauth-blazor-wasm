@@ -392,6 +392,59 @@
         var dialog = await dialogService.ShowAsync<AddConnectionDialog>("Add connection", parameters, options);
     }
 
+    // Schema verification state
+    private List<SchemaVerifyResult> _schemaVerifyResults = [];
+    private bool _schemaVerifyRunning;
+
+    async Task RunSchemaVerificationAsync()
+    {
+        _schemaVerifyRunning = true;
+        _schemaVerifyResults = [];
+        StateHasChanged();
+        try
+        {
+            var response = await appBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestVerifySchemas,
+                new { },
+                TimeSpan.FromSeconds(120));
+
+            if (response.Ok && response.Result is System.Text.Json.JsonElement resultElement)
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<VerifySchemasResponse>(
+                    resultElement.GetRawText());
+                if (parsed?.Results is not null)
+                {
+                    _schemaVerifyResults = parsed.Results;
+                    var matches = _schemaVerifyResults.Count(r => r.Match);
+                    var mismatches = _schemaVerifyResults.Count(r => !r.Match && r.Error is null);
+                    var errors = _schemaVerifyResults.Count(r => r.Error is not null);
+                    var severity = (mismatches > 0 || errors > 0)
+                        ? MudBlazor.Severity.Warning
+                        : MudBlazor.Severity.Normal;
+                    snackbar.Add($"Schemas: {matches} MATCH, {mismatches} MISMATCH, {errors} ERROR", severity);
+                }
+                else
+                {
+                    snackbar.Add($"Schema verification failed: {parsed?.Error ?? "unknown"}", MudBlazor.Severity.Error);
+                }
+            }
+            else
+            {
+                snackbar.Add($"Schema verification failed: {response.Error ?? "RPC error"}", MudBlazor.Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, nameof(RunSchemaVerificationAsync) + " failed");
+            snackbar.Add($"Schema verification error: {ex.Message}", MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            _schemaVerifyRunning = false;
+            StateHasChanged();
+        }
+    }
+
     // Saider verification state
     private record SaidifyRow(string Path, int Depth, string? StoredSaid, string? ComputedSaid, string Status);
     private record EdgeRefRow(string EdgePath, string ReferencedSaid, string Status);
@@ -714,6 +767,49 @@
             <MudText Class="bt-section-title">Port testing</MudText>
             <MudStack>
                 <MudText>To disconnect/stop/inactivate: navigate to chrome://serviceworker-internals and Stop the service-worker. Should restart based on its listener events.</MudText>
+            </MudStack>
+
+            <MudText Class="bt-section-title">Schema verification</MudText>
+            <MudStack Class="ml-4" Spacing="2">
+                <MudText Typo="Typo.body2">
+                    Fetch each well-known schema from KERIA and compare its SHA-256 hash with the embedded resource.
+                    Requires an active KERIA connection with schemas resolved.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="@RunSchemaVerificationAsync"
+                           Disabled="@(_schemaVerifyRunning || !appCache.IsConnectedToKeria)">
+                    @(_schemaVerifyRunning ? "Verifying…" : "Verify schemas")
+                </MudButton>
+                @if (_schemaVerifyRunning)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                }
+                @if (_schemaVerifyResults.Count > 0)
+                {
+                    <MudSimpleTable Dense="true" Bordered="true" Hover="true">
+                        <thead>
+                            <tr>
+                                <th>Schema</th>
+                                <th>SAID</th>
+                                <th>Embedded hash</th>
+                                <th>Fetched hash</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _schemaVerifyResults)
+                            {
+                                <tr>
+                                    <td>@row.Name</td>
+                                    <td><SaidDisplay Said="@row.Said" Abbreviate="true" /></td>
+                                    <td><code>@(row.EmbeddedHash?[..12] ?? "—")…</code></td>
+                                    <td><code>@(row.FetchedHash?[..12] ?? "—")…</code></td>
+                                    <td>@(row.Error is not null ? $"ERROR: {row.Error}" : (row.Match ? "MATCH" : "MISMATCH"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
             </MudStack>
 
             <MudText Class="bt-section-title">Saider operations</MudText>
