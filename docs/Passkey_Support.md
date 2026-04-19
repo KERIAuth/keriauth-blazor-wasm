@@ -1,6 +1,6 @@
 # Passkey Support
 
-The DIGN Identity Wallet leverages the Webauthn protocol to register and configure webauthn credentials on authenticators. These are marketed as "passkeys", although not all passkeys are of the same security!
+The Dign Wallet leverages the Webauthn protocol to register and configure webauthn credentials on authenticators. These are marketed as "passkeys", although not all passkeys are of the same security!
 
 ## What do I need?
 

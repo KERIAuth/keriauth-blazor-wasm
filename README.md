@@ -1,12 +1,12 @@
-# DIGN Identity Wallet
+# Dign Wallet
 [![KERI Auth build](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml/badge.svg)](https://github.com/keriauth/keriauth-blazor-wasm/actions/workflows/dotnet.yml)
 
 ## Overview
-**DIGN** is an identity wallet packaged as a Chromium browser extension, designed to establish secure and authentic trust between individuals and websites they visit. It is based on standards for cryptographic and legal roots of trust: decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and GLEIF's Verifiable Legal Entity Identifier (vLEI) ecosystem. DIGN includes [signify-ts](https://github.com/webOfTrust/signify-ts/) to keep key generation and signing at the edge, while delegating event processing, credential storage, and agent communication to a hosted [KERIA](https://github.com/weboftrust/keria) service that never has access to the controller's private keys.
+**Dign** is an identity wallet packaged as a Chromium browser extension, designed to establish secure and authentic trust between individuals and websites they visit. It is based on standards for cryptographic and legal roots of trust: decentralized key management and identifiers (KERI), verifiable credentials (ACDC), and GLEIF's Verifiable Legal Entity Identifier (vLEI) ecosystem. Dign includes [signify-ts](https://github.com/webOfTrust/signify-ts/) to keep key generation and signing at the edge, while delegating event processing, credential storage, and agent communication to a hosted [KERIA](https://github.com/weboftrust/keria) service that never has access to the controller's private keys.
 
 This solution is part of these broader efforts to prioritize security first (including authenticity, confidential communications, then privacy), unlike much of the internet's infrastructure that continues to operate with known security vulnerabilities (e.g., federated identity, passwords, SMS 2FA, certificate authority processes, shared secrets, and long-lived access tokens). Is "pretty-good security" good enough?
 
-Note that DIGN's features and quality are currently incomplete, and thus it can be considered at the beta stage.
+Note that Dign's features and quality are currently incomplete, and thus it can be considered at the beta stage.
 
 ## Features
 From the end user's perspective, the extension enables the user to create and control their own stable identifiers (KERI AIDs) with signing keys, and credentials. The target version 1.0 features include:
@@ -22,7 +22,7 @@ From the end user's perspective, the extension enables the user to create and co
   * Present your KERI Identifier (AID/profile) or Credential to "sign in" to the website
   * Sign HTTP Header Requests to access web resources
   * Sign additional interactions
-* Register a passkey on a WebAuthn-compliant authenticator such as a hardware key to unlock DIGN
+* Register a passkey on a WebAuthn-compliant authenticator such as a hardware key to unlock Dign
 * ... and more.
 
 ## Installation
@@ -31,7 +31,7 @@ The most recent stable version is available from the [Chrome Web Store](https://
 ## Runtime Dependencies
 * **Chromium-based Browser** minimum version as specified in manifest.json (Chrome, Edge, or Brave)
 * **Web page supporting Polaris-web**, a JavaScript API protocol
-* **Connection to a KERIA Service** — [KERIA](https://github.com/weboftrust/keria) is a multi-tenant agent service that provides infrastructure for Signify clients. KERIA creates a separate agent instance for each client and partitions storage to isolate agents. Key generation and event signing are performed at the edge by the Signify client (such as DIGN) using signify-ts; KERIA stores only encrypted key material and salts that it cannot decrypt — decryption keys never leave the client. KERIA handles event generation, event validation, credential storage, and message exchange with other agents. When DIGN first connects, it establishes a Client AID and KERIA creates a delegated Agent AID anchored to it — a formal KERI delegation where the agent's authority is cryptographically bound to the client. The client signs all requests using its Client AID keys; the agent signs all responses with its own Agent AID keys, creating a mutually authenticated channel. The agent acts on behalf of the controller's managed AIDs (identifiers/profiles) for event processing, credential workflows, and peer communication, but the controller retains exclusive signing authority — the agent cannot sign as the controller.
+* **Connection to a KERIA Service** — [KERIA](https://github.com/weboftrust/keria) is a multi-tenant agent service that provides infrastructure for Signify clients. KERIA creates a separate agent instance for each client and partitions storage to isolate agents. Key generation and event signing are performed at the edge by the Signify client (such as Dign) using signify-ts; KERIA stores only encrypted key material and salts that it cannot decrypt — decryption keys never leave the client. KERIA handles event generation, event validation, credential storage, and message exchange with other agents. When Dign first connects, it establishes a Client AID and KERIA creates a delegated Agent AID anchored to it — a formal KERI delegation where the agent's authority is cryptographically bound to the client. The client signs all requests using its Client AID keys; the agent signs all responses with its own Agent AID keys, creating a mutually authenticated channel. The agent acts on behalf of the controller's managed AIDs (identifiers/profiles) for event processing, credential workflows, and peer communication, but the controller retains exclusive signing authority — the agent cannot sign as the controller.
 
 ## For Developers
 
@@ -45,7 +45,7 @@ This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) fo
 
 ## Trademark Notice
 
-"DIGN" and "KERI Auth" and associated logos are trademarks of LivelyGig LLC.
+"Dign" and "KERI Auth" and associated logos are trademarks of LivelyGig LLC.
 Use of these trademarks is subject to the [Trademark Policy](branding/trademark-policy.md).
 Forked or modified versions of this repository must not use the trademark names or logos without permission.
 

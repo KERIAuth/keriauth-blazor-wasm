@@ -1,6 +1,6 @@
 {
   "action": {
-    "default_title": "DIGN",
+    "default_title": "Dign",
     "default_icon": {
       "16": "images/logob016.png",
       "24": "images/logob024.png",
@@ -28,7 +28,7 @@
   },
   "manifest_version": 3,
   "minimum_chrome_version": "140",
-  "name": "DIGN",
+  "name": "Dign",
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*/*"
@@ -41,7 +41,7 @@
     "storage",
     "sidePanel"
   ],
-  "short_name": "DIGN",
+  "short_name": "Dign",
   "side_panel": {
     "default_path": "index.html"
   },

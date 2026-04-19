@@ -1,27 +1,27 @@
-# DIGN Trademark Policy
+# Dign Trademark Policy
 
 ## Overview
 
-"DIGN" and associated logos (including the customized triquetra logo in the style of Funbo Runestone U 937) are trademarks of LivelyGig LLC, a Washington State corporation. The DIGN source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
+"Dign" and associated logos (including the customized triquetra logo in the style of Funbo Runestone U 937) are trademarks of LivelyGig LLC, a Washington State corporation. The Dign source code is licensed under the Apache License 2.0, but the trademarks are **not** covered by that license.
 
-This policy explains how you may and may not use the DIGN trademarks.
+This policy explains how you may and may not use the Dign trademarks.
 
 ## Permitted Uses
 
-You may use the "DIGN" name without prior permission in the following ways:
+You may use the "Dign" name without prior permission in the following ways:
 
-- **Attribution**: stating that your project is built on, derived from, or compatible with DIGN
-- **Factual reference**: describing DIGN in articles, documentation, or presentations
-- **Linking**: linking to the official DIGN website or GitHub repository
+- **Attribution**: stating that your project is built on, derived from, or compatible with Dign
+- **Factual reference**: describing Dign in articles, documentation, or presentations
+- **Linking**: linking to the official Dign website or GitHub repository
 
 Example of acceptable use in GitHub:
-> "This project is a fork of the DIGN project developed by LivelyGig LLC."
+> "This project is a fork of the Dign project developed by LivelyGig LLC."
 
 If you fork or modify the software, you must choose a different name and logo for your version.
 
 ## Prohibited Uses
 
-You may **not** use the "DIGN" name, logos, or other trademarks in ways that:
+You may **not** use the "Dign" name, logos, or other trademarks in ways that:
 
 - Imply endorsement, sponsorship, or affiliation with LivelyGig LLC or its brands without written permission
 - Show the name or logos for a modified or forked version of the software as if it were the official product

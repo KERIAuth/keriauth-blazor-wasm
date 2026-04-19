@@ -4921,7 +4921,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 break;
 
             case AppBwMessageType.Values.RequestBurstPoll:
-                // User-initiated refresh (e.g., clicking DIGN logo in AppBar).
+                // User-initiated refresh (e.g., clicking Dign logo in AppBar).
                 // Refreshes all three resources. Each method has its own throttle skip,
                 // so rapid repeated clicks coalesce naturally via PollingState timestamps.
                 logger.LogInformation(nameof(HandlePortEventAsync) + ": RequestBurstPoll event received");

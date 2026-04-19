@@ -1,4 +1,4 @@
-# DIGN's Compliance with Polaris-Web Protocol
+# Dign's Compliance with Polaris-Web Protocol
 
 ## Overview
 
@@ -24,4 +24,4 @@ This document summarizes conformance to the [polaris-web protocol specification]
 <br/>
 <br/>
 
-**Analysis Date:** 2026-03-10.  May include unreleased DIGN features.
+**Analysis Date:** 2026-03-10.  May include unreleased Dign features.

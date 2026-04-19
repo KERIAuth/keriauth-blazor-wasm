@@ -121,12 +121,12 @@ namespace Extension {
         // Display inactivity countdown on AppBar when this many seconds are remaining
         public const int AppBarRefreshTimerDueTimeSeconds = 20;
         public static readonly TimeSpan ThrottleInactivityInterval = TimeSpan.FromSeconds(10);
-        public const int ExpectedTermsDigest = -2032710982;
-        public const int ExpectedPrivacyDigest = -660950952;
+        public const int ExpectedTermsDigest = 1404326964;
+        public const int ExpectedPrivacyDigest = 1798071769;
 
         // Branding
-        public const string ProductName = "DIGN";
-        public const string FullProductName = "DIGN Identity Wallet";
+        public const string ProductName = "Dign";
+        public const string FullProductName = "Dign Wallet";
         public const string LogPrefix = "dign";
         public const string WebsiteUrl = "https://dign.id";
         public const string UninstallUrl = "https://dign.id/uninstall.html";
@@ -147,7 +147,7 @@ namespace Extension {
             Typography = Typography,
             PaletteLight = new PaletteLight() {
                 // Semantic colors                              // MudBlazor default hex
-                Primary = new MudColor(183, 1.0, 0.30, 1.0),   // DIGN teal
+                Primary = new MudColor(183, 1.0, 0.30, 1.0),   // Dign teal
                 PrimaryContrastText = new MudColor(0, 0.0, 1.0, 1.0), // black — high contrast on teal
                 Secondary = new MudColor(340, 0.82, 0.59, 1.0), // #EC407A
                 SecondaryContrastText = new MudColor(0, 0.0, 1.0, 1.0),
@@ -180,10 +180,10 @@ namespace Extension {
                 Surface = new MudColor(0, 0.0, 1.0, 1.0),      // #FFFFFF
 
                 // Drawer & Appbar — matched neutral gray
-                DrawerBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light DIGN teal
+                DrawerBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light Dign teal
                 DrawerText = new MudColor(0, 0.0, 0.00, 1.0),  // black
                 DrawerIcon = new MudColor(0, 0.0, 0.38, 1.0),  // #616161
-                AppbarBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light DIGN teal
+                AppbarBackground = new MudColor(183, 67.0, 0.96, 1.0), // #  very light Dign teal
                 AppbarText = new MudColor(0, 0.0, 0.26, 1.0),  // #424242 — dark for contrast
 
                 // Lines & borders
@@ -218,7 +218,7 @@ namespace Extension {
             },
             PaletteDark = new PaletteDark() {
                 // Semantic colors                              // MudBlazor dark defaults
-                Primary = new MudColor(183, 1.0, 0.45, 1.0),   // DIGN teal 
+                Primary = new MudColor(183, 1.0, 0.45, 1.0),   // Dign teal 
                 PrimaryContrastText = new MudColor(0, 0.0, 0.0, 1.0), // black
                 Info = new MudColor(212, 1.0, 0.60, 1.0),      // #3299FF
                 Success = new MudColor(162, 0.90, 0.39, 1.0),  // #0BBA83
@@ -237,17 +237,17 @@ namespace Extension {
                 ActionDisabledBackground = new MudColor(0, 0.0, 1.0, 0.12),
 
                 // Surfaces                                     // Sync: #32333D / #27272F in index*.html splash
-                Background = new MudColor(60, 0.18, 0.04, 1.0), // hint of DIGN yellow // #32333D
+                Background = new MudColor(60, 0.18, 0.04, 1.0), // hint of Dign yellow // #32333D
                 BackgroundGray = new MudColor(240, 0.07, 0.17, 1.0), // #27272F
-                Surface = new MudColor(300, 0.14, 0.11, 1.0),  // hint of DIGN magenta
+                Surface = new MudColor(300, 0.14, 0.11, 1.0),  // hint of Dign magenta
 
                 // Drawer
-                DrawerBackground = new MudColor(300, 0.16, 0.07, 1.0), // hint of DIGN magenta — #32333D
+                DrawerBackground = new MudColor(300, 0.16, 0.07, 1.0), // hint of Dign magenta — #32333D
                 DrawerText = new MudColor(0, 0.0, 1.0, 0.80),
                 DrawerIcon = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Appbar
-                AppbarBackground = new MudColor(300, 0.06, 0.08, 1.0), // hint of DIGN magenta — #27272F
+                AppbarBackground = new MudColor(300, 0.06, 0.08, 1.0), // hint of Dign magenta — #27272F
                 AppbarText = new MudColor(0, 0.0, 1.0, 0.80),
 
                 // Lines & borders

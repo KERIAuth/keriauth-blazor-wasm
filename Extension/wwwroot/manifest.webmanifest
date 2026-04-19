@@ -1,6 +1,6 @@
 {
-  "name": "DIGN Identity Wallet",
-  "short_name": "DIGN",
+  "name": "Dign Wallet",
+  "short_name": "Dign",
   "start_url": ".",
   "id": "./",
   "display": "standalone",

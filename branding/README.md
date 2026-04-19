@@ -1,12 +1,12 @@
 # Branding
 
-This directory contains trademark and brand identity documentation for the DIGN Identity Wallet.
+This directory contains trademark and brand identity documentation for the Dign Wallet.
 
 ## Contents
 
 | File | Purpose |
 |------|---------|
-| [trademark-policy.md](trademark-policy.md) | Trademark usage policy for the "DIGN" name and logos |
+| [trademark-policy.md](trademark-policy.md) | Trademark usage policy for the "Dign" name and logos |
 
 ## Brand Assets in Other Locations
 

@@ -1,1 +1,1 @@
-export const PRODUCT_NAME = 'DIGN';
+export const PRODUCT_NAME = 'Dign';
