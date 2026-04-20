@@ -9,7 +9,7 @@ using Extension.Models.Storage;
 /// </summary>
 public record KeriaConnectConfigs : IVersionedStorageModel {
     [JsonPropertyName("SchemaVersion")]
-    public int SchemaVersion { get; init; } = 2;
+    public int SchemaVersion { get; init; } = 3;
 
     /// <summary>
     /// Dictionary of KeriaConnectConfig items keyed by their computed KeriaConnectionDigest.

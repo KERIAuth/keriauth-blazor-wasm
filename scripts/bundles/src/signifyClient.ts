@@ -1515,9 +1515,25 @@ export const createRegistryIfNotExists = async (
                 return { regk: found.regk, created: false };
             }
 
-            const result: RegistryResult = await client.registries().create({ name: aidName, registryName });
-            await result.op(); // Wait for the registry creation operation to complete
-            return { regk: result.regser.pre, created: true };
+            try {
+                const result: RegistryResult = await client.registries().create({ name: aidName, registryName });
+                await result.op(); // Wait for the registry creation operation to complete
+                return { regk: result.regser.pre, created: true };
+            } catch (err) {
+                // KERIA may return 400 "already in use" even after the initial list() turned up
+                // nothing — stale cache or a prior partial creation. Re-list and find; only
+                // re-throw if the registry still isn't visible.
+                const msg = err instanceof Error ? err.message : String(err);
+                if (!msg.includes('already in use')) {
+                    throw err;
+                }
+                const refreshed: Registry[] = await client.registries().list(aidName);
+                const refound = refreshed.find((reg) => reg.name === registryName);
+                if (refound) {
+                    return { regk: refound.regk, created: false };
+                }
+                throw err;
+            }
         },
         { AidName: aidName, RegistryName: registryName }
     );

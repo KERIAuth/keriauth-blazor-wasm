@@ -9,7 +9,7 @@ namespace Extension.Models.Storage;
 public static class StorageModelRegistry {
     private static readonly Dictionary<string, int> ExpectedVersions = new() {
         [nameof(Preferences)] = 2,
-        [nameof(KeriaConnectConfigs)] = 2,
+        [nameof(KeriaConnectConfigs)] = 3,
         [nameof(OnboardState)] = 1,
     };
 

@@ -11,11 +11,11 @@ Issue a test **State-Endorsed Digital Identity (SEDI) credential** from the exis
 - **Issuer:** constrained to local AIDs.
 - **Registry:** lazy-created per issuer AID, keyed off the issuer prefix, persisted into prefs as `sediStatusRegistry`.
 - **Naming:** no "Utah" references anywhere in field names, schema text, or rule disclaimers; jurisdiction-neutral language.
-- **Default residence address:** `"123 S Main St, Lake City, XQ X0000"` (intentionally invalid state abbreviation and invalid ZIP format, since this is test data).
+- **Default residence address:** `"123 S Main St, Lake City, XQ 96233"` (intentionally invalid state abbreviation and invalid ZIP format, since this is test data).
 - **Coexistence:** the existing SEDI schema entry (SAID `EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_`, file `verifiable-credential-schema-for-data-attestation.json`) remains untouched; this feature adds a **new** SEDI schema under a distinct filename and SAID.
 - **Schema hosting:** file lives only in [Extension/Schemas/](../Extension/Schemas/) in this repo. OOBI URL is a raw GitHub URL on `main`, similar to the pattern used by the existing ECR schema.
 - **Storage:** the restructure of `IssueCredentialsTestPrefs` is a breaking change to the on-disk shape; bumps `KeriaConnectConfigs.SchemaVersion`, so existing TestPrefs data is discarded (user sees `MigrationNotice`).
-- **Two-level graduated disclosure** (outer `a`, per-attribute `{d,u,v}`) — enables compacting the whole attributes block to a SAID, OR disclosing the block structure but compacting individual attributes. The original triple-nested (`a` / `a.a` / per-attribute) design was flattened to `a` / per-attribute because (1) nothing in this codebase references the inner `a.a` compact form, and (2) the flat layout matches standard ACDC convention and works with stock `Saider.saidify` in a single call (no multi-level walker needed).
+- **Two-level graduated disclosure** (outer `a`, per-attribute `{d,u,val}`) — enables compacting the whole attributes block to a SAID, OR disclosing the block structure but compacting individual attributes. The original triple-nested (`a` / `a.a` / per-attribute) design was flattened to `a` / per-attribute because (1) nothing in this codebase references the inner `a.a` compact form, and (2) the flat layout matches standard ACDC convention and works with stock `Saider.saidify` in a single call (no multi-level walker needed).
 - **Grant only:** SEDI is not selectable from the "Issue & Offer" entry point.
 
 ## Proposed schema
@@ -32,13 +32,13 @@ credential
 │  ├ d, u              block SAID + nonce
 │  ├ i                 issuee AID (the credential subject)
 │  ├ dt                issuance datetime
-│  ├ fullLegalName          oneOf[SAID | {d, u, v: string}]
-│  ├ birthDate              oneOf[SAID | {d, u, v: date-time}]
-│  ├ residenceAddress       oneOf[SAID | {d, u, v: string}]
-│  ├ lawfulPresenceVerified oneOf[SAID | {d, u, v: boolean}]
-│  ├ proofingMethod         oneOf[SAID | {d, u, v: enum}]
-│  ├ proofingLevel          oneOf[SAID | {d, u, v: enum}]
-│  └ portrait               oneOf[SAID | {d, u, v: base64url JPEG}]   (optional)
+│  ├ fullLegalName          oneOf[SAID | {d, u, val: string}]
+│  ├ birthDate              oneOf[SAID | {d, u, val: date-time}]
+│  ├ residenceAddress       oneOf[SAID | {d, u, val: string}]
+│  ├ lawfulPresenceVerified oneOf[SAID | {d, u, val: boolean}]
+│  ├ proofingMethod         oneOf[SAID | {d, u, val: enum}]
+│  ├ proofingLevel          oneOf[SAID | {d, u, val: enum}]
+│  └ portrait               oneOf[SAID | {d, u, val: base64url JPEG}]   (optional)
 └ r (oneOf SAID|obj)   rules block
    ├ d
    ├ usageDisclaimer   {d, l: const string}
@@ -77,19 +77,19 @@ The schema has a **single top-level `$id`** (no nested `$id` fields), so `Saider
 | `u` | signify random nonce | no |
 | `i` | = `issuerPrefix` (local AID) | no (derived from Issuer field) |
 | `ri` | `sediStatusRegistry` (lazy-created, persisted) | no |
-| `s` | SEDI schema SAID (fixed: `EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i`) | no |
+| `s` | SEDI schema SAID (fixed: `EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq`) | no |
 | `a.d` / `a.u` | saidify / nonce | no |
 | `a.i` | = `issueePrefix` | **Issuee** (local AIDs + connections) |
 | `a.dt` | `DateTime.UtcNow` ISO-8601 at issuance | no |
 | `a.fullLegalName.{d,u}` | saidify / nonce | no |
-| `a.fullLegalName.v` | coin-flipped default name | **Full legal name** (text) |
+| `a.fullLegalName.val` | coin-flipped default name | **Full legal name** (text) |
 | `a.birthDate.{d,u}` | saidify / nonce | no |
-| `a.birthDate.v` | `DateTime.UtcNow` ISO-8601 | **Birth date** (accepts `MM/DD/YYYY`, `YYYY-MM-DD`, or ISO-8601 → normalized) |
-| `a.residenceAddress.{d,u,v}` | saidify, nonce, default `"123 S Main St, Lake City, XQ X0000"` | **Residence address** |
-| `a.lawfulPresenceVerified.{d,u,v}` | saidify, nonce, default `true` | **Lawful presence verified** (checkbox) |
-| `a.proofingMethod.{d,u,v}` | saidify, nonce, default `"in-person-document"` | **Proofing method** (select from enum) |
-| `a.proofingLevel.{d,u,v}` | saidify, nonce, default `"IAL3"` | **Proofing level** (select `IAL1`/`IAL2`/`IAL3`) |
-| `a.portrait.{d,u,v}` | saidify, nonce, base64url constant `SediCredentialHelper.TestPortraitBase64Url` | no |
+| `a.birthDate.val` | `DateTime.UtcNow` ISO-8601 | **Birth date** (accepts `MM/DD/YYYY`, `YYYY-MM-DD`, or ISO-8601 → normalized) |
+| `a.residenceAddress.{d,u,val}` | saidify, nonce, default `"123 S Main St, Lake City, XQ 96233"` | **Residence address** |
+| `a.lawfulPresenceVerified.{d,u,val}` | saidify, nonce, default `true` | **Lawful presence verified** (checkbox) |
+| `a.proofingMethod.{d,u,val}` | saidify, nonce, default `"in-person-document"` | **Proofing method** (select from enum) |
+| `a.proofingLevel.{d,u,val}` | saidify, nonce, default `"IAL3"` | **Proofing level** (select `IAL1`/`IAL2`/`IAL3`) |
+| `a.portrait.{d,u,val}` | saidify, nonce, base64url constant `SediCredentialHelper.TestPortraitBase64Url` | no |
 | `r.d` | saidify | no |
 | `r.usageDisclaimer.{d,l}` | saidify, const text | no |
 | `r.privacyDisclaimer.{d,l}` | saidify, const text | no |
@@ -134,7 +134,7 @@ Blocks all downstream work. Once the schema is saidified and committed to `main`
 
 1. **Draft the final schema JSON** with all 10 departures above, jurisdiction-neutral text, and the nested `a.a` shape.
 2. **Save to** `Extension/Schemas/oobi/<SAID>/index.json` (the SAID-addressed layout). The single copy is the source of truth. The embedded-resource `LogicalName` maps it back to the friendly name for schema-body lookup.
-3. **Saidify the schema** using [scripts/saidify_schema.py](../scripts/saidify_schema.py) — a small KERIpy-based script that calls stock `coring.Saider.saidify`. With the flattened structure, a single call suffices (no depth walker needed). Run: `/tmp/keri-venv/bin/python3 scripts/saidify_schema.py --file <path> --output <path>`, then minify with a short Python one-liner using `json.dump(..., separators=(',',':'))`. Current SAID: `EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i`.
+3. **Saidify the schema** using [scripts/saidify_schema.py](../scripts/saidify_schema.py) — a small KERIpy-based script that calls stock `coring.Saider.saidify`. With the flattened structure, a single call suffices (no depth walker needed). Run: `/tmp/keri-venv/bin/python3 scripts/saidify_schema.py --file <path> --output <path>`, then minify with a short Python one-liner using `json.dump(..., separators=(',',':'))`. Current SAID: `EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq`.
 4. **Add a new entry to** [Extension/Schemas/schemas.json](../Extension/Schemas/schemas.json) (the existing `EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_` entry is left untouched). Done — entry uses the `raw.githubusercontent.com/.../oobi/<SAID>/index.json` URL and includes a `$comment` field marking the secondary-URL TODO.
 5. **Commit the file + schemas.json entry to `main`** — this is required so the raw GitHub URL resolves. Until merged, the OOBI does not work in any non-local environment.
 6. **Register the SAID in code** — add `SediSchemaSaid` to [CredentialHelper.cs](../Extension/Helper/CredentialHelper.cs) `SchemaSaids` and expose via a new `SediCredentialHelper.cs` alongside [VleiCredentialHelper.cs](../Extension/Helper/VleiCredentialHelper.cs).
@@ -173,7 +173,7 @@ Blocks all downstream work. Once the schema is saidified and committed to `main`
 - Add `IssueSediCredentialRequestPayload` with fields: `IssuerPrefix`, `IssueePrefix`, `FullLegalName`, `BirthDateIso`, `ResidenceAddress`, `LawfulPresenceVerified`, `ProofingMethod`, `ProofingLevel`.
 - Add `IssueSediCredentialResponsePayload` mirroring [`IssueEcrCredentialResponsePayload`](../Extension/Models/Messages/AppBw/AppBwMessages.cs) (`Success`, `Acdc`, `Anc`, `Iss`, `CredentialSaid`, `Error`).
 - Add `AppBwMessageType.Values.RequestIssueSediCredential` + BW handler.
-- **BW handler does the work directly** (not PrimeDataService) — mirrors the existing ECR pattern at [BackgroundWorker.HandleAppRequestIssueEcrCredentialRpcAsync](../Extension/BackgroundWorker.cs). PrimeDataService is reserved for orchestrated multi-step workflows (the vLEI chain "Go" flow). Per-attribute `{d, u, v}` sub-blocks are pre-saidified by the BW (signify-ts's `credentials().issue(...)` only saidifies block-level `a.d`/`r.d`/top-level, not nested sub-blocks). Rules block sub-disclaimer `d` fields are also pre-saidified.
+- **BW handler does the work directly** (not PrimeDataService) — mirrors the existing ECR pattern at [BackgroundWorker.HandleAppRequestIssueEcrCredentialRpcAsync](../Extension/BackgroundWorker.cs). PrimeDataService is reserved for orchestrated multi-step workflows (the vLEI chain "Go" flow). Per-attribute `{d, u, val}` sub-blocks are pre-saidified by the BW (signify-ts's `credentials().issue(...)` only saidifies block-level `a.d`/`r.d`/top-level, not nested sub-blocks). Rules block sub-disclaimer `d` fields are also pre-saidified.
 - **Registry handling**: uses stock `CreateRegistryIfNotExists(senderName, "sedi")` which is already idempotent at the KERIA level. The `IssueSediTestPrefs.SediStatusRegistry` prefs field is reserved but not yet populated — a `// TODO P2` is left in the handler to opt-in to prefs-cached lookup as a future optimization.
 - Grant path reuses existing `RequestSubmitIpexGrant`.
 

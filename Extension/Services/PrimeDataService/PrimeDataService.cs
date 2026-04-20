@@ -127,7 +127,7 @@ namespace Extension.Services.PrimeDataService {
             // Step 12b: Resolve credential schema OOBIs
             await ReportProgress(9, goTotalSteps, "Resolving credential schema OOBIs");
             var schemaOobis = new[] {
-                QviSchemaSaid, LeSchemaSaid, OorAuthSchemaSaid, OorSchemaSaid, EcrAuthSchemaSaid, EcrSchemaSaid
+                QviSchemaSaid, LeSchemaSaid, OorAuthSchemaSaid, OorSchemaSaid, EcrAuthSchemaSaid, EcrSchemaSaid, SediSchemaSaid
             };
             foreach (var said in schemaOobis) {
                 var schemaResolveResult = await ResolveSchemaOobiWithFallbackAsync(said);
@@ -525,6 +525,7 @@ namespace Extension.Services.PrimeDataService {
         private const string OorSchemaSaid = VleiCredentialHelper.OorSchemaSaid;
         private const string EcrAuthSchemaSaid = VleiCredentialHelper.EcrAuthSchemaSaid;
         private const string EcrSchemaSaid = VleiCredentialHelper.EcrSchemaSaid;
+        private const string SediSchemaSaid = SediCredentialHelper.SediSchemaSaid;
 
         /// <summary>
         /// Returns AID prefixes eligible to be the Discloser for a given IPEX workflow.

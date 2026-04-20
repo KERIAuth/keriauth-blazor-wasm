@@ -68,6 +68,7 @@ public static class CredentialHelper {
         QviCredential,
         IxbrlAttestation,
         SediCredential,
+        SediCredential2,
         DataAttestation,
         DataAttestationCredential,
         Unknown
@@ -86,6 +87,7 @@ public static class CredentialHelper {
         public const string Qvi = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao";
         public const string Ixbrl = "EMhvwOlyEJ9kN4PrwCpr9Jsv7TxPhiYveZ0oP3lJzdEi";
         public const string Sedi = "EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_";
+        public const string Sedi2 = "EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq";
         // public const string DataAttest = "EJxFPpyDRV-W6O2Vtjdy2K90ltWmQK8l1jePw5YOo_Ft";
         // public const string DataAttestCred = "ENDcMNUZjag27T_GTxiCmB2kYstg_kqipqz39906E_FD";
     }
@@ -102,6 +104,7 @@ public static class CredentialHelper {
         SchemaSaids.Qvi => CredentialType.QviCredential,
         SchemaSaids.Ixbrl => CredentialType.IxbrlAttestation,
         SchemaSaids.Sedi => CredentialType.SediCredential,
+        SchemaSaids.Sedi2 => CredentialType.SediCredential2,
         // SchemaSaids.DataAttest => CredentialType.DataAttestation,
         // SchemaSaids.DataAttestCred => CredentialType.DataAttestationCredential,
         _ => CredentialType.Unknown
@@ -120,6 +123,7 @@ public static class CredentialHelper {
         SchemaSaids.Qvi => isDarkTheme ? "hsl(195 30% 40% / 0.75)" : "hsl(195 30% 80% / 0.75)",
         SchemaSaids.Ixbrl => isDarkTheme ? "hsl(90 28% 41% / 0.75)" : "hsl(90 28% 82% / 0.75)",
         SchemaSaids.Sedi => isDarkTheme ? "hsl(41 71% 29% / 1.00)" : "hsl(41 71% 80% / 1.00)",
+        SchemaSaids.Sedi2 => isDarkTheme ? "hsl(41 71% 29% / 1.00)" : "hsl(41 71% 80% / 1.00)",
         // SchemaSaids.DataAttest => isDarkTheme ? "hsl(60 25% 40% / 0.75)" : "hsl(60 25% 82% / 0.75)",
         // SchemaSaids.DataAttestCred => isDarkTheme ? "hsl(45 28% 40% / 0.75)" : "hsl(45 28% 82% / 0.75)",
         _ => isDarkTheme ? "hsl(0 0% 43% / 0.75)" : "hsl(0 0% 85% / 0.75)"
@@ -186,6 +190,15 @@ public static class CredentialHelper {
             ("dateOfBirth", "Date of Birth"),
             ("address", "Address"),
             ("driversLicense", "Driver's License")
+        ],
+        CredentialType.SediCredential2 => [
+            ("fullLegalName.val", "Full legal name"),
+            ("birthDate.val", "Birth date"),
+            ("residenceAddress.val", "Residence address"),
+            ("lawfulPresenceVerified.val", "Lawful presence verified"),
+            ("proofingMethod.val", "Proofing method"),
+            ("proofingLevel.val", "Proofing level"),
+            ("portrait.val", "Portrait")
         ],
         CredentialType.QviCredential => [
             ("LEI", "LEI"),

@@ -74,12 +74,12 @@
       ]
     },
     {
-      "said": "EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i",
+      "said": "EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq",
       "name": "State-Endorsed Digital Identity Credential",
       "file": "state-endorsed-digital-identity-credential.json",
       "$comment": "TODO P1 add secondary OOBI URL once a dedicated SEDI schema-OOBI server path is provided",
       "oobiUrls": [
-        "https://raw.githubusercontent.com/KERIAuth/keriauth-blazor-wasm/refs/heads/main/Extension/Schemas/oobi/EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i/index.json"
+        "https://raw.githubusercontent.com/KERIAuth/keriauth-blazor-wasm/refs/heads/main/Extension/Schemas/oobi/EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq/index.json"
       ]
     }
   ],

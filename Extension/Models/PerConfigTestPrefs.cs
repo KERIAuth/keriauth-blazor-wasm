@@ -19,7 +19,7 @@ namespace Extension.Models {
         public string RoleName { get; init; } = "";
     }
 
-    public record IssueCredentialsTestPrefs {
+    public record IssueEcrTestPrefs {
         [JsonPropertyName("IssuerPrefix")]
         public string? IssuerPrefix { get; init; }
 
@@ -28,6 +28,25 @@ namespace Extension.Models {
 
         [JsonPropertyName("RoleName")]
         public string RoleName { get; init; } = "";
+    }
+
+    public record IssueSediTestPrefs {
+        [JsonPropertyName("IssuerPrefix")]
+        public string? IssuerPrefix { get; init; }
+
+        [JsonPropertyName("IssueePrefix")]
+        public string? IssueePrefix { get; init; }
+
+        [JsonPropertyName("SediStatusRegistry")]
+        public string SediStatusRegistry { get; init; } = "";
+    }
+
+    public record IssueCredentialsTestPrefs {
+        [JsonPropertyName("Ecr")]
+        public IssueEcrTestPrefs? Ecr { get; init; }
+
+        [JsonPropertyName("Sedi")]
+        public IssueSediTestPrefs? Sedi { get; init; }
     }
 
     public record PerConfigTestPrefs {

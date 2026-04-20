@@ -461,8 +461,10 @@
             { x => x.IsOffer, isOffer },
             { x => x.LocalAids, appCache.Aids },
             { x => x.Connections, appCache.MyConnections },
-            { x => x.InitialIssuerPrefix, _issueCredentialsPrefs?.IssuerPrefix },
-            { x => x.InitialHolderPrefix, _issueCredentialsPrefs?.HolderPrefix },
+            { x => x.InitialIssuerPrefix, _issueCredentialsPrefs?.Ecr?.IssuerPrefix },
+            { x => x.InitialHolderPrefix, _issueCredentialsPrefs?.Ecr?.HolderPrefix },
+            { x => x.InitialSediIssuerPrefix, _issueCredentialsPrefs?.Sedi?.IssuerPrefix },
+            { x => x.InitialSediIssueePrefix, _issueCredentialsPrefs?.Sedi?.IssueePrefix },
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -480,12 +482,35 @@
             var result = dialogResult.Data as OfferOrGrantCredentialIssuanceDialog.IssuanceDialogResult;
             if (result is not null && result.Submitted) {
                 snackbar.Add($"Credential {(isOffer ? "offered" : "granted")} successfully", Severity.Success);
-                await SaveIssueCredentialsPrefsAsync(new IssueCredentialsTestPrefs
-                {
-                    IssuerPrefix = result.IssuerPrefix,
-                    HolderPrefix = result.HolderPrefix,
-                    RoleName = result.RoleName ?? ""
-                });
+                var existing = _issueCredentialsPrefs ?? new IssueCredentialsTestPrefs();
+                IssueCredentialsTestPrefs? updated;
+                switch (result.Kind) {
+                    case OfferOrGrantCredentialIssuanceDialog.IssuanceKind.Ecr:
+                        updated = existing with {
+                            Ecr = new IssueEcrTestPrefs {
+                                IssuerPrefix = result.IssuerPrefix,
+                                HolderPrefix = result.HolderPrefix,
+                                RoleName = result.RoleName ?? ""
+                            }
+                        };
+                        break;
+                    case OfferOrGrantCredentialIssuanceDialog.IssuanceKind.Sedi:
+                        var existingSedi = existing.Sedi ?? new IssueSediTestPrefs();
+                        updated = existing with {
+                            Sedi = existingSedi with {
+                                IssuerPrefix = result.IssuerPrefix,
+                                IssueePrefix = result.HolderPrefix
+                            }
+                        };
+                        break;
+                    default:
+                        logger.LogWarning("OpenAdHocIssuanceDialog: unhandled IssuanceKind {Kind}", result.Kind);
+                        updated = null;
+                        break;
+                }
+                if (updated is not null) {
+                    await SaveIssueCredentialsPrefsAsync(updated);
+                }
             }
         }
     }

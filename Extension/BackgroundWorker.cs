@@ -1581,6 +1581,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIssueEcrCredentialRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIssueSediCredential:
+                    await HandleAppRequestIssueSediCredentialRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestSubmitIpexOffer:
                     await HandleAppRequestSubmitIpexOfferRpcAsync(portId, request, payload);
                     return;
@@ -3631,6 +3635,207 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
     }
 
     /// <summary>
+    /// Issue a new SEDI credential (signing step only, no IPEX submission). Mirrors
+    /// HandleAppRequestIssueEcrCredentialRpcAsync but builds the SEDI-specific attribute
+    /// structure: every per-attribute <c>{d, u, v}</c> block is pre-saidified so signify-ts
+    /// only needs to saidify the top-level credential plus <c>a</c> and <c>r</c>.
+    /// </summary>
+    private async Task HandleAppRequestIssueSediCredentialRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueSediCredentialResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var issueRequest = JsonSerializer.Deserialize<IssueSediCredentialRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (issueRequest is null
+                || string.IsNullOrEmpty(issueRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(issueRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(issueRequest.FullLegalName)
+                || string.IsNullOrEmpty(issueRequest.BirthDateIso)
+                || string.IsNullOrEmpty(issueRequest.ResidenceAddress)
+                || string.IsNullOrEmpty(issueRequest.ProofingMethod)
+                || string.IsNullOrEmpty(issueRequest.ProofingLevel)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueSediCredentialResponsePayload(false, Error: "Invalid or missing issue parameters"));
+                return;
+            }
+
+            var senderPrefix = issueRequest.SenderNameOrPrefix;
+            var recipientPrefix = issueRequest.RecipientPrefix;
+
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueSediCredentialResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            logger.LogInformation(nameof(HandleAppRequestIssueSediCredentialRpcAsync) +
+                ": sender={Sender} ({SenderName}), recipient={Recipient}",
+                senderPrefix, senderName, recipientPrefix);
+
+            if (!await EnsureSchemaResolvedAsync(SediCredentialHelper.SediSchemaSaid, nameof(HandleAppRequestIssueSediCredentialRpcAsync))) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueSediCredentialResponsePayload(false, Error: "Failed to resolve SEDI schema"));
+                return;
+            }
+
+            IssueSediCredentialResponsePayload? successResult = null;
+            using (_broker.PrioritizeInteractive()) {
+                // Create SEDI registry (idempotent). Registry name embeds the issuer AID name —
+                // same pattern as Go's `{gedaName}_registry` / ECR's `{senderName}_ecr_offer_registry`.
+                // This avoids collisions with pre-existing unscoped registry names (e.g., an old
+                // "sedi" or "sedi2" left over from earlier experiments whose state KERIA cannot
+                // always reconcile via registries().list). TODO P2 persist registry SAID into
+                // IssueSediTestPrefs.SediStatusRegistry to skip the CreateRegistryIfNotExists
+                // round-trip on subsequent issuances.
+                var registryName = $"{senderName}_{SediCredentialHelper.SediRegistryName}_registry";
+                var registryResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                    svc => svc.CreateRegistryIfNotExists(senderName, registryName));
+                if (registryResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueSediCredentialResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
+                    return;
+                }
+
+                logger.LogInformation(nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": Building SEDI credential data...");
+                var credData = new RecursiveDictionary();
+                credData["fullLegalName"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = issueRequest.FullLegalName })
+                };
+                credData["birthDate"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = issueRequest.BirthDateIso })
+                };
+                credData["residenceAddress"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = issueRequest.ResidenceAddress })
+                };
+                credData["lawfulPresenceVerified"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { BooleanValue = issueRequest.LawfulPresenceVerified })
+                };
+                credData["proofingMethod"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = issueRequest.ProofingMethod })
+                };
+                credData["proofingLevel"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = issueRequest.ProofingLevel })
+                };
+                credData["portrait"] = new RecursiveValue {
+                    Dictionary = await BuildSediAttrBlockAsync(new RecursiveValue { StringValue = SediCredentialHelper.TestPortraitBase64Url })
+                };
+
+                var credRules = await BuildSediRulesAsync();
+
+                logger.LogInformation(nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": Issuing SEDI credential...");
+                var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueAndGetCredential,
+                    svc => svc.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                        IssuerAidNameOrPrefix: senderName,
+                        RegistryName: registryName,
+                        Schema: SediCredentialHelper.SediSchemaSaid,
+                        HolderPrefix: recipientPrefix,
+                        CredData: credData,
+                        CredRules: credRules,
+                        Private: true
+                    )));
+
+                if (issueResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueSediCredentialResponsePayload(false, Error: $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var credentialSaid = issueResult.Value["said"]?.StringValue;
+                var acdc = issueResult.Value["acdc"]?.Dictionary;
+                var anc = issueResult.Value["anc"]?.Dictionary;
+                var iss = issueResult.Value["iss"]?.Dictionary;
+
+                if (string.IsNullOrEmpty(credentialSaid) || acdc is null || anc is null || iss is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueSediCredentialResponsePayload(false, Error: "Issued credential missing required fields"));
+                    return;
+                }
+                logger.LogInformation(nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": SEDI credential issued: said={Said}", credentialSaid);
+
+                successResult = new IssueSediCredentialResponsePayload(
+                    Success: true,
+                    CredentialSaid: credentialSaid,
+                    Acdc: acdc,
+                    Anc: anc,
+                    Iss: iss);
+            }
+
+            if (successResult is not null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: successResult);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": Error during issue");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IssueSediCredentialResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Build a SEDI attribute <c>{d, u, val}</c> sub-block with its SAID pre-computed. The value
+    /// field is named <c>val</c> (not <c>v</c>) because signify-ts reserves top-level <c>v</c>
+    /// for the CESR version string and fails saidify otherwise. Key insertion order is
+    /// preserved — critical for the SAID computation to match what verifiers expect.
+    /// </summary>
+    private async Task<RecursiveDictionary> BuildSediAttrBlockAsync(RecursiveValue value) {
+        var block = new RecursiveDictionary();
+        block["d"] = new RecursiveValue { StringValue = "" };
+        block["u"] = new RecursiveValue { StringValue = RandomStringGenerator.GenerateRandomString(22) };
+        block["val"] = value;
+        var saidResult = await _signifyClientService.Saidify(block);
+        if (saidResult.IsFailed) {
+            throw new InvalidOperationException($"Saidify SEDI attribute block failed: {saidResult.Errors[0].Message}");
+        }
+        block["d"] = new RecursiveValue { StringValue = saidResult.Value };
+        return block;
+    }
+
+    /// <summary>
+    /// Build the SEDI rules block with pre-saidified usageDisclaimer and privacyDisclaimer
+    /// sub-blocks. The outer rules block's <c>d</c> is left empty — signify-ts computes <c>r.d</c>
+    /// when issuing. Disclaimer text is sourced from the SEDI schema so it cannot drift.
+    /// </summary>
+    private async Task<RecursiveDictionary> BuildSediRulesAsync() {
+        var usage = new RecursiveDictionary();
+        usage["d"] = new RecursiveValue { StringValue = "" };
+        usage["l"] = new RecursiveValue { StringValue = SediCredentialHelper.SediUsageDisclaimer };
+        var usageSaid = await _signifyClientService.Saidify(usage);
+        if (usageSaid.IsFailed) {
+            throw new InvalidOperationException($"Saidify usageDisclaimer failed: {usageSaid.Errors[0].Message}");
+        }
+        usage["d"] = new RecursiveValue { StringValue = usageSaid.Value };
+
+        var privacy = new RecursiveDictionary();
+        privacy["d"] = new RecursiveValue { StringValue = "" };
+        privacy["l"] = new RecursiveValue { StringValue = SediCredentialHelper.SediPrivacyDisclaimer };
+        var privacySaid = await _signifyClientService.Saidify(privacy);
+        if (privacySaid.IsFailed) {
+            throw new InvalidOperationException($"Saidify privacyDisclaimer failed: {privacySaid.Errors[0].Message}");
+        }
+        privacy["d"] = new RecursiveValue { StringValue = privacySaid.Value };
+
+        var rules = new RecursiveDictionary();
+        rules["d"] = new RecursiveValue { StringValue = "" };
+        rules["usageDisclaimer"] = new RecursiveValue { Dictionary = usage };
+        rules["privacyDisclaimer"] = new RecursiveValue { Dictionary = privacy };
+        return rules;
+    }
+
+    /// <summary>
     /// Submit an IPEX offer for a credential that has already been issued (by SAID).
     /// Must be preceded by a successful RequestIssueEcrCredential (or otherwise, the credential
     /// must already exist in the sender's registry). ApplySaid is optional for ad-hoc flows.
@@ -4108,15 +4313,11 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                 return true;
             }
 
-            // Fast path: use embedded resource body if available (no KERIA call needed)
-            var embeddedBody = _schemaService.GetSchemaBody(schemaSaid);
-            if (embeddedBody is not null) {
-                logger.LogDebug("{Caller}: Schema {SchemaSaid} found in embedded resources", callerName, schemaSaid);
-                await AddToResolvedSchemaCacheAsync(schemaSaid, embeddedBody);
-                return true;
-            }
-
-            // Check if schema is already in KERIA and cache the body
+            // Check if schema is already in KERIA and cache the body. (The embedded-resource body
+            // is NOT a sufficient substitute here: callers of this method are issuing credentials,
+            // which requires the schema to exist in KERIA itself — a locally-embedded body that
+            // KERIA has not yet resolved will pass our check but fail at issuance with "Credential
+            // schema ... not found. It must be loaded with data oobi before issuing credentials".)
             var existingSchemaRaw = await _broker.EnqueueBackgroundAsync(SignifyOperation.GetSchemaRaw,
                 svc => svc.GetSchemaRaw(schemaSaid));
             if (existingSchemaRaw.IsSuccess) {

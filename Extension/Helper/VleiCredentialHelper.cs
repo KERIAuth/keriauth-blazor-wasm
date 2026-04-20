@@ -9,7 +9,7 @@ public static class VleiCredentialHelper
     public const string EcrAuthSchemaSaid = CredentialHelper.SchemaSaids.EcrAuth;
     public const string EcrSchemaSaid = CredentialHelper.SchemaSaids.Ecr;
 
-    // TODO P2 pull these disclaimers from the credential file?
+    // TODO P2 pull these disclaimers from the schema file, similar to SediCredentialHelper.cs
     public const string EcrPrivacyDisclaimer =
         "It is the sole responsibility of Holders as Issuees of an ECR vLEI Credential to present that Credential in a privacy-preserving manner using the mechanisms provided in the Issuance and Presentation Exchange (IPEX) protocol specification and the Authentic Chained Data Container (ACDC) specification. https://github.com/WebOfTrust/IETF-IPEX and https://github.com/trustoverip/tswg-acdc-specification.";
     public const string EcrAuthPrivacyDisclaimer =

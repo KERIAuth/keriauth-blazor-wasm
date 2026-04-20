@@ -180,6 +180,12 @@ namespace Extension.Models.Messages.AppBw {
             /// </summary>
             public const string RequestIssueEcrCredential = "AppBw.RequestIssueEcrCredential";
             /// <summary>
+            /// Request BW to issue a new SEDI (State-Endorsed Digital Identity) credential. Mirrors
+            /// RequestIssueEcrCredential: signing-only, returns full acdc/anc/iss + SAID. Grant is
+            /// submitted separately via RequestSubmitIpexGrant.
+            /// </summary>
+            public const string RequestIssueSediCredential = "AppBw.RequestIssueSediCredential";
+            /// <summary>
             /// Request BW to submit an IPEX offer for an already-issued credential (by SAID).
             /// Complements RequestIssueEcrCredential — the App calls IssueEcrCredential first,
             /// then this once the user confirms.
@@ -258,6 +264,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
         // RequestIpexOffer and RequestIpexGrant static properties removed (see Values comment above)
         public static AppBwMessageType RequestIssueEcrCredential { get; } = new(Values.RequestIssueEcrCredential);
+        public static AppBwMessageType RequestIssueSediCredential { get; } = new(Values.RequestIssueSediCredential);
         public static AppBwMessageType RequestSubmitIpexOffer { get; } = new(Values.RequestSubmitIpexOffer);
         public static AppBwMessageType RequestSubmitIpexGrant { get; } = new(Values.RequestSubmitIpexGrant);
         public static AppBwMessageType RequestRevokeCredential { get; } = new(Values.RequestRevokeCredential);
@@ -398,6 +405,9 @@ namespace Extension.Models.Messages.AppBw {
                 // RequestIpexOffer and RequestIpexGrant TryParse cases removed
                 case Values.RequestIssueEcrCredential:
                     result = RequestIssueEcrCredential;
+                    return true;
+                case Values.RequestIssueSediCredential:
+                    result = RequestIssueSediCredential;
                     return true;
                 case Values.RequestSubmitIpexOffer:
                     result = RequestSubmitIpexOffer;
@@ -925,6 +935,34 @@ namespace Extension.Models.Messages.AppBw {
     /// acdc/anc/iss it needs (IpexGrantAndSubmit does not accept a credentialSaid alone).
     /// </summary>
     public record IssueEcrCredentialResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null,
+        [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,
+        [property: JsonPropertyName("anc")] RecursiveDictionary? Anc = null,
+        [property: JsonPropertyName("iss")] RecursiveDictionary? Iss = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to issue a new SEDI (State-Endorsed Digital Identity) credential. Signing-only —
+    /// no IPEX submission. The BW supplies registry creation, per-attribute SAID computation,
+    /// rules block assembly, and portrait from <c>SediCredentialHelper.TestPortraitBase64Url</c>.
+    /// </summary>
+    public record IssueSediCredentialRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("fullLegalName")] string FullLegalName,
+        [property: JsonPropertyName("birthDateIso")] string BirthDateIso,
+        [property: JsonPropertyName("residenceAddress")] string ResidenceAddress,
+        [property: JsonPropertyName("lawfulPresenceVerified")] bool LawfulPresenceVerified,
+        [property: JsonPropertyName("proofingMethod")] string ProofingMethod,
+        [property: JsonPropertyName("proofingLevel")] string ProofingLevel
+    );
+
+    /// <summary>
+    /// Response payload for RequestIssueSediCredential. Mirrors IssueEcrCredentialResponsePayload.
+    /// </summary>
+    public record IssueSediCredentialResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null,
         [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,

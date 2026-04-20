@@ -110,7 +110,7 @@
     <EmbeddedResource Include="Schemas\verifiable-credential-schema-for-data-attestation.json">
       <LogicalName>Extension.Schemas.verifiable-credential-schema-for-data-attestation.json</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Schemas\oobi\EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i\index.json">
+    <EmbeddedResource Include="Schemas\oobi\EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq\index.json">
       <LogicalName>Extension.Schemas.state-endorsed-digital-identity-credential.json</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
