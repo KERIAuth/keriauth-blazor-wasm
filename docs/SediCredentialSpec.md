@@ -89,7 +89,7 @@ The schema has a **single top-level `$id`** (no nested `$id` fields), so `Saider
 | `a.lawfulPresenceVerified.{d,u,v}` | saidify, nonce, default `true` | **Lawful presence verified** (checkbox) |
 | `a.proofingMethod.{d,u,v}` | saidify, nonce, default `"in-person-document"` | **Proofing method** (select from enum) |
 | `a.proofingLevel.{d,u,v}` | saidify, nonce, default `"IAL3"` | **Proofing level** (select `IAL1`/`IAL2`/`IAL3`) |
-| `a.portrait.{d,u,v}` | hardcoded tiny base64-JPEG constant | no |
+| `a.portrait.{d,u,v}` | saidify, nonce, base64url constant `SediCredentialHelper.TestPortraitBase64Url` | no |
 | `r.d` | saidify | no |
 | `r.usageDisclaimer.{d,l}` | saidify, const text | no |
 | `r.privacyDisclaimer.{d,l}` | saidify, const text | no |
@@ -173,14 +173,12 @@ Blocks all downstream work. Once the schema is saidified and committed to `main`
 - Add `IssueSediCredentialRequestPayload` with fields: `IssuerPrefix`, `IssueePrefix`, `FullLegalName`, `BirthDateIso`, `ResidenceAddress`, `LawfulPresenceVerified`, `ProofingMethod`, `ProofingLevel`.
 - Add `IssueSediCredentialResponsePayload` mirroring [`IssueEcrCredentialResponsePayload`](../Extension/Models/Messages/AppBw/AppBwMessages.cs) (`Success`, `Acdc`, `Anc`, `Iss`, `CredentialSaid`, `Error`).
 - Add `AppBwMessageType.Values.RequestIssueSediCredential` + BW handler.
-- In [PrimeDataService.cs](../Extension/Services/PrimeDataService/PrimeDataService.cs):
-  - `EnsureSediRegistryAsync(issuerPrefix)` — looks up the issuer AID name, calls existing `CreateRegistryStep(aidName, "sedi", ...)` if no registry SAID in prefs, persists the registry SAID back into `IssueSediTestPrefs.SediStatusRegistry`, returns the SAID.
-  - `IssueSediCredentialAsync(args)` — builds the nested `RecursiveDictionary` per the instance-values table (every `{d,u,v}` block is populated with fresh nonces and saidified by the signify-ts `credentials().issue(...)` path), then calls `IssueCredentialStep` with schema SAID = `SediSchemaSaid`.
+- **BW handler does the work directly** (not PrimeDataService) — mirrors the existing ECR pattern at [BackgroundWorker.HandleAppRequestIssueEcrCredentialRpcAsync](../Extension/BackgroundWorker.cs). PrimeDataService is reserved for orchestrated multi-step workflows (the vLEI chain "Go" flow). Per-attribute `{d, u, v}` sub-blocks are pre-saidified by the BW (signify-ts's `credentials().issue(...)` only saidifies block-level `a.d`/`r.d`/top-level, not nested sub-blocks). Rules block sub-disclaimer `d` fields are also pre-saidified.
+- **Registry handling**: uses stock `CreateRegistryIfNotExists(senderName, "sedi")` which is already idempotent at the KERIA level. The `IssueSediTestPrefs.SediStatusRegistry` prefs field is reserved but not yet populated — a `// TODO P2` is left in the handler to opt-in to prefs-cached lookup as a future optimization.
 - Grant path reuses existing `RequestSubmitIpexGrant`.
 
 **Tests:**
-- Unit test: the built `RecursiveDictionary` preserves nested-path ordering for `a.d`, `a.u`, `a.i`, `a.dt`, and each attribute `{d,u,v}` block — critical per CLAUDE.md §6, §13 (CESR/SAID ordering invariant).
-- Unit test: `EnsureSediRegistryAsync` creates a registry on first call, returns the persisted SAID on subsequent calls.
+- Deferred to Phase 5: full SAID roundtrip test via the existing [DeveloperTestPage](../Extension/UI/Pages/DeveloperTestPage.razor) saidify verification on an actually-issued SEDI credential. This end-to-end check is more valuable than a shallow unit test on `RecursiveDictionary` ordering (which is already covered by [RecursiveDictionaryTests](../Extension.Tests/Helper/RecursiveDictionaryTests.cs)).
 
 **Gate:** user manual-tests BW issuance end-to-end (e.g. via a temporary developer page button) before Phase 4.
 
