@@ -18,6 +18,7 @@ public enum CredentialFieldFormat {
     DateTimeAsUtc,
     Identicon,
     Lei,
+    Base64Jpeg,
 
     // JSON Schema 2020-12 standard formats
     Date,
@@ -56,6 +57,7 @@ public static class CredentialFieldFormatNames {
             ["identicon"] = CredentialFieldFormat.Identicon,
             ["lei"] = CredentialFieldFormat.Lei,
             ["ISO 17442"] = CredentialFieldFormat.Lei,  // schema-declared format on LEI fields
+            ["base64jpeg"] = CredentialFieldFormat.Base64Jpeg,
             // JSON Schema 2020-12
             ["date"] = CredentialFieldFormat.Date,
             ["time"] = CredentialFieldFormat.Time,
