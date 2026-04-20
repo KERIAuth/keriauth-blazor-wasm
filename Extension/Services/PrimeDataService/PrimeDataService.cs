@@ -875,13 +875,38 @@ namespace Extension.Services.PrimeDataService {
             foreach (var oobiUrl in oobiUrls) {
                 _logger.LogInformation("  Trying OOBI: {Url}", oobiUrl);
                 var result = await _signifyClient.ResolveOobi(oobiUrl);
-                if (result.IsSuccess) {
-                    _logger.LogInformation("  Schema '{SchemaName}' resolved via {Url}", schemaName, oobiUrl);
-                    return Result.Ok();
+                if (result.IsFailed) {
+                    var errorMsg = result.Errors[0].Message;
+                    _logger.LogWarning("  Failed to start OOBI resolve for {Url}: {Error}", oobiUrl, errorMsg);
+                    errors.Add($"{oobiUrl} (start): {errorMsg}");
+                    continue;
                 }
-                var errorMsg = result.Errors[0].Message;
-                _logger.LogWarning("  Failed to resolve schema OOBI {Url}: {Error}", oobiUrl, errorMsg);
-                errors.Add($"{oobiUrl}: {errorMsg}");
+
+                // ResolveOobi returns the long-running operation descriptor — we must wait for it
+                // AND verify GetSchemaRaw before declaring success. Without these steps KERIA can
+                // silently fail to fetch (unreachable URL, content-type rejection, SAID mismatch)
+                // while this function reports the schema as resolved; downstream credential
+                // issuance then fails with "Schema not found" only at the KERIA 400 stage.
+                if (result.Value.TryGetValue("name", out var nameValue) && nameValue.StringValue is string opName && !string.IsNullOrEmpty(opName)) {
+                    var waitResult = await _signifyClient.WaitForOperation(new Operation(opName));
+                    if (waitResult.IsFailed) {
+                        var errorMsg = waitResult.Errors[0].Message;
+                        _logger.LogWarning("  OOBI resolve operation {OpName} failed/timed out for {Url}: {Error}", opName, oobiUrl, errorMsg);
+                        errors.Add($"{oobiUrl} (wait): {errorMsg}");
+                        continue;
+                    }
+                }
+
+                var verifyResult = await _signifyClient.GetSchemaRaw(schemaSaid);
+                if (verifyResult.IsFailed) {
+                    var errorMsg = verifyResult.Errors[0].Message;
+                    _logger.LogWarning("  OOBI resolve reported success for {Url}, but KERIA still does not have schema {Said}: {Error}", oobiUrl, schemaSaid, errorMsg);
+                    errors.Add($"{oobiUrl} (verify): {errorMsg}");
+                    continue;
+                }
+
+                _logger.LogInformation("  Schema '{SchemaName}' resolved and verified via {Url}", schemaName, oobiUrl);
+                return Result.Ok();
             }
 
             var allErrors = string.Join("; ", errors);
