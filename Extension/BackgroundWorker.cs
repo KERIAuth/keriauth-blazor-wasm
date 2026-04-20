@@ -4352,6 +4352,12 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                             var waitResult = await _broker.EnqueueBackgroundAsync(SignifyOperation.WaitForOperation,
                                 svc => svc.WaitForOperation(op));
                             if (waitResult.IsFailed) {
+                                // When WaitForOperation times out, retrying GetSchemaRaw 5× here
+                                // creates broker-queue starvation that blocks other credential
+                                // ops for minutes when multiple OOBI URLs are unreachable. Fail
+                                // this URL fast and move on; a reachable URL (or a later explicit
+                                // retry by the user) will resolve the schema without holding the
+                                // queue.
                                 logger.LogWarning("{Caller}: Operation wait failed for schema OOBI: {Error}", callerName, waitResult.Errors[0].Message);
                                 continue;
                             }
