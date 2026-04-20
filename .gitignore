@@ -463,3 +463,4 @@ scripts/**/obj/
 scripts/bundles/obj/
 scripts/modules/obj/
 scripts/types/obj/
+scripts/saidify_schema.py

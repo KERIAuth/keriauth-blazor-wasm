@@ -72,6 +72,15 @@
         "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
         "https://raw.githubusercontent.com/KERIAuth/public-schema/0ba26179a4a8828ec7ca69f03a40ab9215ad5ede/test/sedi-schema.json"
       ]
+    },
+    {
+      "said": "EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i",
+      "name": "State-Endorsed Digital Identity Credential",
+      "file": "state-endorsed-digital-identity-credential.json",
+      "$comment": "TODO P1 add secondary OOBI URL once a dedicated SEDI schema-OOBI server path is provided",
+      "oobiUrls": [
+        "https://raw.githubusercontent.com/KERIAuth/keriauth-blazor-wasm/refs/heads/main/Extension/Schemas/oobi/EMyYzuV9ZnGAdTBHgRGygNEeDsB6799KRnCnG_Cz1a8i/index.json"
+      ]
     }
   ],
   "defaultOobiHosts": [
