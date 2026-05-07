@@ -124,10 +124,10 @@ See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (
 
 **WSL path conventions for Claude Code**:
 - The project lives at WSL path `~/s/k/keriauth-blazor-wasm`
-- From Windows/Claude Code, use UNC paths: `//wsl.localhost/Ubuntu-24.04/home/edeyk/s/...`
 - Build commands must run via WSL: `wsl -d Ubuntu-24.04 -- bash -lc "cd ~/s/k/keriauth-blazor-wasm && make build"`
 - The user's `~/s/` directory contains sibling repos that may be referenced (e.g., `~/s/g/` for reference implementations)
-- Read/write access to everything under `~/s/` is pre-authorized for the session
+
+**Searching the codebase**: prefer the dedicated tools — `Grep`, `Glob`, `Read` — over `Bash` invocations of `grep` / `find` / `cat`. They auto-allow without prompting and are typically sufficient for project-scoped searches. Only escalate to `Bash` for searches that genuinely need shell features (pipelines, `find -exec`, multi-step composition) or that span outside the project root. When you do reach for `Bash`, scope the path to the project root (`~/s/k/keriauth-blazor-wasm/...`) rather than `~` or `/home`. Actual permission grants live in `.claude/settings.json` (shared) and `.claude/settings.local.json` (personal); CLAUDE.md cannot grant permissions on its own.
 
 ## Security Constraints
 

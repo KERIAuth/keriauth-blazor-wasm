@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://raw.githubusercontent.com/*)",
+      "Bash(curl -sI https://raw.githubusercontent.com/*)",
+      "Bash(curl -s https://api.github.com/*)",
+      "Bash(curl -sk https://schema.testnet.gleif.org:*)",
+      "Bash(ilspycmd ~/.nuget/*)"
+    ]
+  }
+}
