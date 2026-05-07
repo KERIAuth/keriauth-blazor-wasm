@@ -1,3 +1,4 @@
+@using Extension.Helper
 @using Extension.Models
 @using Extension.Services
 @using Extension.UI.Components
@@ -57,18 +58,11 @@
     [Parameter]
     public string? Path { get; set; }
 
-    static bool IsEdgePath(string? path) {
-        if (string.IsNullOrEmpty(path)) return false;
-        var lastSlash = path.LastIndexOf('/');
-        var seg = lastSlash >= 0 ? path[(lastSlash + 1)..] : path;
-        return seg.TrimStart('.').StartsWith("e.", StringComparison.Ordinal);
-    }
-
     bool HasChainTarget =>
         !string.IsNullOrEmpty(Said)
         && ChainIndex is { } idx
         && idx.ContainsKey(Said)
-        && IsEdgePath(Path);
+        && CredentialPaths.IsEdgePath(Path);
 
     async Task ScrollToChain() {
         if (string.IsNullOrEmpty(Said)) return;
