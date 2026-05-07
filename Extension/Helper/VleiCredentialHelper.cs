@@ -51,6 +51,19 @@ public static class VleiCredentialHelper
         return edge;
     }
 
+    // ECR schema's edges block has a `oneOf` second variant with only an `le` chain to the
+    // Legal Entity vLEI credential — used when the LE issues an ECR directly to a person
+    // without an intermediating ECR Authorization vLEI credential. No `o` operator per schema.
+    public static RecursiveDictionary BuildEcrLeEdge(string leCredentialSaid) {
+        var edge = new RecursiveDictionary();
+        edge["d"] = new RecursiveValue { StringValue = "" };
+        var leRef = new RecursiveDictionary();
+        leRef["n"] = new RecursiveValue { StringValue = leCredentialSaid };
+        leRef["s"] = new RecursiveValue { StringValue = LeSchemaSaid };
+        edge["le"] = new RecursiveValue { Dictionary = leRef };
+        return edge;
+    }
+
     public static RecursiveDictionary? FindEcrAuthCredential(List<RecursiveDictionary> credentials, string holderPrefix) {
         return credentials.FirstOrDefault(c =>
             c.GetValueByPath("sad.s")?.Value?.ToString() == EcrAuthSchemaSaid &&

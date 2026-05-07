@@ -57,7 +57,7 @@ namespace Extension.Services.PrimeDataService {
             var prepend = payload?.Prepend ?? string.Empty;
             _logger.LogInformation("PrimeData Go starting with prepend '{Prepend}'", prepend);
 
-            const int goTotalSteps = 39;
+            const int goTotalSteps = 42;
             var generatedExchangeSaids = new HashSet<string>();
 
             // Steps 1-4: Create AIDs
@@ -510,9 +510,50 @@ namespace Extension.Services.PrimeDataService {
             if (step32.IsFailed) return await FailResponseWithProgress(step32.Errors[0].Message);
             generatedExchangeSaids.Add(step32.Value);
 
-            // Step 33: Wait for KERIA to propagate notifications, then mark as read
-            await ReportProgress(39, goTotalSteps, "Finalizing notifications");
-            await WaitForNotificationsAndMarkAsReadStep(generatedExchangeSaids, "Step 33");
+            // Step 33a: LE issues ECR credential directly to Person (private), chained to LE credential
+            // via the schema's `le` edge variant — no ECR Auth credential is involved in this path.
+            await ReportProgress(39, goTotalSteps, "Issuing LE-direct ECR credential");
+            var ecrLeCredData = VleiCredentialHelper.BuildEcrCredentialData("purchaser");
+            var ecrLeEdge = VleiCredentialHelper.BuildEcrLeEdge(leCredIssued.Value.Said);
+
+            var ecrLeIssued = await IssueCredentialStep(new IssueAndGetCredentialArgs(
+                IssuerAidNameOrPrefix: leName,
+                RegistryName: leRegistryName,
+                Schema: EcrSchemaSaid,
+                HolderPrefix: personResult.Value.Prefix,
+                CredData: ecrLeCredData,
+                CredEdge: ecrLeEdge,
+                CredRules: VleiCredentialHelper.BuildVleiRules(VleiCredentialHelper.EcrPrivacyDisclaimer),
+                Private: true
+            ), "Step 33a", "LE-direct ECR credential");
+            if (ecrLeIssued.IsFailed) return await FailResponseWithProgress(ecrLeIssued.Errors[0].Message);
+
+            // Step 33b: LE grants LE-direct ECR credential to Person via IPEX
+            await ReportProgress(40, goTotalSteps, "Granting LE-direct ECR credential");
+            var ecrLeGrantSaid = await GrantStep(new IpexGrantSubmitArgs(
+                SenderNameOrPrefix: leName,
+                RecipientPrefix: personResult.Value.Prefix,
+                Acdc: ecrLeIssued.Value.Acdc,
+                Anc: ecrLeIssued.Value.Anc,
+                Iss: ecrLeIssued.Value.Iss
+            ), "Step 33b");
+            if (ecrLeGrantSaid.IsFailed) return await FailResponseWithProgress(ecrLeGrantSaid.Errors[0].Message);
+            generatedExchangeSaids.Add(ecrLeGrantSaid.Value);
+            await WaitForNotificationsAndMarkAsReadStep(new HashSet<string> { ecrLeGrantSaid.Value }, "Step 33b propagation");
+
+            // Step 34: Person admits LE-direct ECR credential
+            await ReportProgress(41, goTotalSteps, "Admitting LE-direct ECR credential");
+            var step34 = await AdmitStep(new IpexAdmitSubmitArgs(
+                SenderNameOrPrefix: personName,
+                RecipientPrefix: leResult.Value.Prefix,
+                GrantSaid: ecrLeGrantSaid.Value
+            ), "Step 34");
+            if (step34.IsFailed) return await FailResponseWithProgress(step34.Errors[0].Message);
+            generatedExchangeSaids.Add(step34.Value);
+
+            // Step 35: Wait for KERIA to propagate notifications, then mark as read
+            await ReportProgress(42, goTotalSteps, "Finalizing notifications");
+            await WaitForNotificationsAndMarkAsReadStep(generatedExchangeSaids, "Step 35");
 
             _logger.LogInformation("PrimeData Go completed successfully");
             await ReportComplete();

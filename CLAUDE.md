@@ -113,10 +113,11 @@ This pattern is especially load-bearing in BackgroundWorker RPC handlers: handle
 See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (Ubuntu).
 
 **Quick reference for Claude Code**:
+- **Always go through `make`** for builds and tests. Do not call `dotnet build` directly — `make` runs TypeScript bundling, manifest conversion, and extension packaging that `dotnet build` skips.
 - Incremental build: `make build`
 - Build + test: `make build && make test`
 - TypeScript only: `make build` (not `make build-ts` — Chrome loads from the dotnet build output, not wwwroot)
-- C# only (skip TypeScript): `dotnet build --configuration Release -p:Quick=true`
+- C# only (skip TypeScript): only when explicitly requested by the user — `dotnet build --configuration Release -p:Quick=true`
 - Clean build: `make clean-build`
 - Watch mode: `make watch`
 
@@ -124,7 +125,7 @@ See [BUILD.md](docs/BUILD.md) for full instructions. Builds exclusively in WSL (
 
 **WSL path conventions for Claude Code**:
 - The project lives at WSL path `~/s/k/keriauth-blazor-wasm`
-- Build commands must run via WSL: `wsl -d Ubuntu-24.04 -- bash -lc "cd ~/s/k/keriauth-blazor-wasm && make build"`
+- Build commands must run inside WSL. If your Bash tool already runs in Linux/WSL (check with `uname`), invoke `make` directly: `make build`. Only wrap with `wsl -d Ubuntu-24.04 -- bash -lc "..."` when invoking from a Windows host shell — using that wrapper from inside WSL fails with `wsl: command not found`.
 - The user's `~/s/` directory contains sibling repos that may be referenced (e.g., `~/s/g/` for reference implementations)
 
 **Searching the codebase**: prefer the dedicated tools — `Grep`, `Glob`, `Read` — over `Bash` invocations of `grep` / `find` / `cat`. They auto-allow without prompting and are typically sufficient for project-scoped searches. Only escalate to `Bash` for searches that genuinely need shell features (pipelines, `find -exec`, multi-step composition) or that span outside the project root. When you do reach for `Bash`, scope the path to the project root (`~/s/k/keriauth-blazor-wasm/...`) rather than `~` or `/home`. Actual permission grants live in `.claude/settings.json` (shared) and `.claude/settings.local.json` (personal); CLAUDE.md cannot grant permissions on its own.
