@@ -1,8 +1,10 @@
+@using Extension.Models
 @using Extension.Services
 @using Extension.UI.Components
 @implements IDisposable
 
 @inject AppCache appCache
+@inject IScrollManager scrollManager
 
 @*
     Renders an ACDC SAID value as a monospace span, abbreviated according to the user's
@@ -34,6 +36,49 @@
     [Parameter]
     public bool? Abbreviate { get; set; }
 
+    /// <summary>
+    /// Provided by CredentialViewTreeRenderer when this SaidDisplay is rendered inside a
+    /// credential view. Maps each chained credential's SAID to its tree. When the SAID we
+    /// render is a key in this map, a "scroll to chained credential" affordance is shown
+    /// next to the SAID and clicking it scrolls to the chain's header (which carries
+    /// id=&lt;said&gt; via LabelWithProvenance.Id). Null outside credential views.
+    /// </summary>
+    [CascadingParameter(Name = "ChainIndex")]
+    public Dictionary<string, CredentialViewTree>? ChainIndex { get; set; }
+
+    /// <summary>
+    /// Optional render-context path of the field whose value is this SAID, e.g. "e.auth.n"
+    /// or "e.auth/.e.le.n" when nested inside an inlined chain. The scroll-to-chain icon
+    /// is only rendered when this path indicates an edge field (the last "/" segment, with
+    /// any leading "." stripped, starts with "e."). This excludes top-level identifying
+    /// SAIDs such as a credential's own "d" — clicking those would link a row to itself.
+    /// Null at non-edge call sites.
+    /// </summary>
+    [Parameter]
+    public string? Path { get; set; }
+
+    static bool IsEdgePath(string? path) {
+        if (string.IsNullOrEmpty(path)) return false;
+        var lastSlash = path.LastIndexOf('/');
+        var seg = lastSlash >= 0 ? path[(lastSlash + 1)..] : path;
+        return seg.TrimStart('.').StartsWith("e.", StringComparison.Ordinal);
+    }
+
+    bool HasChainTarget =>
+        !string.IsNullOrEmpty(Said)
+        && ChainIndex is { } idx
+        && idx.ContainsKey(Said)
+        && IsEdgePath(Path);
+
+    async Task ScrollToChain() {
+        if (string.IsNullOrEmpty(Said)) return;
+        // TODO P3: push "#<said>" via NavigationManager so the browser Back button can
+        // restore the prior scroll position, and add an OnAfterRenderAsync handler on
+        // CredentialPage that reads Uri.Fragment / a query-string parameter and scrolls
+        // on initial render. Skipped now to avoid expanding the page's parameter surface.
+        await scrollManager.ScrollIntoViewAsync($"#{Said}", ScrollBehavior.Smooth);
+    }
+
     string? DisplayText {
         get {
             if (string.IsNullOrEmpty(Said)) return null;
@@ -61,4 +106,14 @@
 @if (!string.IsNullOrEmpty(Said))
 {
     <span class="bt-said" title="@Said">@DisplayText</span>
+    @if (HasChainTarget)
+    {
+        <MudTooltip Text="Scroll to chained credential" Placement="Placement.Top">
+            <MudIconButton Icon="@Icons.Material.Filled.KeyboardDoubleArrowDown"
+                           Size="Size.Small"
+                           Color="Color.Primary"
+                           aria-label="Scroll to chained credential"
+                           OnClick="ScrollToChain" />
+        </MudTooltip>
+    }
 }

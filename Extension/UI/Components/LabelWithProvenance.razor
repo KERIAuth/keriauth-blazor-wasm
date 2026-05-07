@@ -40,13 +40,21 @@
     [Parameter]
     public string? LabelClass { get; set; }
 
+    /// <summary>
+    /// Optional html id applied to the label text element. Set by callers that want this
+    /// label to be a scroll target — e.g., a chained credential's header label receives
+    /// the credential's SAID so other parts of the page can link to it.
+    /// </summary>
+    [Parameter]
+    public string? Id { get; set; }
+
     static string OrNa(string? value) =>
         string.IsNullOrEmpty(value) ? "n/a" : value;
 }
 
 <MudTooltip Placement="Placement.Top" Arrow="true">
     <ChildContent>
-        @if (LabelClass is not null) { <span class="@LabelClass">@Label</span> } else { <b>@Label</b> }<MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
+        @if (LabelClass is not null) { <span class="@LabelClass" id="@Id">@Label</span> } else { <b id="@Id">@Label</b> }<MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
                               Size="Size.Small"
                               Class="bt-label-help-icon" />
     </ChildContent>
