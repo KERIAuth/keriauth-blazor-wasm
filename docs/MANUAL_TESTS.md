@@ -118,6 +118,9 @@
   - [G. NotificationPage — Agree to Offer](#g-notificationpage--agree-to-offer)
   - [H. NotificationPage — Admit Credential](#h-notificationpage--admit-credential)
   - [I. NotificationPage — Presentation Flow](#i-notificationpage--presentation-flow)
+- [Print Rendering](#print-rendering)
+  - [A. CredentialPage Print Output (Both Themes)](#a-credentialpage-print-output-both-themes)
+  - [B. Raw JSON Expansion Panel Behavior in Print](#b-raw-json-expansion-panel-behavior-in-print)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -1264,4 +1267,35 @@ Verify that each credential type renders with correct per-schema labels, detail-
     - [ ] "Grant presentation" or "Offer presentation" button in CredentialPage tray
     - [ ] Submitting calls the presentation RPC and shows success snackbar
     - [ ] Back button returns to NotificationsPage
+
+# Print Rendering
+
+Print styles live in `Extension/wwwroot/css/site.css` under `@media print`. They apply globally; CredentialPage is the canonical test target because it exercises headings, body text, the AppBar, and an expansion panel with potentially long content.
+
+## A. CredentialPage Print Output (Both Themes)
+1. Prerequisite: Authenticated with at least one credential; navigate to a CredentialPage
+2. With Light theme active, open the browser print preview (Ctrl+P) — also Print to PDF
+3. Repeat with Dark theme active
+
+    Expected (both themes should produce visually identical print output):
+    - [ ] Background is white; text is dark (no washed-out grey from dark-theme palette)
+    - [ ] AppBar with "Credential" page title is shown at the top of the first page
+    - [ ] Drawer, button tray, snackbars, and tooltips/popovers are hidden
+    - [ ] No excess left margin — content begins near the left page margin (drawer-width offset is collapsed)
+    - [ ] Body text renders at roughly 8–12px; headings are not oversized (no MudBlazor h1/h2 6rem/3.75rem behavior)
+    - [ ] No trailing blank pages after the last visible content
+    - [ ] Page count matches the actual content (typically 1–4 pages for a card-view credential)
+
+## B. Raw JSON Expansion Panel Behavior in Print
+1. Prerequisite: CredentialPage open with `WithTechnicalDetails` detail level so the "Raw JSON" expansion panel is visible
+2. With the Raw JSON panel **collapsed**, open print preview (or Print to PDF)
+
+    Expected:
+    - [ ] Panel renders as a single header row (~50px) — no extra blank pages with a stretched panel border below it
+
+3. Expand the Raw JSON panel and re-open print preview
+
+    Expected:
+    - [ ] Panel content (JSON text) prints in monospace, wrapping or paginating naturally
+    - [ ] Page count grows to accommodate the JSON, with no excess trailing blank pages
 
