@@ -710,6 +710,12 @@
     font-style: italic;
 }
 
+.bt-credview-schema-name {
+    margin-left: 0.5rem;
+    font-size: 0.9em;
+    color: var(--mud-palette-text-secondary);
+}
+
 /* Used by SaidDisplay; applied to every SAID rendered in the UI. */
 .bt-said {
     font-family: monospace;
