@@ -119,8 +119,9 @@
   - [H. NotificationPage — Admit Credential](#h-notificationpage--admit-credential)
   - [I. NotificationPage — Presentation Flow](#i-notificationpage--presentation-flow)
 - [Print Rendering](#print-rendering)
-  - [A. CredentialPage Print Output (Both Themes)](#a-credentialpage-print-output-both-themes)
-  - [B. Raw JSON Expansion Panel Behavior in Print](#b-raw-json-expansion-panel-behavior-in-print)
+  - [A. Iterate Print Styles via DevTools CSS Media Emulation](#a-iterate-print-styles-via-devtools-css-media-emulation)
+  - [B. CredentialPage Print Output (Both Themes)](#b-credentialpage-print-output-both-themes)
+  - [C. Raw JSON Expansion Panel Behavior in Print](#c-raw-json-expansion-panel-behavior-in-print)
 - Other
   - Run Developer/PrimeData workflows
   - Add Contact with QR and camera scanning, or webpage-initiated flow
@@ -1272,8 +1273,28 @@ Verify that each credential type renders with correct per-schema labels, detail-
 
 Print styles live in `Extension/wwwroot/css/site.css` under `@media print`. They apply globally; CredentialPage is the canonical test target because it exercises headings, body text, the AppBar, and an expansion panel with potentially long content.
 
-## A. CredentialPage Print Output (Both Themes)
-1. Prerequisite: Authenticated with at least one credential; navigate to a CredentialPage
+**Test in a normal browser tab.** Chrome disables printing in the SidePanel (the native right-click "Print..." menu item is greyed out and `window.print()` is a no-op there) and may also block it in the action popup. To exercise these tests, open the extension in a full tab — for example, navigate to `chrome-extension://<extension-id>/index.html` directly, or use any in-extension link that opens the App in a tab — and run the print preview from there.
+
+## A. Iterate Print Styles via DevTools CSS Media Emulation
+Use this first to validate `@media print` rules without repeatedly opening the print dialog. It re-renders the page as if printing, so you can edit styles in the Elements/Styles panel live.
+
+1. Prerequisite: App open in a normal tab (see note above), on the page you want to verify (typically a CredentialPage)
+2. Right-click inside the page content → **Inspect** to open DevTools attached to that document
+3. Open the Command Menu: **Ctrl+Shift+P** (Windows/Linux) or **Cmd+Shift+P** (macOS)
+4. Type `Show Rendering` and select it — the **Rendering** drawer opens
+5. Scroll to **Emulate CSS media type** and choose **print**
+
+    Expected:
+    - [ ] Page re-renders with print styles applied (white background, AppBar visible, drawer/buttons hidden, body text at print sizes)
+    - [ ] You can edit `@media print` rules in the Styles panel and see results immediately
+    - [ ] Switching the dropdown back to **No emulation** restores the normal screen rendering
+
+6. While emulation is active, you can still confirm with the real dialog by pressing **Ctrl+P** / **Cmd+P** — the preview should match what the emulated view showed
+
+    Note: emulation does not change viewport width, so any `@media print` rule gated on a width breakpoint may not fire. Keep print-only rules unconditional on width.
+
+## B. CredentialPage Print Output (Both Themes)
+1. Prerequisite: Authenticated with at least one credential; navigate to a CredentialPage **in a normal tab** (not the SidePanel or action popup)
 2. With Light theme active, open the browser print preview (Ctrl+P) — also Print to PDF
 3. Repeat with Dark theme active
 
@@ -1286,8 +1307,8 @@ Print styles live in `Extension/wwwroot/css/site.css` under `@media print`. They
     - [ ] No trailing blank pages after the last visible content
     - [ ] Page count matches the actual content (typically 1–4 pages for a card-view credential)
 
-## B. Raw JSON Expansion Panel Behavior in Print
-1. Prerequisite: CredentialPage open with `WithTechnicalDetails` detail level so the "Raw JSON" expansion panel is visible
+## C. Raw JSON Expansion Panel Behavior in Print
+1. Prerequisite: CredentialPage open in a normal tab with `WithTechnicalDetails` detail level so the "Raw JSON" expansion panel is visible
 2. With the Raw JSON panel **collapsed**, open print preview (or Print to PDF)
 
     Expected:
