@@ -82,6 +82,7 @@ Local storage records that implement `IVersionedStorageModel` have a `SchemaVers
 - **Don't add comments, docstrings, or type annotations** to code you didn't change
 - **Avoid over-engineering** — three similar lines is better than a premature abstraction
 - **Avoid backwards-compatibility hacks** — if something is unused, delete it completely
+- **Self-invoke builds before handing back** — after code changes that the user will need to verify in the browser, run `make build` yourself before asking them to reload/test. Don't say "rebuild, reload, test" — say "I built it; reload and let me know." Surface build failures and fix them rather than passing them on. Exception: if the user has explicitly said "don't build" or is mid-flight on something, defer.
 
 ### Fire-and-Forget (`_ = ...Async()`)
 
