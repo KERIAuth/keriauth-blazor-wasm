@@ -221,12 +221,9 @@
     async Task SimulateRequestIpexApplyPresentation()
     {
         // rp = holder (AID name containing "person"), i = verifier (AID name containing "qvi")
-        var rpAid = appCache.Aids.FirstOrDefault(a => a.Name.Contains("person", StringComparison.OrdinalIgnoreCase));
-        var iAid = appCache.Aids.FirstOrDefault(a => a.Name.Contains("qvi", StringComparison.OrdinalIgnoreCase));
-        var rpPrefix = rpAid?.Prefix ?? "SAMPLE_RECEIVER";
-        var iPrefix = iAid?.Prefix ?? "SAMPLE_ISSUER";
+        var rpPrefix = appCache.SelectedPrefix ?? "unset";
 
-        logger.LogWarning("SimulateRequestIpexApplyPresentation: rp_Prefix={RpPrefix}, i_Prefix={IPrefix}", rpPrefix, iPrefix); 
+        logger.LogWarning("SimulateRequestIpexApplyPresentation: rp_Prefix={RpPrefix}", rpPrefix); 
         
         await SimulateDialogRequestAsync(
             BwAppMessageType.Values.RequestIpexApply,
@@ -717,7 +714,7 @@
                     // TODO P2 /presentation or a separate type?
                     *@
                     <tr>
-                        <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">present credential</MudLink></td>
+                        <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">present credential (current prefix)</MudLink></td>
                         <td>@nameof(RequestApproveIpexPage)</td>
                         <td>/KeriAuth/ipex/apply ??/presentation</td>
                     </tr>
