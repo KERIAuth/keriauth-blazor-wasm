@@ -374,18 +374,24 @@ const waitForAgentReady = async (
     initialDelayMs: number = 500
 ): Promise<void> => {
     let delayMs = initialDelayMs;
+    const startedAt = Date.now();
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            // Use state() as a lightweight readiness check — avoids identifiers().list()
-            // which can return 401 on some KERIA instances immediately after boot
-            await client.state();
+            // Probe the most foundational controller-authenticated endpoint: identifiers().list().
+            // Every other authenticated operation (notifications, credentials, IPEX, registries,
+            // keyStates of user AIDs, etc.) depends on the controller-auth pipeline that this
+            // endpoint exercises. Once it returns 200 with the (initially empty) AID list, the
+            // agent's KEL has settled enough that the agent will serve all authenticated calls.
+            await client.identifiers().list();
+            console.info(`signifyClient: waitForAgentReady ready after ${attempt} attempt(s) in ${Date.now() - startedAt}ms`);
             return;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             if (attempt === maxRetries) {
                 throw new Error(`Agent not ready after ${maxRetries} attempts. Last error: ${errorMessage}`);
             }
+            console.debug(`signifyClient: waitForAgentReady attempt ${attempt}/${maxRetries} not ready (${errorMessage}); retrying in ${delayMs}ms`);
             await sleep(delayMs);
             delayMs = Math.min(delayMs * 2, 10000);
         }

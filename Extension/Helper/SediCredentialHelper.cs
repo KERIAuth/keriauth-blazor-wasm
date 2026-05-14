@@ -35,7 +35,7 @@ public static class SediCredentialHelper
 
     private static SchemaConstants LoadSchemaConstants()
     {
-        const string resourceName = "Extension.Schemas.state-endorsed-digital-identity-credential.json";
+        const string resourceName = "Extension.Schemas.sedi2.json";
         var assembly = typeof(SediCredentialHelper).Assembly;
         using var stream = assembly.GetManifestResourceStream(resourceName)!;
         using var reader = new StreamReader(stream);

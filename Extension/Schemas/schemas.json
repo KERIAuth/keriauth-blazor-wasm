@@ -65,19 +65,12 @@
       ]
     },
     {
-      "said": "EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_",
-      "name": "Verifiable Credential Schema for State-Endorsed Digital Identity",
-      "file": "verifiable-credential-schema-for-data-attestation.json",
-      "oobiUrls": [
-        "https://cred-issuance.cloud.dign.id/oobi/EKEIy4dKkg1ygomPyDNJH4AiI3khx4ADy2s3hWBbsj2_"
-      ]
-    },
-    {
       "said": "EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq",
       "name": "State-Endorsed Digital Identity Credential",
-      "file": "state-endorsed-digital-identity-credential.json",
+      "file": "sedi2.json",
       "$comment": "URL has .json suffix so GitHub Pages serves Content-Type: application/json. If KERIA's OOBI parser rejects the non-canonical trailing segment, fall back to extensionless URL + Cloudflare/_headers MIME override.",
       "oobiUrls": [
+        "https://keriauth.com/oobi/EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq",
         "https://cred-issuance.cloud.dign.id/oobi/EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq"
       ]
     }
