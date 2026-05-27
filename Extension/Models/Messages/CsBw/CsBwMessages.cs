@@ -224,9 +224,11 @@ namespace Extension.Models.Messages.CsBw {
         public const string IPEX_APPLY = "/KeriAuth/ipex/apply";
         public const string IPEX_AGREE = "/KeriAuth/ipex/agree";
 
+        // Dign feature: request to create+grant an OIDC attestation credential
+        public const string IPEX_GRANT = "/Dign/ipex/grant";
+
         // Future IPEX message types (placeholder constants, no handlers yet)
         public const string IPEX_OFFER = "/KeriAuth/ipex/offer";
-        public const string IPEX_GRANT = "/KeriAuth/ipex/grant";
         public const string IPEX_ADMIT = "/KeriAuth/ipex/admit";
 
     }

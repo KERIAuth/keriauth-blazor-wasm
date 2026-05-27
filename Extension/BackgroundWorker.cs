@@ -1585,6 +1585,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleAppRequestIssueSediCredentialRpcAsync(portId, request, payload);
                     return;
 
+                case AppBwMessageType.Values.RequestIssueTvaCredential:
+                    await HandleAppRequestIssueTvaCredentialRpcAsync(portId, request, payload);
+                    return;
+
                 case AppBwMessageType.Values.RequestSubmitIpexOffer:
                     await HandleAppRequestSubmitIpexOfferRpcAsync(portId, request, payload);
                     return;
@@ -3782,6 +3786,119 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             logger.LogError(ex, nameof(HandleAppRequestIssueSediCredentialRpcAsync) + ": Error during issue");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 result: new IssueSediCredentialResponsePayload(false, Error: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Issue a new TVA (TradeVeris Access) credential. Signing-only — no IPEX submission. Single
+    /// attribute credential with email required, name/role optional. No edges, no rules, Private=false.
+    /// </summary>
+    private async Task HandleAppRequestIssueTvaCredentialRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppRequestIssueTvaCredentialRpcAsync) + ": called");
+
+        if (!await RequireSignifyConnectionAsync(portId, request.PortSessionId, request.Id)) {
+            return;
+        }
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueTvaCredentialResponsePayload(false, Error: "Missing payload"));
+                return;
+            }
+
+            var issueRequest = JsonSerializer.Deserialize<IssueTvaCredentialRequestPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (issueRequest is null || string.IsNullOrEmpty(issueRequest.SenderNameOrPrefix)
+                || string.IsNullOrEmpty(issueRequest.RecipientPrefix)
+                || string.IsNullOrEmpty(issueRequest.Email)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueTvaCredentialResponsePayload(false, Error: "Invalid or missing issue parameters"));
+                return;
+            }
+
+            var senderPrefix = issueRequest.SenderNameOrPrefix;
+            var recipientPrefix = issueRequest.RecipientPrefix;
+
+            var senderNameResult = await GetIdentifierNameFromCacheAsync(senderPrefix);
+            if (senderNameResult.IsFailed) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueTvaCredentialResponsePayload(false, Error: $"Could not resolve AID name for {senderPrefix}"));
+                return;
+            }
+            var senderName = senderNameResult.Value;
+
+            logger.LogInformation(nameof(HandleAppRequestIssueTvaCredentialRpcAsync) +
+                ": sender={Sender} ({SenderName}), recipient={Recipient}, email={Email}",
+                senderPrefix, senderName, recipientPrefix, issueRequest.Email);
+
+            if (!await EnsureSchemaResolvedAsync(TvaCredentialHelper.TvaSchemaSaid, nameof(HandleAppRequestIssueTvaCredentialRpcAsync))) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: new IssueTvaCredentialResponsePayload(false, Error: "Failed to resolve TVA schema"));
+                return;
+            }
+
+            IssueTvaCredentialResponsePayload? successResult = null;
+            using (_broker.PrioritizeInteractive()) {
+                var registryName = $"{senderName}_{TvaCredentialHelper.TvaRegistryName}_registry";
+                var registryResult = await _broker.EnqueueCommandAsync(SignifyOperation.CreateRegistryIfNotExists,
+                    svc => svc.CreateRegistryIfNotExists(senderName, registryName));
+                if (registryResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueTvaCredentialResponsePayload(false, Error: $"Failed to create registry: {registryResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var credData = TvaCredentialHelper.BuildTvaCredentialData(
+                    issueRequest.Email, issueRequest.Name, issueRequest.Role);
+
+                logger.LogInformation(nameof(HandleAppRequestIssueTvaCredentialRpcAsync) + ": Issuing TVA credential...");
+                var issueResult = await _broker.EnqueueCommandAsync(SignifyOperation.IssueAndGetCredential,
+                    svc => svc.IssueAndGetCredential(new IssueAndGetCredentialArgs(
+                        IssuerAidNameOrPrefix: senderName,
+                        RegistryName: registryName,
+                        Schema: TvaCredentialHelper.TvaSchemaSaid,
+                        HolderPrefix: recipientPrefix,
+                        CredData: credData,
+                        Private: false
+                    )));
+
+                if (issueResult.IsFailed) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueTvaCredentialResponsePayload(false, Error: $"Failed to issue credential: {issueResult.Errors[0].Message}"));
+                    return;
+                }
+
+                var credentialSaid = issueResult.Value["said"]?.StringValue;
+                var acdc = issueResult.Value["acdc"]?.Dictionary;
+                var anc = issueResult.Value["anc"]?.Dictionary;
+                var iss = issueResult.Value["iss"]?.Dictionary;
+
+                if (string.IsNullOrEmpty(credentialSaid) || acdc is null || anc is null || iss is null) {
+                    await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                        result: new IssueTvaCredentialResponsePayload(false, Error: "Issued credential missing required fields"));
+                    return;
+                }
+                logger.LogInformation(nameof(HandleAppRequestIssueTvaCredentialRpcAsync) + ": TVA credential issued: said={Said}", credentialSaid);
+
+                successResult = new IssueTvaCredentialResponsePayload(
+                    Success: true,
+                    CredentialSaid: credentialSaid,
+                    Acdc: acdc,
+                    Anc: anc,
+                    Iss: iss);
+            }
+
+            if (successResult is not null) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    result: successResult);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppRequestIssueTvaCredentialRpcAsync) + ": Error during issue");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new IssueTvaCredentialResponsePayload(false, Error: ex.Message));
         }
     }
 

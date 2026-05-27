@@ -41,12 +41,26 @@ namespace Extension.Models {
         public string SediStatusRegistry { get; init; } = "";
     }
 
+    public record IssueTvaTestPrefs {
+        [JsonPropertyName("IssuerPrefix")]
+        public string? IssuerPrefix { get; init; }
+
+        [JsonPropertyName("IssueePrefix")]
+        public string? IssueePrefix { get; init; }
+
+        [JsonPropertyName("Email")]
+        public string Email { get; init; } = "";
+    }
+
     public record IssueCredentialsTestPrefs {
         [JsonPropertyName("Ecr")]
         public IssueEcrTestPrefs? Ecr { get; init; }
 
         [JsonPropertyName("Sedi")]
         public IssueSediTestPrefs? Sedi { get; init; }
+
+        [JsonPropertyName("Tva")]
+        public IssueTvaTestPrefs? Tva { get; init; }
     }
 
     public record PerConfigTestPrefs {

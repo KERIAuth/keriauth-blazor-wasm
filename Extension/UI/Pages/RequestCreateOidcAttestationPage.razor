@@ -1,0 +1,283 @@
+@page "/RequestCreateOidcAttestation.html"
+@layout Layouts.DialogLayout
+@inherits Extension.UI.Components.TabDialogPageBase
+
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using Extension.Helper
+@using Extension.Models
+@using Extension.Models.Messages.AppBw
+@using Extension.Models.Messages.BwApp
+@using Extension.Models.Messages.BwApp.Requests
+@using Extension.Models.Storage
+@using Extension.Services
+@using FluentResults
+@using MudBlazor
+
+@inject ILogger<RequestCreateOidcAttestationPage> logger
+@inject ISnackbar snackbar
+@inject AppCache appCache
+
+@code {
+    private MudButton? approveButton;
+
+    private RequestCreateOidcAttestationPayload? request;
+
+    string? SelectedPrefix { get; set; }
+    string? SelectedAlias { get; set; }
+
+    bool IsApproveDisabled => SelectedPrefix is null;
+
+    string RoleJsonPreview =>
+        request is null
+            ? string.Empty
+            : JsonSerializer.Serialize(
+                new OidcRoleData(
+                    request.VerifierOobi,
+                    request.VerifierAid,
+                    request.SchemaSaid,
+                    request.RequestorName,
+                    request.RequestId,
+                    request.DateTime,
+                    request.EmailAddress,
+                    request.PreferredUsername),
+                Helper.JsonOptions.DisplayIndented);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        logger.LogInformation("OnInitializedAsync");
+
+        request = await InitializeFromPendingRequestAsync<RequestCreateOidcAttestationPayload>(
+            BwAppMessageType.Values.RequestCreateOidcAttestation);
+        if (request is null) return;
+
+        logger.LogInformation("Loaded OIDC attestation request: requestor={Requestor}, verifierAid={VerifierAid}, requestId={RequestId}",
+            request.RequestorName, request.VerifierAid, request.RequestId);
+
+        await LoadActiveTabAsync();
+        IsInitialized = true;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && approveButton is not null)
+        {
+            await approveButton.FocusAsync();
+        }
+    }
+
+    async Task<Result> Approve()
+    {
+        await BeginActionAsync();
+
+        if (request is null)
+        {
+            return Result.Fail("Request not initialized");
+        }
+
+        if (SelectedPrefix is null)
+        {
+            snackbar.Add("Please select an identifier", Severity.Warning);
+            Layout?.EndAction();
+            return Result.Fail("No identifier selected");
+        }
+
+        try
+        {
+            // Encode the OIDC binding data as JSON into engagementContextRole. The verifier's
+            // VC Bridge parses this back out to correlate the admitted ACDC with its in-flight
+            // OIDC session.
+            var roleJson = RoleJsonPreview;
+
+            logger.LogInformation("Approve: sender={Sender}, verifier={Verifier}, requestId={ReqId}",
+                SelectedPrefix, request.VerifierAid, request.RequestId);
+
+            // Step 1: Issue the ECR credential (signing only — no IPEX yet).
+            var issueResp = await AppBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestIssueEcrCredential,
+                new
+                {
+                    payload = new IssueEcrCredentialRequestPayload(
+                        SenderNameOrPrefix: SelectedPrefix,
+                        RecipientPrefix: request.VerifierAid,
+                        EcrRole: roleJson)
+                },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!issueResp.Ok || issueResp.Result is not JsonElement issueElement)
+            {
+                var err = issueResp.Error ?? "Failed to issue OIDC attestation credential";
+                snackbar.Add($"Issue failed: {err}", Severity.Error);
+                Layout?.EndAction();
+                return Result.Fail(err);
+            }
+
+            var issueResult = JsonSerializer.Deserialize<IssueEcrCredentialResponsePayload>(
+                issueElement.GetRawText(), Helper.JsonOptions.CamelCase);
+            if (issueResult is null || !issueResult.Success
+                || issueResult.Acdc is null || issueResult.Anc is null || issueResult.Iss is null)
+            {
+                var err = issueResult?.Error ?? "Issue returned an incomplete result";
+                snackbar.Add($"Issue failed: {err}", Severity.Error);
+                Layout?.EndAction();
+                return Result.Fail(err);
+            }
+
+            logger.LogInformation("Approve: credential issued, said={Said}", issueResult.CredentialSaid);
+
+            // Step 2: Submit an unsolicited IPEX grant to the verifier (no prior apply/agree).
+            var grantResp = await AppBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.RequestSubmitIpexGrant,
+                new
+                {
+                    payload = new SubmitIpexGrantRequestPayload(
+                        SenderNameOrPrefix: SelectedPrefix,
+                        RecipientPrefix: request.VerifierAid,
+                        Acdc: issueResult.Acdc,
+                        Anc: issueResult.Anc,
+                        Iss: issueResult.Iss,
+                        AgreeSaid: null)
+                },
+                timeout: TimeSpan.FromMinutes(3));
+
+            if (!grantResp.Ok || grantResp.Result is not JsonElement grantElement)
+            {
+                var err = grantResp.Error ?? "Failed to submit IPEX grant";
+                snackbar.Add($"Grant failed: {err}", Severity.Error);
+                Layout?.EndAction();
+                return Result.Fail(err);
+            }
+
+            var grantResult = JsonSerializer.Deserialize<SubmitIpexGrantResponsePayload>(
+                grantElement.GetRawText(), Helper.JsonOptions.CamelCase);
+            if (grantResult is null || !grantResult.Success)
+            {
+                var err = grantResult?.Error ?? "Grant returned failure";
+                snackbar.Add($"Grant failed: {err}", Severity.Error);
+                Layout?.EndAction();
+                return Result.Fail(err);
+            }
+
+            snackbar.Add("OIDC attestation granted to verifier", Severity.Success);
+            MarkAsReplied();
+            await ClearPendingRequestAsync();
+            await WaitForAppCacheClearAsync();
+            await ReturnToPriorUIAsync();
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create OIDC attestation");
+            snackbar.Add($"Failed: {ex.Message}", Severity.Error);
+            Layout?.EndAction();
+            return Result.Fail(new JavaScriptInteropError("CreateOidcAttestation", ex.Message, ex));
+        }
+    }
+
+    async Task Cancel()
+    {
+        await CancelAndReturnAsync("User canceled OIDC attestation request");
+    }
+
+    private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
+    {
+        SelectedPrefix = value.selectedPrefix;
+        SelectedAlias = value.selectedAlias;
+        StateHasChanged();
+        if (approveButton is not null)
+        {
+            await approveButton.FocusAsync();
+        }
+    }
+
+    private async Task ApproveHandler()
+    {
+        var result = await Approve();
+        if (result.IsFailed)
+        {
+            logger.LogError("OIDC attestation approval failed: {Error}", result.Errors.FirstOrDefault()?.Message);
+        }
+    }
+
+    // DTO carrying the eight OIDC fields that are JSON-encoded into the ECR
+    // credential's engagementContextRole. preferred_username keeps OIDC-standard
+    // snake_case via JsonPropertyName.
+    private record OidcRoleData(
+        [property: JsonPropertyName("verifierOobi")] string VerifierOobi,
+        [property: JsonPropertyName("verifierAid")] string VerifierAid,
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
+        [property: JsonPropertyName("requestorName")] string RequestorName,
+        [property: JsonPropertyName("requestId")] string RequestId,
+        [property: JsonPropertyName("dateTime")] string DateTime,
+        [property: JsonPropertyName("emailAddress")] string EmailAddress,
+        [property: JsonPropertyName("preferred_username")] string PreferredUsername
+    );
+}
+
+@if (IsInitialized && request is not null)
+{
+    <div id="@this.GetType().Name" class="bt-body-page">
+        <MudStack Class="bt-main">
+            <div class="bt-main-inside-scroll">
+                <PageHeading Title="@($"Request from {request.RequestorName}")" />
+
+                @if (ActiveTab is not null)
+                {
+                    <TabInteractionDisplay ActiveTab=@ActiveTab />
+                }
+
+                <MudText Class="ml-9" Typo="Typo.body2">
+                    <em>@request.RequestorName</em>
+                    is requesting you to attest to your control of
+                    the selected vLEI role credential, 
+                    your email address, 
+                    and other data shown below
+                    that will be used to create a
+                    <em>TradeVeris Access Credential</em>
+                    for website authentication.
+                </MudText>
+
+                <WebsiteConfigDisplay OriginStr="@OriginStr"
+                                      IsOriginShown="false"
+                                      IsCredentialShown="false"
+                                      IsAutoSignShown="false"
+                                      ValueChanged="async (v) => await HandleIdOrCredChanged(v)" />
+
+                <MudText Class="bt-section-title">Attested claims:</MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-2" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudText Typo="Typo.body2"><strong>Email:</strong> @request.EmailAddress</MudText>
+                    <MudText Typo="Typo.body2"><strong>Preferred username:</strong> @request.PreferredUsername</MudText>
+                </MudPaper>
+
+                <MudText Class="bt-section-title">Verifier:</MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-2" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudText Typo="Typo.body2"><strong>AID:</strong> <span class="bt-prefix">@request.VerifierAid</span></MudText>
+                    <MudText Typo="Typo.body2" Style="word-break: break-all;"><strong>OOBI:</strong> @request.VerifierOobi</MudText>
+                </MudPaper>
+
+                <MudExpansionPanels Dense="true" Class="mt-0 mb-0">
+                    <MudExpansionPanel Text="Role JSON to be embedded" Dense="true">
+                        <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
+                            <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem; text-wrap:auto;">
+                                @RoleJsonPreview
+                            </MudText>
+                        </MudPaper>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </div>
+        </MudStack>
+
+        <MudStack Row="true" class="bt-button-tray">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(async (_) => await Cancel())">Reject</MudButton>
+            <MudButton @ref="approveButton"
+                       Disabled="IsApproveDisabled"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="ApproveHandler">
+                Approve &amp; Grant
+            </MudButton>
+        </MudStack>
+    </div>
+}

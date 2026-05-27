@@ -211,6 +211,10 @@
                     route = Routes.Paths.RequestApproveIpex;
                     break;
 
+                case (BwAppMessageType.Values.RequestCreateOidcAttestation, true):
+                    route = Routes.Paths.RequestCreateOidcAttestation;
+                    break;
+
                 default:
                     logger.LogWarning("RedirectIfNeeded: Unknown pending request type: {Type}, requestId={RequestId}", pendingRequest.Type, pendingRequest.RequestId);
                     break;

@@ -73,6 +73,16 @@
         "https://keriauth.com/oobi/EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq",
         "https://cred-issuance.cloud.dign.id/oobi/EHiLGNXjNR31E8hQR1Vs9OSWrG_CSpOOkVW76ZvUkaxq"
       ]
+    },
+    {
+      "said": "EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9",
+      "name": "TradeVeris Access Credential",
+      "file": "EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9.json",
+      "$comment": "",
+      "oobiUrls": [
+        "https://keriauth.com/oobi/EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9",
+        "https://vlei-server.demo.tradeveris.io/oobi/EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9"
+      ]
     }
   ],
   "defaultOobiHosts": [

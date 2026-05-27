@@ -77,9 +77,11 @@ export const CsBwRpcMethods = {
     /** Request user to send an IPEX agree (agree to an offer) */
     IpexAgree: '/KeriAuth/ipex/agree',
 
+    /** Request user to grant an OIDC attestation credential (Dign feature) */
+    IpexGrant: '/Dign/ipex/grant',
+
     // Placeholder constants for future IPEX types
     IpexOffer: '/KeriAuth/ipex/offer',
-    IpexGrant: '/KeriAuth/ipex/grant',
     IpexAdmit: '/KeriAuth/ipex/admit',
 
     /** ContentScript initialization (legacy) */

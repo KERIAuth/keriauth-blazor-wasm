@@ -270,12 +270,29 @@
         );
     }
 
-    async Task SimulateRequestIpexGrant()
+    async Task SimulateRequestCreateOidcAttestation()
     {
-        var recipient = GetFirstConnectionReceiverPrefix();
-        if (recipient is null) return;
-        logger.LogWarning("SimulateRequestIpexGrant: Grant is not yet implemented as a webpage-initiated flow");
-        snackbar.Add("IPEX Grant webpage-initiated flow not yet implemented", MudBlazor.Severity.Info);
+        var verifierAid = GetFirstConnectionReceiverPrefix();
+        if (verifierAid is null) return;
+        await SimulateDialogRequestAsync(
+            BwAppMessageType.Values.RequestCreateOidcAttestation,
+            tabId => new RequestCreateOidcAttestationPayload(
+                Origin: "https://example.com",
+                VerifierOobi: "https://example.com/oobi/" + verifierAid,
+                VerifierAid: verifierAid,
+                SchemaSaid: SchemaSaids.Ecr,
+                RequestorName: "Example OIDC Provider",
+                RequestId: Guid.NewGuid().ToString(),
+                DateTime: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(),
+                EmailAddress: "test.user@example.com",
+                PreferredUsername: "testuser",
+                TabId: tabId,
+                TabUrl: "https://example.com/test",
+                OriginalRequestId: Guid.NewGuid().ToString(),
+                OriginalType: "/Dign/ipex/grant"
+            ),
+            Routes.Paths.RequestCreateOidcAttestation
+        );
     }
 
     async Task SimulateRequestIpexAdmit()
@@ -717,6 +734,11 @@
                         <td><MudLink OnClick="@SimulateRequestIpexApplyPresentation" Disabled="@(!appCache.IsConnectedToKeria)">present credential (current prefix)</MudLink></td>
                         <td>@nameof(RequestApproveIpexPage)</td>
                         <td>/KeriAuth/ipex/apply ??/presentation</td>
+                    </tr>
+                    <tr>
+                        <td><MudLink OnClick="@SimulateRequestCreateOidcAttestation" Disabled="@(!appCache.IsConnectedToKeria)">create TradeVeris Access Credential</MudLink></td>
+                        <td>@nameof(RequestCreateOidcAttestationPage)</td>
+                        <td>/Dign/ipex/grant</td>
                     </tr>
                     @*
                     // TODO P2 implement simulated IPEX agree, grant, admit, spurn

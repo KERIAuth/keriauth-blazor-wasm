@@ -74,6 +74,8 @@ namespace Extension.Models.Messages.BwApp {
             public const string RequestIpexAgree = "BwApp.RequestIpexAgree";
             /// <summary>Request App to show IPEX Admit UI for user to approve acknowledging a grant (webpage-initiated).</summary>
             public const string RequestIpexAdmitFromPage = "BwApp.RequestIpexAdmitFromPage";
+            /// <summary>Request App to show OIDC attestation approval UI (Dign feature: create+grant ECR with OIDC binding).</summary>
+            public const string RequestCreateOidcAttestation = "BwApp.RequestCreateOidcAttestation";
         }
 
         public string Value { get; }
@@ -95,6 +97,7 @@ namespace Extension.Models.Messages.BwApp {
         public static BwAppMessageType RequestIpexApply { get; } = new(Values.RequestIpexApply);
         public static BwAppMessageType RequestIpexAgree { get; } = new(Values.RequestIpexAgree);
         public static BwAppMessageType RequestIpexAdmitFromPage { get; } = new(Values.RequestIpexAdmitFromPage);
+        public static BwAppMessageType RequestCreateOidcAttestation { get; } = new(Values.RequestCreateOidcAttestation);
 
         /// <summary>
         /// Parse a string value into a BwAppMessageType.
@@ -158,6 +161,9 @@ namespace Extension.Models.Messages.BwApp {
                     return true;
                 case Values.RequestIpexAdmitFromPage:
                     result = RequestIpexAdmitFromPage;
+                    return true;
+                case Values.RequestCreateOidcAttestation:
+                    result = RequestCreateOidcAttestation;
                     return true;
                 default:
                     return false;

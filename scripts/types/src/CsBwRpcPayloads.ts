@@ -133,6 +133,34 @@ export interface CsBwIpexAdmitParams {
     isPresentation?: boolean;
 }
 
+/**
+ * Params for /Dign/ipex/grant request.
+ * Web page (verifier IdP / VC Bridge) asks the wallet to create and grant an
+ * OIDC attestation credential. Issued as an ECR whose engagementContextRole
+ * carries the JSON-encoded OIDC binding data so the VC Bridge can correlate
+ * the admitted ACDC back to its in-flight OIDC session.
+ */
+export interface CreateOidcAttestationRequest {
+    /** Message type discriminator. Expected: "/Dign/ipex/grant". */
+    type: string;
+    /** Escaped URI of the verifier's OOBI. */
+    verifierOobi: string;
+    /** Verifier AID (temporary; will be parsed from verifierOobi later). */
+    verifierAid: string;
+    /** SAID of the schema the verifier expects (informational; captured in role JSON). */
+    schemaSaid: string;
+    /** Friendly name displayed to the user identifying the website/IdP/company. */
+    requestorName: string;
+    /** OIDC request id, relayed back inside the credential's role JSON. */
+    requestId: string;
+    /** Request timestamp in ms (string). Used to reduce replay attack / MITM. */
+    dateTime: string;
+    /** End-user's email address being attested. */
+    emailAddress: string;
+    /** OIDC-standard preferred_username claim (snake_case intentional). */
+    preferred_username: string;
+}
+
 // ============================================================================
 // Response Result Types (BW→CS via RpcResponse)
 // ============================================================================
@@ -222,9 +250,9 @@ export interface CsBwRpcParamsMap {
     [CsBwRpcMethods.IpexApply]: CsBwIpexApplyParams;
     [CsBwRpcMethods.IpexAgree]: CsBwIpexAgreeParams;
     [CsBwRpcMethods.IpexAdmit]: CsBwIpexAdmitParams;
+    [CsBwRpcMethods.IpexGrant]: CreateOidcAttestationRequest;
     // Placeholder entries for future IPEX types (not yet implemented)
     [CsBwRpcMethods.IpexOffer]: undefined;
-    [CsBwRpcMethods.IpexGrant]: undefined;
     [CsBwRpcMethods.Init]: CsBwInitParams;
 }
 

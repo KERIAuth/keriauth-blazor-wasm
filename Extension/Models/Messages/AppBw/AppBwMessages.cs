@@ -186,6 +186,12 @@ namespace Extension.Models.Messages.AppBw {
             /// </summary>
             public const string RequestIssueSediCredential = "AppBw.RequestIssueSediCredential";
             /// <summary>
+            /// Request BW to issue a new TVA (TradeVeris Access) credential. Signing-only — no IPEX
+            /// submission. Single-attribute credential (email required, name/role optional) with no
+            /// edges and no rules block. Grant is submitted separately via RequestSubmitIpexGrant.
+            /// </summary>
+            public const string RequestIssueTvaCredential = "AppBw.RequestIssueTvaCredential";
+            /// <summary>
             /// Request BW to submit an IPEX offer for an already-issued credential (by SAID).
             /// Complements RequestIssueEcrCredential — the App calls IssueEcrCredential first,
             /// then this once the user confirms.
@@ -265,6 +271,7 @@ namespace Extension.Models.Messages.AppBw {
         // RequestIpexOffer and RequestIpexGrant static properties removed (see Values comment above)
         public static AppBwMessageType RequestIssueEcrCredential { get; } = new(Values.RequestIssueEcrCredential);
         public static AppBwMessageType RequestIssueSediCredential { get; } = new(Values.RequestIssueSediCredential);
+        public static AppBwMessageType RequestIssueTvaCredential { get; } = new(Values.RequestIssueTvaCredential);
         public static AppBwMessageType RequestSubmitIpexOffer { get; } = new(Values.RequestSubmitIpexOffer);
         public static AppBwMessageType RequestSubmitIpexGrant { get; } = new(Values.RequestSubmitIpexGrant);
         public static AppBwMessageType RequestRevokeCredential { get; } = new(Values.RequestRevokeCredential);
@@ -408,6 +415,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.RequestIssueSediCredential:
                     result = RequestIssueSediCredential;
+                    return true;
+                case Values.RequestIssueTvaCredential:
+                    result = RequestIssueTvaCredential;
                     return true;
                 case Values.RequestSubmitIpexOffer:
                     result = RequestSubmitIpexOffer;
@@ -963,6 +973,31 @@ namespace Extension.Models.Messages.AppBw {
     /// Response payload for RequestIssueSediCredential. Mirrors IssueEcrCredentialResponsePayload.
     /// </summary>
     public record IssueSediCredentialResponsePayload(
+        [property: JsonPropertyName("success")] bool Success,
+        [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null,
+        [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,
+        [property: JsonPropertyName("anc")] RecursiveDictionary? Anc = null,
+        [property: JsonPropertyName("iss")] RecursiveDictionary? Iss = null,
+        [property: JsonPropertyName("error")] string? Error = null
+    );
+
+    /// <summary>
+    /// Request to issue a new TVA (TradeVeris Access) credential. Signing-only — no IPEX
+    /// submission. Single-attribute credential with email required; name and role optional.
+    /// No edges, no rules block.
+    /// </summary>
+    public record IssueTvaCredentialRequestPayload(
+        [property: JsonPropertyName("senderName")] string SenderNameOrPrefix,
+        [property: JsonPropertyName("recipient")] string RecipientPrefix,
+        [property: JsonPropertyName("email")] string Email,
+        [property: JsonPropertyName("name")] string? Name = null,
+        [property: JsonPropertyName("role")] string? Role = null
+    );
+
+    /// <summary>
+    /// Response payload for RequestIssueTvaCredential. Mirrors IssueEcrCredentialResponsePayload.
+    /// </summary>
+    public record IssueTvaCredentialResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
         [property: JsonPropertyName("credentialSaid")] string? CredentialSaid = null,
         [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,

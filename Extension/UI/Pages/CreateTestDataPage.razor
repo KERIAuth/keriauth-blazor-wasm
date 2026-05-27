@@ -465,6 +465,9 @@
             { x => x.InitialHolderPrefix, _issueCredentialsPrefs?.Ecr?.HolderPrefix },
             { x => x.InitialSediIssuerPrefix, _issueCredentialsPrefs?.Sedi?.IssuerPrefix },
             { x => x.InitialSediIssueePrefix, _issueCredentialsPrefs?.Sedi?.IssueePrefix },
+            { x => x.InitialTvaIssuerPrefix, _issueCredentialsPrefs?.Tva?.IssuerPrefix },
+            { x => x.InitialTvaIssueePrefix, _issueCredentialsPrefs?.Tva?.IssueePrefix },
+            { x => x.InitialTvaEmail, _issueCredentialsPrefs?.Tva?.Email },
         };
         var options = new DialogOptions {
             CloseOnEscapeKey = true,
@@ -500,6 +503,15 @@
                             Sedi = existingSedi with {
                                 IssuerPrefix = result.IssuerPrefix,
                                 IssueePrefix = result.HolderPrefix
+                            }
+                        };
+                        break;
+                    case OfferOrGrantCredentialIssuanceDialog.IssuanceKind.Tva:
+                        updated = existing with {
+                            Tva = new IssueTvaTestPrefs {
+                                IssuerPrefix = result.IssuerPrefix,
+                                IssueePrefix = result.HolderPrefix,
+                                Email = result.Email ?? ""
                             }
                         };
                         break;
