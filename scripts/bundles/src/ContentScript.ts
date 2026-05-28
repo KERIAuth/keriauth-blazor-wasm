@@ -778,6 +778,16 @@ import {
                     await sendMessageToBW(ipexMsg);
                     break;
                 }
+                case CsBwMsgEnum.DIGN_GRANT_TVA: {
+                    // Dign / TradeVeris OIDC attestation. CS forwards verbatim; the BW
+                    // (HandleDignGrantTvaRpcAsync) validates the payload, resolves
+                    // verifierOobi, opens the App approval dialog, and ultimately replies
+                    // with { credentialSaid, grantSaid } per CsBwOidcGrantResult.
+                    const grantTvaMsg = event.data as Polaris.MessageData<unknown>;
+                    console.info(`${logPrefix} ${event.data.type}:`, event.data);
+                    await sendMessageToBW(grantTvaMsg);
+                    break;
+                }
                 default:
                     console.info(`${logPrefix} handler not implemented for ${event.data.type}`, event.data);
                     break;

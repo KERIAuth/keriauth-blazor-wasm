@@ -4980,6 +4980,8 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         // to keep KERIA's contact store under our control. Alias is constrained by
         // AidNameValidator (^[a-z0-9_-]{1,32}$); see ComputeTvaVerifierAlias for details.
         var alias = ComputeTvaVerifierAlias(grantPayload.VerifierOobi);
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) +
+            ": starting OOBI resolve. oobi={Oobi}, alias={Alias}", grantPayload.VerifierOobi, alias);
         var resolveResult = await _broker.EnqueueCommandAsync(SignifyOperation.ResolveOobi,
             svc => svc.ResolveOobi(grantPayload.VerifierOobi, alias));
 
@@ -4991,16 +4993,56 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             return;
         }
 
-        var verifierAid = resolveResult.Value.GetByPath("response.i")?.StringValue;
+        logger.LogDebug(nameof(HandleDignGrantTvaRpcAsync) + ": ResolveOobi returned: keys=[{Keys}]",
+            string.Join(",", resolveResult.Value.Keys));
+
+        // ResolveOobi returns a long-running operation descriptor — wait for completion before
+        // reading the resolved AID. Matches the schema-OOBI pattern at EnsureSchemaResolvedAsync.
+        string? verifierAid = null;
+        if (!resolveResult.Value.TryGetValue("name", out var nameValue)
+            || nameValue.StringValue is not string opName || string.IsNullOrEmpty(opName)) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) +
+                ": ResolveOobi did not return an operation name; cannot wait for completion. keys=[{Keys}]",
+                string.Join(",", resolveResult.Value.Keys));
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Could not resolve verifier OOBI: no operation handle returned");
+            return;
+        }
+
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) + ": waiting for OOBI resolve operation {OpName}", opName);
+        var waitResult = await _broker.EnqueueCommandAsync(SignifyOperation.WaitForOperation,
+            svc => svc.WaitForOperation(new Operation(opName)));
+        if (waitResult.IsFailed) {
+            var err = waitResult.Errors.Count > 0 ? waitResult.Errors[0].Message : "Unknown error";
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": WaitForOperation failed: {Error}", err);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Could not resolve verifier OOBI: {err}");
+            return;
+        }
+
+        // Diagnostic: dump the full completed operation so we can see what KERIA actually returned.
+        // Response on Operation is `object?` which can land as JsonElement OR Dictionary<string,object>
+        // OR a raw dict depending on the deserializer in play; serialize the whole thing and log it.
+        var completedOpJson = JsonSerializer.Serialize(waitResult.Value, JsonOptions.Display);
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) +
+            ": WaitForOperation completed. done={Done}, errorPresent={HasError}, op={Op}",
+            waitResult.Value?.Done, waitResult.Value?.Error is not null, completedOpJson);
+
+        // Re-parse the serialized op so we can walk it as JsonElement regardless of original CLR
+        // shape, then try common paths where KERIA stashes the resolved controller AID prefix.
+        verifierAid = TryExtractVerifierAidFromOp(completedOpJson, logger);
+
         if (string.IsNullOrEmpty(verifierAid)) {
-            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": OOBI resolved but no AID prefix in response");
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) +
+                ": OOBI resolved but no AID prefix found in any known path. " +
+                "Full operation JSON above for diagnosis.");
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: "Could not resolve verifier OOBI: no AID prefix in response");
             return;
         }
 
-        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) + ": resolved verifier — alias={Alias}, prefix={Prefix}",
-            alias, verifierAid);
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) +
+            ": resolved verifier — alias={Alias}, prefix={Prefix}", alias, verifierAid);
 
         // Build BW→App payload, enriched with resolved verifierAid + standard routing metadata.
         var payloadForApp = new RequestGrantTvaPayload(
@@ -5098,6 +5140,91 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
                 errorMessage: $"Error processing ReplyGrantTva: {ex.Message}");
         }
+    }
+
+    // Walks the serialized completed-Operation JSON and tries each known path where KERIA
+    // might place the resolved controller AID prefix. Logs each path probed with its outcome.
+    // Returns the first non-empty string match found.
+    private static string? TryExtractVerifierAidFromOp(string completedOpJson, ILogger logger) {
+        // Paths tried in order. KERIA OOBI resolve responses have varied across versions and
+        // OOBI form (controller-only vs controller+agent). We try the documented paths first
+        // and fall back to any field that looks like a base64url-encoded AID prefix at the
+        // top level of `response`.
+        string[] paths = {
+            "response.i",
+            "response.id",
+            "response.prefix",
+            "metadata.oobi",  // metadata sometimes echoes the OOBI which embeds the prefix
+            "metadata.i",
+            "metadata.prefix",
+        };
+
+        try {
+            using var doc = JsonDocument.Parse(completedOpJson);
+            foreach (var path in paths) {
+                if (TryReadStringAtPath(doc.RootElement, path, out var value)) {
+                    logger.LogInformation("TryExtractVerifierAidFromOp: found candidate at {Path}={Value}", path, value);
+                    // Only treat values that look like KERI prefixes as the AID (44-char base64url).
+                    // The metadata.oobi value will be the full URL — extract the prefix from it.
+                    if (path == "metadata.oobi") {
+                        var fromUrl = TryExtractPrefixFromOobiUrl(value);
+                        if (!string.IsNullOrEmpty(fromUrl)) {
+                            logger.LogInformation("TryExtractVerifierAidFromOp: parsed prefix from OOBI URL: {Prefix}", fromUrl);
+                            return fromUrl;
+                        }
+                        continue;
+                    }
+                    return value;
+                }
+                else {
+                    logger.LogDebug("TryExtractVerifierAidFromOp: path not present: {Path}", path);
+                }
+            }
+        }
+        catch (Exception ex) {
+            logger.LogWarning(ex, "TryExtractVerifierAidFromOp: failed to parse completed-op JSON");
+        }
+        return null;
+    }
+
+    // Navigates a dotted JSON path on a root JsonElement. Returns true if the path resolves
+    // to a non-empty string token.
+    private static bool TryReadStringAtPath(JsonElement root, string dottedPath, out string value) {
+        value = string.Empty;
+        var element = root;
+        foreach (var segment in dottedPath.Split('.')) {
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.TryGetProperty(segment, out var next)) {
+                return false;
+            }
+            element = next;
+        }
+        if (element.ValueKind != JsonValueKind.String) return false;
+        var s = element.GetString();
+        if (string.IsNullOrEmpty(s)) return false;
+        value = s;
+        return true;
+    }
+
+    // Best-effort: extract the controller AID prefix from an OOBI URL of the common forms:
+    //   https://{host}/oobi/{prefix}
+    //   https://{host}/oobi/{prefix}/agent/{agentPrefix}
+    //   https://{host}/oobi/{prefix}/witness/{witnessPrefix}
+    // Returns null if the URL doesn't match.
+    private static string? TryExtractPrefixFromOobiUrl(string oobi) {
+        try {
+            var uri = new Uri(oobi);
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < segments.Length - 1; i++) {
+                if (segments[i].Equals("oobi", StringComparison.OrdinalIgnoreCase)) {
+                    return segments[i + 1];
+                }
+            }
+        }
+        catch {
+            // fall through
+        }
+        return null;
     }
 
     // Computes a deterministic verifier-Contact alias from the OOBI URL.

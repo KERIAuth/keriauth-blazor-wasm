@@ -236,6 +236,16 @@ window.postMessage({type: '/signify/credential/create/data-attestation', request
 window.postMessage({type: '/KeriAuth/connection/invite', requestId: crypto.randomUUID(), payload: {oobi: 'https://keria-ext.dev.idw-sandboxes.cf-deployments.org/oobi/EFMPf5HdMA3Wd09_Rq3hNjgRFw1XKhHeuIW6Noqhszd3/agent/EMhtGVe_k0b0NQXqJvJzm5NvhYkggbnLkKNaTtxmOcxe?name=CF%20Credential%20Issuance4'}}, window.location.origin);
 ```
 
+## TVA
+
+Dign / TradeVeris Access Credential as OIDC attestation. The verifier IdP / VC Bridge page asks the wallet to issue a TVA credential to the verifier's AID and submit it via an unsolicited IPEX grant. The wallet resolves `verifierOobi` to obtain the verifier's AID, validates `schemaSaid` equals the TVA schema SAID, rejects `dateTime` outside ±5 min of wallet UTC, and replies with `{credentialSaid, grantSaid}`. The same `requestId` GUID flows through to `exn.a.m` (JSON-encoded) so the verifier admit-side can correlate the admitted ACDC with its in-flight OIDC session.
+
+Substitute `verifierOobi` with a real OOBI served by your verifier KERIA. For local testing, you can use the following from your Dign menu Connections->Add->Share my introduction, and copy your introduction URL.
+
+```js
+const oidcRequestId = crypto.randomUUID(); window.postMessage({type: '/dign/ipex/grantTva', requestId: oidcRequestId, payload: {verifierOobi: 'https://keria-ext.veridian.dandelion.link/oobi/EMzZFR9sYUQaDu8BgoG1DrR6TXEII9YJuAOQd6x2KLtt/agent/EB8S7PNUr1kuCnnelKiRJGx7zebTEZi2cPNWChAMf1B7?name=Example%20Verifier', schemaSaid: 'EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9', requestorName: 'Example OIDC Provider', requestId: oidcRequestId, dateTime: Date.now().toString(), emailAddress: 'alice@example.com', preferred_username: 'alice'}}, window.location.origin);
+```
+
 ## IPEX
 
 The sample recipient prefixes below are placeholders. For a successful end-to-end test, replace the `recipient` value with the AID prefix of an established connection of your selected sender AID. Similarly, `schemaSaid`, `offerSaid`, and `grantSaid` must reference real SAIDs known to your KERIA agent.
