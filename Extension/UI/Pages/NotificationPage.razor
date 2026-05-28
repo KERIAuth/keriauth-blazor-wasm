@@ -557,8 +557,20 @@
                         <AidPrefixDisplay Prefix="@(prefixes.Target ?? "")"
                                           ShowCopyButton="false" />
                     </div>
+
                 }
             </MudStack>
+            @{
+               var msg = exchangeData?.A?.GetValueByPath("m")?.Value?.ToString();
+            }
+            @if (!string.IsNullOrEmpty(msg))
+            {
+                <div>
+                    <MudText Typo="Typo.caption">
+                        Message: @msg
+                    </MudText>
+                </div>
+            }
 
             @if (isLoaded)
             {
