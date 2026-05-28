@@ -581,6 +581,7 @@ namespace Extension.Tests.Models {
             Assert.Equal("/KeriAuth/ipex/offer", CsBwMessageTypes.IPEX_OFFER);
             Assert.Equal("/KeriAuth/ipex/grant", CsBwMessageTypes.IPEX_GRANT);
             Assert.Equal("/KeriAuth/ipex/admit", CsBwMessageTypes.IPEX_ADMIT);
+            Assert.Equal("/dign/ipex/grantTva", CsBwMessageTypes.GRANT_TVA);
         }
 
         [Fact]

@@ -1,9 +1,8 @@
-@page "/RequestCreateOidcAttestation.html"
+@page "/RequestGrantTva.html"
 @layout Layouts.DialogLayout
 @inherits Extension.UI.Components.TabDialogPageBase
 
 @using System.Text.Json
-@using System.Text.Json.Serialization
 @using Extension.Helper
 @using Extension.Models
 @using Extension.Models.Messages.AppBw
@@ -14,45 +13,30 @@
 @using FluentResults
 @using MudBlazor
 
-@inject ILogger<RequestCreateOidcAttestationPage> logger
+@inject ILogger<RequestGrantTvaPage> logger
 @inject ISnackbar snackbar
 @inject AppCache appCache
 
 @code {
     private MudButton? approveButton;
 
-    private RequestCreateOidcAttestationPayload? request;
+    private RequestGrantTvaPayload? request;
 
     string? SelectedPrefix { get; set; }
     string? SelectedAlias { get; set; }
 
     bool IsApproveDisabled => SelectedPrefix is null;
 
-    string RoleJsonPreview =>
-        request is null
-            ? string.Empty
-            : JsonSerializer.Serialize(
-                new OidcRoleData(
-                    request.VerifierOobi,
-                    request.VerifierAid,
-                    request.SchemaSaid,
-                    request.RequestorName,
-                    request.RequestId,
-                    request.DateTime,
-                    request.EmailAddress,
-                    request.PreferredUsername),
-                Helper.JsonOptions.DisplayIndented);
-
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         logger.LogInformation("OnInitializedAsync");
 
-        request = await InitializeFromPendingRequestAsync<RequestCreateOidcAttestationPayload>(
-            BwAppMessageType.Values.RequestCreateOidcAttestation);
+        request = await InitializeFromPendingRequestAsync<RequestGrantTvaPayload>(
+            BwAppMessageType.Values.RequestGrantTva);
         if (request is null) return;
 
-        logger.LogInformation("Loaded OIDC attestation request: requestor={Requestor}, verifierAid={VerifierAid}, requestId={RequestId}",
+        logger.LogInformation("Loaded TVA grant request: requestor={Requestor}, verifierAid={VerifierAid}, requestId={RequestId}",
             request.RequestorName, request.VerifierAid, request.RequestId);
 
         await LoadActiveTabAsync();
@@ -86,38 +70,37 @@
 
         try
         {
-            // Encode the OIDC binding data as JSON into engagementContextRole. The verifier's
-            // VC Bridge parses this back out to correlate the admitted ACDC with its in-flight
-            // OIDC session.
-            var roleJson = RoleJsonPreview;
-
             logger.LogInformation("Approve: sender={Sender}, verifier={Verifier}, requestId={ReqId}",
                 SelectedPrefix, request.VerifierAid, request.RequestId);
 
-            // Step 1: Issue the ECR credential (signing only — no IPEX yet).
+            // Step 1: Issue the TVA credential (signing only — no IPEX yet).
+            // email ← emailAddress; name ← preferred_username (when sent); role is unset (Q3=D).
             var issueResp = await AppBwPortService.SendRpcRequestAsync(
-                AppBwMessageType.Values.RequestIssueEcrCredential,
+                AppBwMessageType.Values.RequestIssueTvaCredential,
                 new
                 {
-                    payload = new IssueEcrCredentialRequestPayload(
+                    payload = new IssueTvaCredentialRequestPayload(
                         SenderNameOrPrefix: SelectedPrefix,
                         RecipientPrefix: request.VerifierAid,
-                        EcrRole: roleJson)
+                        Email: request.EmailAddress,
+                        Name: string.IsNullOrWhiteSpace(request.PreferredUsername) ? null : request.PreferredUsername,
+                        Role: null)
                 },
                 timeout: TimeSpan.FromMinutes(3));
 
             if (!issueResp.Ok || issueResp.Result is not JsonElement issueElement)
             {
-                var err = issueResp.Error ?? "Failed to issue OIDC attestation credential";
+                var err = issueResp.Error ?? "Failed to issue TVA credential";
                 snackbar.Add($"Issue failed: {err}", Severity.Error);
                 Layout?.EndAction();
                 return Result.Fail(err);
             }
 
-            var issueResult = JsonSerializer.Deserialize<IssueEcrCredentialResponsePayload>(
+            var issueResult = JsonSerializer.Deserialize<IssueTvaCredentialResponsePayload>(
                 issueElement.GetRawText(), Helper.JsonOptions.CamelCase);
             if (issueResult is null || !issueResult.Success
-                || issueResult.Acdc is null || issueResult.Anc is null || issueResult.Iss is null)
+                || issueResult.Acdc is null || issueResult.Anc is null || issueResult.Iss is null
+                || string.IsNullOrEmpty(issueResult.CredentialSaid))
             {
                 var err = issueResult?.Error ?? "Issue returned an incomplete result";
                 snackbar.Add($"Issue failed: {err}", Severity.Error);
@@ -127,7 +110,21 @@
 
             logger.LogInformation("Approve: credential issued, said={Said}", issueResult.CredentialSaid);
 
-            // Step 2: Submit an unsolicited IPEX grant to the verifier (no prior apply/agree).
+            // Step 2: Submit an unsolicited IPEX grant to the verifier. The ExnPayload carries
+            // the OIDC correlation tuple. signify-ts hardcodes exn.a = { m: message } so the TS
+            // bundle JSON-stringifies our payload into `message`; verifier admit-side recovers
+            // via JSON.parse(exn.a.m).dign.requestId. See spec Q5.
+            var exnPayload = new RecursiveDictionary
+            {
+                ["dign"] = new RecursiveValue
+                {
+                    Dictionary = new RecursiveDictionary
+                    {
+                        ["requestId"] = new RecursiveValue { StringValue = request.RequestId }
+                    }
+                }
+            };
+
             var grantResp = await AppBwPortService.SendRpcRequestAsync(
                 AppBwMessageType.Values.RequestSubmitIpexGrant,
                 new
@@ -138,7 +135,8 @@
                         Acdc: issueResult.Acdc,
                         Anc: issueResult.Anc,
                         Iss: issueResult.Iss,
-                        AgreeSaid: null)
+                        AgreeSaid: null,
+                        ExnPayload: exnPayload)
                 },
                 timeout: TimeSpan.FromMinutes(3));
 
@@ -152,7 +150,7 @@
 
             var grantResult = JsonSerializer.Deserialize<SubmitIpexGrantResponsePayload>(
                 grantElement.GetRawText(), Helper.JsonOptions.CamelCase);
-            if (grantResult is null || !grantResult.Success)
+            if (grantResult is null || !grantResult.Success || string.IsNullOrEmpty(grantResult.GrantSaid))
             {
                 var err = grantResult?.Error ?? "Grant returned failure";
                 snackbar.Add($"Grant failed: {err}", Severity.Error);
@@ -160,7 +158,34 @@
                 return Result.Fail(err);
             }
 
-            snackbar.Add("OIDC attestation granted to verifier", Severity.Success);
+            logger.LogInformation("Approve: grant submitted, grantSaid={GrantSaid}", grantResult.GrantSaid);
+
+            // Step 3: Tell the BW to forward the result to the originally-requesting ContentScript.
+            // The verifier's web page is awaiting the polaris-web reply with { credentialSaid, grantSaid }.
+            var originalRequestId = request.OriginalRequestId ?? request.RequestId;
+            var replyResp = await AppBwPortService.SendRpcRequestAsync(
+                AppBwMessageType.Values.ReplyGrantTva,
+                new
+                {
+                    payload = new ReplyGrantTvaPayload(
+                        OriginalRequestId: originalRequestId,
+                        CredentialSaid: issueResult.CredentialSaid,
+                        GrantSaid: grantResult.GrantSaid)
+                },
+                timeout: TimeSpan.FromSeconds(10));
+
+            if (!replyResp.Ok)
+            {
+                // Non-fatal: the grant has been submitted to KERIA. Log + warn but proceed.
+                logger.LogWarning("Approve: ReplyGrantTva to BW failed: {Error}. Grant is still complete in KERIA.",
+                    replyResp.Error);
+                snackbar.Add("Grant complete, but result was not forwarded to the requesting page.", Severity.Warning);
+            }
+            else
+            {
+                snackbar.Add("TVA attestation granted to verifier", Severity.Success);
+            }
+
             MarkAsReplied();
             await ClearPendingRequestAsync();
             await WaitForAppCacheClearAsync();
@@ -169,16 +194,16 @@
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create OIDC attestation");
+            logger.LogError(ex, "Failed to grant TVA attestation");
             snackbar.Add($"Failed: {ex.Message}", Severity.Error);
             Layout?.EndAction();
-            return Result.Fail(new JavaScriptInteropError("CreateOidcAttestation", ex.Message, ex));
+            return Result.Fail(new JavaScriptInteropError("GrantTva", ex.Message, ex));
         }
     }
 
     async Task Cancel()
     {
-        await CancelAndReturnAsync("User canceled OIDC attestation request");
+        await CancelAndReturnAsync("User canceled TVA attestation request");
     }
 
     private async Task HandleIdOrCredChanged((string selectedPrefix, string selectedAlias, RecursiveDictionary? selectedCredentialOrNothing, WebsiteConfig? websiteConfig) value)
@@ -197,23 +222,9 @@
         var result = await Approve();
         if (result.IsFailed)
         {
-            logger.LogError("OIDC attestation approval failed: {Error}", result.Errors.FirstOrDefault()?.Message);
+            logger.LogError("TVA attestation approval failed: {Error}", result.Errors.FirstOrDefault()?.Message);
         }
     }
-
-    // DTO carrying the eight OIDC fields that are JSON-encoded into the ECR
-    // credential's engagementContextRole. preferred_username keeps OIDC-standard
-    // snake_case via JsonPropertyName.
-    private record OidcRoleData(
-        [property: JsonPropertyName("verifierOobi")] string VerifierOobi,
-        [property: JsonPropertyName("verifierAid")] string VerifierAid,
-        [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
-        [property: JsonPropertyName("requestorName")] string RequestorName,
-        [property: JsonPropertyName("requestId")] string RequestId,
-        [property: JsonPropertyName("dateTime")] string DateTime,
-        [property: JsonPropertyName("emailAddress")] string EmailAddress,
-        [property: JsonPropertyName("preferred_username")] string PreferredUsername
-    );
 }
 
 @if (IsInitialized && request is not null)
@@ -221,7 +232,7 @@
     <div id="@this.GetType().Name" class="bt-body-page">
         <MudStack Class="bt-main">
             <div class="bt-main-inside-scroll">
-                <PageHeading Title="@($"Request from {request.RequestorName}")" />
+                <PageHeading Title="Request to create attestation" />
 
                 @if (ActiveTab is not null)
                 {
@@ -231,12 +242,10 @@
                 <MudText Class="ml-9" Typo="Typo.body2">
                     <em>@request.RequestorName</em>
                     is requesting you to attest to your control of
-                    the selected vLEI role credential, 
-                    your email address, 
-                    and other data shown below
-                    that will be used to create a
-                    <em>TradeVeris Access Credential</em>
-                    for website authentication.
+                    the selected identifier, your email address,
+                    and the other data shown below
+                    via a <em>TradeVeris Access Credential</em>
+                    that will be granted to the verifier for website authentication.
                 </MudText>
 
                 <WebsiteConfigDisplay OriginStr="@OriginStr"
@@ -248,7 +257,10 @@
                 <MudText Class="bt-section-title">Attested claims:</MudText>
                 <MudPaper Elevation="1" Class="pa-3 mb-2" Style="background-color: var(--mud-palette-background-grey);">
                     <MudText Typo="Typo.body2"><strong>Email:</strong> @request.EmailAddress</MudText>
-                    <MudText Typo="Typo.body2"><strong>Preferred username:</strong> @request.PreferredUsername</MudText>
+                    @if (!string.IsNullOrWhiteSpace(request.PreferredUsername))
+                    {
+                        <MudText Typo="Typo.body2"><strong>Preferred username:</strong> @request.PreferredUsername</MudText>
+                    }
                 </MudPaper>
 
                 <MudText Class="bt-section-title">Verifier:</MudText>
@@ -257,15 +269,11 @@
                     <MudText Typo="Typo.body2" Style="word-break: break-all;"><strong>OOBI:</strong> @request.VerifierOobi</MudText>
                 </MudPaper>
 
-                <MudExpansionPanels Dense="true" Class="mt-0 mb-0">
-                    <MudExpansionPanel Text="Role JSON to be embedded" Dense="true">
-                        <MudPaper Elevation="1" Class="pa-3" Style="overflow-x: auto;">
-                            <MudText Style="white-space: pre; font-family: monospace; font-size: 0.75rem; text-wrap:auto;">
-                                @RoleJsonPreview
-                            </MudText>
-                        </MudPaper>
-                    </MudExpansionPanel>
-                </MudExpansionPanels>
+                <MudText Class="bt-section-title">Verifier request:</MudText>
+                <MudPaper Elevation="1" Class="pa-3 mb-2" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudText Typo="Typo.body2"><strong>Request id:</strong> <span class="bt-prefix">@request.RequestId</span></MudText>
+                    <MudText Typo="Typo.body2"><strong>Timestamp:</strong> @request.DateTime</MudText>
+                </MudPaper>
             </div>
         </MudStack>
 

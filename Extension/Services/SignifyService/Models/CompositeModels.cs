@@ -52,7 +52,10 @@ namespace Extension.Services.SignifyService.Models {
         [property: JsonPropertyName("acdc")] RecursiveDictionary Acdc,
         [property: JsonPropertyName("anc")] RecursiveDictionary Anc,
         [property: JsonPropertyName("iss")] RecursiveDictionary Iss,
-        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null
+        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null,
+        // Optional exn.a payload forwarded to signify-ts's ipexGrantAndSubmit.payload.
+        // Dign OIDC-attestation passes { dign: { requestId } }; other flows leave null.
+        [property: JsonPropertyName("payload")] RecursiveDictionary? Payload = null
     );
 
     /// <summary>

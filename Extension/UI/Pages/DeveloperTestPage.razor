@@ -275,12 +275,12 @@
         var verifierAid = GetFirstConnectionReceiverPrefix();
         if (verifierAid is null) return;
         await SimulateDialogRequestAsync(
-            BwAppMessageType.Values.RequestCreateOidcAttestation,
-            tabId => new RequestCreateOidcAttestationPayload(
+            BwAppMessageType.Values.RequestGrantTva,
+            tabId => new RequestGrantTvaPayload(
                 Origin: "https://example.com",
                 VerifierOobi: "https://example.com/oobi/" + verifierAid,
                 VerifierAid: verifierAid,
-                SchemaSaid: SchemaSaids.Ecr,
+                SchemaSaid: TvaCredentialHelper.TvaSchemaSaid,
                 RequestorName: "Example OIDC Provider",
                 RequestId: Guid.NewGuid().ToString(),
                 DateTime: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(),
@@ -289,9 +289,9 @@
                 TabId: tabId,
                 TabUrl: "https://example.com/test",
                 OriginalRequestId: Guid.NewGuid().ToString(),
-                OriginalType: "/Dign/ipex/grant"
+                OriginalType: "/dign/ipex/grantTva"
             ),
-            Routes.Paths.RequestCreateOidcAttestation
+            Routes.Paths.RequestGrantTva
         );
     }
 
@@ -737,8 +737,8 @@
                     </tr>
                     <tr>
                         <td><MudLink OnClick="@SimulateRequestCreateOidcAttestation" Disabled="@(!appCache.IsConnectedToKeria)">create TradeVeris Access Credential</MudLink></td>
-                        <td>@nameof(RequestCreateOidcAttestationPage)</td>
-                        <td>/Dign/ipex/grant</td>
+                        <td>@nameof(RequestGrantTvaPage)</td>
+                        <td>/dign/ipex/grantTva</td>
                     </tr>
                     @*
                     // TODO P2 implement simulated IPEX agree, grant, admit, spurn

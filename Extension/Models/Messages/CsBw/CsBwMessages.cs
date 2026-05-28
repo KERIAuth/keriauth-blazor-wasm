@@ -184,6 +184,38 @@ namespace Extension.Models.Messages.CsBw {
     );
 
     /// <summary>
+    /// RPC params wrapper for /dign/ipex/grantTva request from web page (Dign feature).
+    /// </summary>
+    public record GrantTvaRpcParams(
+        [property: JsonPropertyName("requestId")] string? RequestId,
+        [property: JsonPropertyName("payload")] GrantTvaRpcPayload? Payload
+    );
+
+    /// <summary>
+    /// Payload for /dign/ipex/grantTva request: verifier IdP / VC Bridge asks the wallet to
+    /// issue and grant a TVA credential as an OIDC attestation. Mirrors the TypeScript
+    /// GrantTvaRequest interface in scripts/types/src/CsBwRpcPayloads.ts.
+    /// The BW resolves verifierOobi to obtain the verifier's AID; the page does not supply it.
+    /// </summary>
+    public record GrantTvaRpcPayload(
+        [property: JsonPropertyName("verifierOobi")] string VerifierOobi,
+        [property: JsonPropertyName("schemaSaid")] string SchemaSaid,
+        [property: JsonPropertyName("requestorName")] string RequestorName,
+        [property: JsonPropertyName("requestId")] string RequestId,
+        [property: JsonPropertyName("dateTime")] string DateTime,
+        [property: JsonPropertyName("emailAddress")] string EmailAddress,
+        [property: JsonPropertyName("preferred_username")] string? PreferredUsername = null
+    );
+
+    /// <summary>
+    /// Response result for /dign/ipex/grantTva — SAIDs of the issued credential and the grant exchange.
+    /// </summary>
+    public record GrantTvaResult(
+        [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
+        [property: JsonPropertyName("grantSaid")] string GrantSaid
+    );
+
+    /// <summary>
     /// Generic internal extension runtime message structure for chrome.runtime messages.
     /// Used for simple internal communication between extension components.
     /// </summary>
@@ -224,11 +256,12 @@ namespace Extension.Models.Messages.CsBw {
         public const string IPEX_APPLY = "/KeriAuth/ipex/apply";
         public const string IPEX_AGREE = "/KeriAuth/ipex/agree";
 
-        // Dign feature: request to create+grant an OIDC attestation credential
-        public const string IPEX_GRANT = "/Dign/ipex/grant";
+        // Dign feature: request to create+grant a TVA (TradeVeris Access) credential as OIDC attestation
+        public const string GRANT_TVA = "/dign/ipex/grantTva";
 
         // Future IPEX message types (placeholder constants, no handlers yet)
         public const string IPEX_OFFER = "/KeriAuth/ipex/offer";
+        public const string IPEX_GRANT = "/KeriAuth/ipex/grant";
         public const string IPEX_ADMIT = "/KeriAuth/ipex/admit";
 
     }

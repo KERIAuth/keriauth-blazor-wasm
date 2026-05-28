@@ -141,6 +141,13 @@ namespace Extension.Models.Messages.AppBw {
             /// </summary>
             public const string ReplyIpexAdmitApproval = "AppBw.ReplyIpexAdmitApproval";
             /// <summary>
+            /// App→BW reply for the Dign OIDC flow: after the App has successfully called
+            /// RequestIssueTvaCredential + RequestSubmitIpexGrant, it sends this so the BW
+            /// can forward { credentialSaid, grantSaid } to the originally-requesting
+            /// ContentScript (whose RPC has been pending on PendingBwAppRequest).
+            /// </summary>
+            public const string ReplyGrantTva = "AppBw.ReplyGrantTva";
+            /// <summary>
             /// Request to get key state for an identifier.
             /// </summary>
             public const string RequestGetKeyState = "AppBw.RequestGetKeyState";
@@ -254,6 +261,7 @@ namespace Extension.Models.Messages.AppBw {
         public static AppBwMessageType ReplyIpexApplyApproval { get; } = new(Values.ReplyIpexApplyApproval);
         public static AppBwMessageType ReplyIpexAgreeApproval { get; } = new(Values.ReplyIpexAgreeApproval);
         public static AppBwMessageType ReplyIpexAdmitApproval { get; } = new(Values.ReplyIpexAdmitApproval);
+        public static AppBwMessageType ReplyGrantTva { get; } = new(Values.ReplyGrantTva);
         public static AppBwMessageType RequestGetKeyState { get; } = new(Values.RequestGetKeyState);
         public static AppBwMessageType RequestGetKeyEvents { get; } = new(Values.RequestGetKeyEvents);
         public static AppBwMessageType RequestRenameAid { get; } = new(Values.RequestRenameAid);
@@ -366,6 +374,9 @@ namespace Extension.Models.Messages.AppBw {
                     return true;
                 case Values.ReplyIpexAdmitApproval:
                     result = ReplyIpexAdmitApproval;
+                    return true;
+                case Values.ReplyGrantTva:
+                    result = ReplyGrantTva;
                     return true;
                 case Values.RequestGetKeyState:
                     result = RequestGetKeyState;
@@ -1034,12 +1045,32 @@ namespace Extension.Models.Messages.AppBw {
         [property: JsonPropertyName("acdc")] RecursiveDictionary? Acdc = null,
         [property: JsonPropertyName("anc")] RecursiveDictionary? Anc = null,
         [property: JsonPropertyName("iss")] RecursiveDictionary? Iss = null,
-        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null
+        [property: JsonPropertyName("agreeSaid")] string? AgreeSaid = null,
+        // Optional exn.a payload threaded down to signify-ts's ipexGrantAndSubmit.payload.
+        // For the Dign OIDC-attestation flow this is `{ dign: { requestId } }`; other grant
+        // flows leave it null (signify-ts treats null/empty as no exn.a additions).
+        [property: JsonPropertyName("exnPayload")] RecursiveDictionary? ExnPayload = null
     );
 
     public record SubmitIpexGrantResponsePayload(
         [property: JsonPropertyName("success")] bool Success,
-        [property: JsonPropertyName("error")] string? Error = null
+        [property: JsonPropertyName("error")] string? Error = null,
+        // SAID of the IPEX grant exn that was submitted. Populated on success; null on failure.
+        // Used by the Dign OIDC flow to forward to the originating ContentScript.
+        [property: JsonPropertyName("grantSaid")] string? GrantSaid = null
+    );
+
+    /// <summary>
+    /// App→BW payload for the Dign OIDC flow's final hop. The App has already issued the
+    /// TVA credential and submitted the IPEX grant via the existing RPC handlers; this
+    /// message tells the BW to forward { credentialSaid, grantSaid } to the originally-
+    /// requesting ContentScript (whose RPC is still pending on PendingBwAppRequest keyed
+    /// by OriginalRequestId).
+    /// </summary>
+    public record ReplyGrantTvaPayload(
+        [property: JsonPropertyName("originalRequestId")] string OriginalRequestId,
+        [property: JsonPropertyName("credentialSaid")] string CredentialSaid,
+        [property: JsonPropertyName("grantSaid")] string GrantSaid
     );
 
     /// <summary>

@@ -1393,6 +1393,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
                     await HandleIpexAdmitFromPageRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
                     return;
 
+                case CsBwMessageTypes.GRANT_TVA:
+                    await HandleDignGrantTvaRpcAsync(portId, portSession, request, tabId, tabUrl, origin);
+                    return;
+
                 case CsBwMessageTypes.INIT:
                     // Legacy method - respond with specific error
                     logger.LogWarning(nameof(HandleContentScriptRpcAsync) + ": Init is legacy/not implemented: {Method}", request.Method);
@@ -1488,6 +1492,10 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
                 case AppBwMessageType.Values.ReplyIpexAdmitApproval:
                     await HandleAppReplyIpexAdmitApprovalRpcAsync(portId, request, tabId, requestId, payload);
+                    return;
+
+                case AppBwMessageType.Values.ReplyGrantTva:
+                    await HandleAppReplyGrantTvaRpcAsync(portId, request, payload);
                     return;
 
                 case AppBwMessageType.Values.ReplyCanceled:
@@ -4095,18 +4103,21 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
 
         bool grantSucceeded = false;
         string? grantError = null;
+        string? grantSaidValue = null;
         using (_broker.PrioritizeInteractive()) {
             var grantResult = await _primeDataService.GrantStep(new IpexGrantSubmitArgs(
                 SenderNameOrPrefix: senderPrefix,
                 RecipientPrefix: recipientPrefix,
                 Acdc: submitRequest.Acdc!,
                 Anc: submitRequest.Anc!,
-                Iss: submitRequest.Iss!
+                Iss: submitRequest.Iss!,
+                Payload: submitRequest.ExnPayload
             ), nameof(SubmitGrantPostIssueAsync));
 
             if (grantResult.IsSuccess) {
                 logger.LogInformation(nameof(SubmitGrantPostIssueAsync) + ": Grant submitted: grantSaid={GrantSaid}", grantResult.Value);
                 grantSucceeded = true;
+                grantSaidValue = grantResult.Value;
             }
             else {
                 grantError = grantResult.Errors.Count > 0 ? grantResult.Errors[0].Message : "IPEX grant failed";
@@ -4118,7 +4129,7 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         if (grantSucceeded) {
             await PollNotificationsThrottledAsync();
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
-                result: new SubmitIpexGrantResponsePayload(true));
+                result: new SubmitIpexGrantResponsePayload(true, GrantSaid: grantSaidValue));
         }
         else {
             await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
@@ -4904,6 +4915,205 @@ public partial class BackgroundWorker : BackgroundWorkerBase, IDisposable {
         };
 
         await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles /dign/ipex/grantTva from ContentScript (Dign OIDC-attestation flow).
+    /// Verifier IdP / VC Bridge requests the wallet to issue and grant a TVA credential.
+    /// Validates payload (incl. schemaSaid==TVA and ±5 min replay window), resolves the
+    /// verifier OOBI to obtain verifierAid, then opens the App approval UI.
+    /// </summary>
+    private async Task HandleDignGrantTvaRpcAsync(string portId, PortSession portSession, RpcRequest request,
+        int tabId, string? tabUrl, string origin) {
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) + ": tabId={TabId}, origin={Origin}", tabId, origin);
+
+        var rpcParams = request.GetParams<GrantTvaRpcParams>();
+        var grantPayload = rpcParams?.Payload;
+        var originalRequestId = rpcParams?.RequestId ?? request.Id;
+
+        if (grantPayload is null) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": missing payload");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for /dign/ipex/grantTva: payload missing");
+            return;
+        }
+
+        // Required-fields check.
+        if (string.IsNullOrEmpty(grantPayload.VerifierOobi)
+            || string.IsNullOrEmpty(grantPayload.SchemaSaid)
+            || string.IsNullOrEmpty(grantPayload.RequestorName)
+            || string.IsNullOrEmpty(grantPayload.RequestId)
+            || string.IsNullOrEmpty(grantPayload.DateTime)
+            || string.IsNullOrEmpty(grantPayload.EmailAddress)) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": required fields missing");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid payload for /dign/ipex/grantTva: required fields missing (verifierOobi, schemaSaid, requestorName, requestId, dateTime, emailAddress)");
+            return;
+        }
+
+        // Schema-SAID allowlist: only the TVA schema is supported via this method.
+        if (grantPayload.SchemaSaid != TvaCredentialHelper.TvaSchemaSaid) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": schemaSaid mismatch — got {Got}, expected {Expected}",
+                grantPayload.SchemaSaid, TvaCredentialHelper.TvaSchemaSaid);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Schema not supported");
+            return;
+        }
+
+        // Replay-window guard: dateTime must be within ±5 minutes of wallet UTC.
+        if (!long.TryParse(grantPayload.DateTime, out var requestMs)) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": dateTime not parseable as ms: {DateTime}", grantPayload.DateTime);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Invalid dateTime: must be a millisecond timestamp string");
+            return;
+        }
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (Math.Abs(nowMs - requestMs) > 5 * 60 * 1000) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": dateTime outside ±5 min window. now={NowMs}, request={RequestMs}, deltaMs={Delta}",
+                nowMs, requestMs, nowMs - requestMs);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "OIDC request expired or future-dated (outside ±5 min window)");
+            return;
+        }
+
+        // Resolve verifier OOBI to obtain verifierAid. Use a synthetic, deterministic alias
+        // to keep KERIA's contact store under our control. Alias is constrained by
+        // AidNameValidator (^[a-z0-9_-]{1,32}$); see ComputeTvaVerifierAlias for details.
+        var alias = ComputeTvaVerifierAlias(grantPayload.VerifierOobi);
+        var resolveResult = await _broker.EnqueueCommandAsync(SignifyOperation.ResolveOobi,
+            svc => svc.ResolveOobi(grantPayload.VerifierOobi, alias));
+
+        if (resolveResult.IsFailed || resolveResult.Value is null) {
+            var err = resolveResult.Errors.Count > 0 ? resolveResult.Errors[0].Message : "Unknown error";
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": OOBI resolve failed: {Error}", err);
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Could not resolve verifier OOBI: {err}");
+            return;
+        }
+
+        var verifierAid = resolveResult.Value.GetByPath("response.i")?.StringValue;
+        if (string.IsNullOrEmpty(verifierAid)) {
+            logger.LogWarning(nameof(HandleDignGrantTvaRpcAsync) + ": OOBI resolved but no AID prefix in response");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: "Could not resolve verifier OOBI: no AID prefix in response");
+            return;
+        }
+
+        logger.LogInformation(nameof(HandleDignGrantTvaRpcAsync) + ": resolved verifier — alias={Alias}, prefix={Prefix}",
+            alias, verifierAid);
+
+        // Build BW→App payload, enriched with resolved verifierAid + standard routing metadata.
+        var payloadForApp = new RequestGrantTvaPayload(
+            Origin: origin,
+            VerifierOobi: grantPayload.VerifierOobi,
+            VerifierAid: verifierAid,
+            SchemaSaid: grantPayload.SchemaSaid,
+            RequestorName: grantPayload.RequestorName,
+            RequestId: grantPayload.RequestId,
+            DateTime: grantPayload.DateTime,
+            EmailAddress: grantPayload.EmailAddress,
+            PreferredUsername: grantPayload.PreferredUsername,
+            TabId: tabId,
+            TabUrl: tabUrl,
+            OriginalRequestId: originalRequestId,
+            OriginalType: CsBwMessageTypes.GRANT_TVA
+        );
+
+        var pendingRequest = new PendingBwAppRequest {
+            RequestId = originalRequestId,
+            Type = BwAppMessageType.Values.RequestGrantTva,
+            Payload = payloadForApp,
+            CreatedAtUtc = DateTime.UtcNow,
+            TabId = tabId,
+            TabUrl = tabUrl,
+            PortId = portId,
+            PortSessionId = portSession.PortSessionId.ToString(),
+            RpcRequestId = request.Id
+        };
+
+        await UseSidePanelOrActionPopupAsync(pendingRequest);
+    }
+
+    /// <summary>
+    /// Handles ReplyGrantTva (App→BW) for the Dign OIDC flow's final hop. The App has
+    /// already finished issue+grant (via the existing RequestIssueTvaCredential and
+    /// RequestSubmitIpexGrant RPCs). This handler looks up the PendingBwAppRequest by
+    /// OriginalRequestId, forwards { credentialSaid, grantSaid } to the originally-
+    /// requesting ContentScript, and clears the pending request.
+    /// </summary>
+    private async Task HandleAppReplyGrantTvaRpcAsync(string portId, RpcRequest request, JsonElement? payload) {
+        logger.LogInformation(nameof(HandleAppReplyGrantTvaRpcAsync) + ": called");
+
+        try {
+            if (!payload.HasValue) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Missing payload");
+                return;
+            }
+
+            var replyPayload = JsonSerializer.Deserialize<ReplyGrantTvaPayload>(
+                payload.Value.GetRawText(), JsonOptions.CamelCase);
+
+            if (replyPayload is null
+                || string.IsNullOrEmpty(replyPayload.OriginalRequestId)
+                || string.IsNullOrEmpty(replyPayload.CredentialSaid)
+                || string.IsNullOrEmpty(replyPayload.GrantSaid)) {
+                await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                    errorMessage: "Invalid ReplyGrantTva payload: originalRequestId, credentialSaid, and grantSaid all required");
+                return;
+            }
+
+            // Look up the pending CS request and clear it.
+            PendingBwAppRequest? pendingRequest = null;
+            var pendingResult = await _pendingBwAppRequestService.GetRequestAsync(replyPayload.OriginalRequestId);
+            if (pendingResult.IsSuccess) {
+                pendingRequest = pendingResult.Value;
+            }
+            await _pendingBwAppRequestService.RemoveRequestAsync(replyPayload.OriginalRequestId);
+
+            // Acknowledge the App RPC immediately so the App UI can dismiss.
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                result: new { success = true });
+
+            // Forward the result to the originally-requesting ContentScript.
+            if (pendingRequest?.PortId is not null && pendingRequest.PortSessionId is not null) {
+                await _portService.SendRpcResponseAsync(
+                    pendingRequest.PortId, pendingRequest.PortSessionId,
+                    pendingRequest.RpcRequestId ?? replyPayload.OriginalRequestId,
+                    result: new GrantTvaResult(
+                        CredentialSaid: replyPayload.CredentialSaid,
+                        GrantSaid: replyPayload.GrantSaid));
+                logger.LogInformation(nameof(HandleAppReplyGrantTvaRpcAsync) +
+                    ": forwarded result to CS — credentialSaid={CredSaid}, grantSaid={GrantSaid}",
+                    replyPayload.CredentialSaid, replyPayload.GrantSaid);
+            }
+            else {
+                logger.LogWarning(nameof(HandleAppReplyGrantTvaRpcAsync) +
+                    ": no port info for response routing, originalRequestId={Id}",
+                    replyPayload.OriginalRequestId);
+            }
+        }
+        catch (Exception ex) {
+            logger.LogError(ex, nameof(HandleAppReplyGrantTvaRpcAsync) + ": Error");
+            await _portService.SendRpcResponseAsync(portId, request.PortSessionId, request.Id,
+                errorMessage: $"Error processing ReplyGrantTva: {ex.Message}");
+        }
+    }
+
+    // Computes a deterministic verifier-Contact alias from the OOBI URL.
+    // Form: "tradeveris_verifier_{12-hex-suffix}" = 20 + 12 = 32 chars, all in [a-z0-9_],
+    // satisfying AidNameValidator's [a-z0-9_-]{1,32} regex.
+    // TODO P3: AidNameValidator's restriction forces this synthetic short form. Once
+    // Veridian/signify-ts/KERIA confirm the actual allowable charset, relax the validator
+    // and switch this back to a more readable form such as "TradeVeris_Verifier_{verifierAid}".
+    // Hashing the OOBI URL (rather than the resolved AID prefix as originally specified in
+    // Q4) avoids a chicken-and-egg: each verifier OOBI maps to one AID, so this is still
+    // deterministic per verifier; and we know the OOBI before resolving.
+    private static string ComputeTvaVerifierAlias(string verifierOobi) {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(verifierOobi);
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        var hex12 = Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
+        return $"tradeveris_verifier_{hex12}";
     }
 
     /// <summary>

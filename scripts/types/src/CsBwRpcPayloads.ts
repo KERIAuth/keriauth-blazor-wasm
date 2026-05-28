@@ -134,31 +134,43 @@ export interface CsBwIpexAdmitParams {
 }
 
 /**
- * Params for /Dign/ipex/grant request.
- * Web page (verifier IdP / VC Bridge) asks the wallet to create and grant an
- * OIDC attestation credential. Issued as an ECR whose engagementContextRole
- * carries the JSON-encoded OIDC binding data so the VC Bridge can correlate
- * the admitted ACDC back to its in-flight OIDC session.
+ * Params for /dign/ipex/grantTva request.
+ * Web page (verifier IdP / VC Bridge) asks the wallet to create and grant a
+ * TVA (TradeVeris Access) credential as an OIDC attestation. The wallet:
+ *   - resolves verifierOobi to obtain the verifier's AID,
+ *   - issues a TVA credential to that AID with a.email = emailAddress (and
+ *     a.name = preferred_username when present),
+ *   - submits an IPEX grant whose exn.a carries { dign: { requestId } } so the
+ *     verifier's KERIA can correlate the admitted grant back to its in-flight
+ *     OIDC session.
  */
-export interface CreateOidcAttestationRequest {
-    /** Message type discriminator. Expected: "/Dign/ipex/grant". */
-    type: string;
-    /** Escaped URI of the verifier's OOBI. */
+export interface GrantTvaRequest {
+    /** Verifier's OOBI URL. BW resolves it to obtain verifierAid. */
     verifierOobi: string;
-    /** Verifier AID (temporary; will be parsed from verifierOobi later). */
-    verifierAid: string;
-    /** SAID of the schema the verifier expects (informational; captured in role JSON). */
+    /** Must equal the TVA schema SAID. BW rejects mismatch. */
     schemaSaid: string;
     /** Friendly name displayed to the user identifying the website/IdP/company. */
     requestorName: string;
-    /** OIDC request id, relayed back inside the credential's role JSON. */
+    /** OIDC handshake correlation id (page-generated GUID). Same value flows
+     *  through to the C# payload, to exn.a.dign.requestId, etc. */
     requestId: string;
-    /** Request timestamp in ms (string). Used to reduce replay attack / MITM. */
+    /** Request timestamp in ms (string). BW rejects if outside ±5 min of wallet UTC. */
     dateTime: string;
-    /** End-user's email address being attested. */
+    /** End-user's email address being attested. Goes to TVA a.email. */
     emailAddress: string;
-    /** OIDC-standard preferred_username claim (snake_case intentional). */
-    preferred_username: string;
+    /** Optional OIDC preferred_username claim (snake_case intentional). Goes to TVA a.name. */
+    preferred_username?: string;
+}
+
+/**
+ * Result for /dign/ipex/grantTva response (inner payload only; envelope ok/id/error
+ * are carried by RpcResponse).
+ */
+export interface CsBwOidcGrantResult {
+    /** SAID of the issued TVA credential. */
+    credentialSaid: string;
+    /** SAID of the IPEX grant exchange message. */
+    grantSaid: string;
 }
 
 // ============================================================================
@@ -250,9 +262,10 @@ export interface CsBwRpcParamsMap {
     [CsBwRpcMethods.IpexApply]: CsBwIpexApplyParams;
     [CsBwRpcMethods.IpexAgree]: CsBwIpexAgreeParams;
     [CsBwRpcMethods.IpexAdmit]: CsBwIpexAdmitParams;
-    [CsBwRpcMethods.IpexGrant]: CreateOidcAttestationRequest;
+    [CsBwRpcMethods.GrantTva]: GrantTvaRequest;
     // Placeholder entries for future IPEX types (not yet implemented)
     [CsBwRpcMethods.IpexOffer]: undefined;
+    [CsBwRpcMethods.IpexGrant]: undefined;
     [CsBwRpcMethods.Init]: CsBwInitParams;
 }
 
@@ -288,6 +301,7 @@ export interface CsBwRpcResultMap {
     [CsBwRpcMethods.IpexApply]: CsBwIpexResult;
     [CsBwRpcMethods.IpexAgree]: CsBwIpexResult;
     [CsBwRpcMethods.IpexAdmit]: CsBwIpexResult;
+    [CsBwRpcMethods.GrantTva]: CsBwOidcGrantResult;
     // Placeholder entries for future IPEX types (not yet implemented)
     [CsBwRpcMethods.IpexOffer]: void;
     [CsBwRpcMethods.IpexGrant]: void;

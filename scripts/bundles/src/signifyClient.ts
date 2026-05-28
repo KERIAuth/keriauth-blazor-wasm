@@ -1110,6 +1110,12 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
                 anc: Dict<any>;
                 iss: Dict<any>;
                 agreeSaid?: string;
+                // Optional exn.a payload (e.g. Dign OIDC: { dign: { requestId } }).
+                // signify-ts's client.ipex().grant() hardcodes exn.a = { m: args.message ?? "" };
+                // it does not accept arbitrary shapes. We work around by JSON-stringifying
+                // `payload` and passing it as `message`; the verifier admit-side does
+                // `JSON.parse(exn.a.m).dign.requestId` to recover the correlation data.
+                payload?: Record<string, unknown>;
             };
 
             // When agreeSaid is provided, the grant's `p` (prior) field is set to link this
@@ -1117,6 +1123,9 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
             // it as a proper chain continuation (`PreviousRoutes[grant] = (agree,)`).
             // Without agreeSaid the grant becomes an unsolicited initiator — allowed but
             // semantically wrong when the flow went through an agree.
+            const message = (args.payload && Object.keys(args.payload).length > 0)
+                ? JSON.stringify(args.payload)
+                : undefined;
             const [grant, gsigs, end] = await client.ipex().grant({
                 senderName: args.senderName,
                 recipient: args.recipient,
@@ -1125,6 +1134,7 @@ export const ipexGrantAndSubmit = async (argsJson: string): Promise<string> => {
                 anc: new Serder(args.anc),
                 iss: new Serder(args.iss),
                 agreeSaid: args.agreeSaid,
+                message: message,
             });
 
             const grantSaid = grant.ked.d as string;

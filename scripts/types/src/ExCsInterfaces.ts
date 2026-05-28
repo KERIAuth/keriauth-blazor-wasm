@@ -26,7 +26,7 @@ export enum CsBwMsgEnum {
     KERIAUTH_IPEX_APPLY = '/KeriAuth/ipex/apply',
     KERIAUTH_IPEX_AGREE = '/KeriAuth/ipex/agree',
     KERIAUTH_IPEX_OFFER = '/KeriAuth/ipex/offer',
-    DIGN_IPEX_GRANT = '/Dign/ipex/grant',
+    DIGN_GRANT_TVA = '/dign/ipex/grantTva',
     KERIAUTH_IPEX_ADMIT = '/KeriAuth/ipex/admit',
     INIT = 'init'
 }

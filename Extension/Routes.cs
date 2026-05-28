@@ -61,7 +61,7 @@ public static class Routes {
         public const string RequestCreateCredential = "/RequestCreateCredential.html";
         public const string RequestConnect = "/RequestConnect.html";
         public const string RequestApproveIpex = "/RequestApproveIpex.html";
-        public const string RequestCreateOidcAttestation = "/RequestCreateOidcAttestation.html";
+        public const string RequestGrantTva = "/RequestGrantTva.html";
         public const string AddPasskey = "/AddPasskey.html";
         public const string Router = "/Router.html";
         public const string Welcome = "/Welcome.html";
@@ -123,7 +123,7 @@ public static class Routes {
         [typeof(RequestCreateCredentialPage)] = new("Request Create Credential", Paths.RequestCreateCredential, RequiresAuth: true),
         [typeof(RequestConnectPage)] = new("Request Connect", Paths.RequestConnect, RequiresAuth: true),
         [typeof(RequestApproveIpexPage)] = new("Request Approve IPEX", Paths.RequestApproveIpex, RequiresAuth: true),
-        [typeof(RequestCreateOidcAttestationPage)] = new("Request Create OIDC Attestation", Paths.RequestCreateOidcAttestation, RequiresAuth: true),
+        [typeof(RequestGrantTvaPage)] = new("Request Grant TVA", Paths.RequestGrantTva, RequiresAuth: true),
         [typeof(AddPasskeyPage)] = new("Add Passkey", Paths.AddPasskey, RequiresAuth: true),
 
         // Router page (no auth) - RouterPage.razor determines where to navigate based on app state
@@ -173,7 +173,7 @@ public static class Routes {
         Pages[typeof(RequestCreateCredentialPage)].Path,
         Pages[typeof(RequestConnectPage)].Path,
         Pages[typeof(RequestApproveIpexPage)].Path,
-        Pages[typeof(RequestCreateOidcAttestationPage)].Path,
+        Pages[typeof(RequestGrantTvaPage)].Path,
     ];
 
 

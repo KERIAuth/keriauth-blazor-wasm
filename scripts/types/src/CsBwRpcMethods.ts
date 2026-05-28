@@ -77,10 +77,11 @@ export const CsBwRpcMethods = {
     /** Request user to send an IPEX agree (agree to an offer) */
     IpexAgree: '/KeriAuth/ipex/agree',
 
-    /** Request user to grant an OIDC attestation credential (Dign feature) */
-    IpexGrant: '/Dign/ipex/grant',
+    /** Request the wallet to grant a TVA (TradeVeris Access) credential as an OIDC attestation (Dign feature) */
+    GrantTva: '/dign/ipex/grantTva',
 
     // Placeholder constants for future IPEX types
+    IpexGrant: '/KeriAuth/ipex/grant',
     IpexOffer: '/KeriAuth/ipex/offer',
     IpexAdmit: '/KeriAuth/ipex/admit',
 
