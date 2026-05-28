@@ -1033,5 +1033,233 @@ namespace Extension.Tests.Models {
         }
 
         #endregion
+
+        #region Dign OIDC / TVA Grant Payload Round-Trip Tests
+
+        [Theory]
+        [InlineData(BwAppMessageType.Values.RequestGrantTva)]
+        public void BwAppMessageType_TryParse_RequestGrantTva(string value) {
+            var result = BwAppMessageType.TryParse(value, out var msgType);
+            Assert.True(result, $"TryParse should succeed for {value}");
+            Assert.Equal(value, msgType.Value);
+        }
+
+        [Theory]
+        [InlineData(AppBwMessageType.Values.ReplyGrantTva)]
+        public void AppBwMessageType_TryParse_ReplyGrantTva(string value) {
+            var result = AppBwMessageType.TryParse(value, out var msgType);
+            Assert.True(result, $"TryParse should succeed for {value}");
+            Assert.Equal(value, msgType.Value);
+        }
+
+        [Fact]
+        public void GrantTvaRpcPayload_RoundTrip_AllFields() {
+            // CS→BW page-supplied payload. Mirror of TS GrantTvaRequest in CsBwRpcPayloads.ts.
+            var payload = new GrantTvaRpcPayload(
+                VerifierOobi: "https://verifier.example.com/oobi/EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                SchemaSaid: "EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9",
+                RequestorName: "Example OIDC Provider",
+                RequestId: "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b",
+                DateTime: "1716777600000",
+                EmailAddress: "alice@example.com",
+                PreferredUsername: "alice");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"verifierOobi\"", json);
+            Assert.Contains("\"schemaSaid\"", json);
+            Assert.Contains("\"requestorName\"", json);
+            Assert.Contains("\"requestId\"", json);
+            Assert.Contains("\"dateTime\"", json);
+            Assert.Contains("\"emailAddress\"", json);
+            Assert.Contains("\"preferred_username\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<GrantTvaRpcPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal(payload.VerifierOobi, deserialized.VerifierOobi);
+            Assert.Equal(payload.SchemaSaid, deserialized.SchemaSaid);
+            Assert.Equal(payload.RequestorName, deserialized.RequestorName);
+            Assert.Equal(payload.RequestId, deserialized.RequestId);
+            Assert.Equal(payload.DateTime, deserialized.DateTime);
+            Assert.Equal(payload.EmailAddress, deserialized.EmailAddress);
+            Assert.Equal("alice", deserialized.PreferredUsername);
+        }
+
+        [Fact]
+        public void GrantTvaRpcPayload_RoundTrip_OmitsOptionalPreferredUsername() {
+            var payload = new GrantTvaRpcPayload(
+                VerifierOobi: "https://verifier.example.com/oobi/EKE3",
+                SchemaSaid: "EEBV49hr",
+                RequestorName: "Verifier",
+                RequestId: "guid",
+                DateTime: "1716777600000",
+                EmailAddress: "alice@example.com");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            // WhenWritingNull omits the null optional field
+            Assert.DoesNotContain("\"preferred_username\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<GrantTvaRpcPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Null(deserialized.PreferredUsername);
+        }
+
+        [Fact]
+        public void GrantTvaResult_RoundTrip() {
+            var result = new GrantTvaResult(
+                CredentialSaid: "EHMnCf8_nIemuPx-cUHb1k5DsT8K09vqx0bSwNRr9S4c",
+                GrantSaid: "EFvZ-grantSaid-1234567890abcdefghij");
+
+            var json = JsonSerializer.Serialize(result, _jsonOptions);
+            Assert.Contains("\"credentialSaid\"", json);
+            Assert.Contains("\"grantSaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<GrantTvaResult>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal(result.CredentialSaid, deserialized.CredentialSaid);
+            Assert.Equal(result.GrantSaid, deserialized.GrantSaid);
+        }
+
+        [Fact]
+        public void RequestGrantTvaPayload_RoundTrip_AllFields() {
+            // BW→App payload. BW enriches the inbound page params with the resolved verifierAid
+            // plus routing metadata before sending to the App.
+            var payload = new RequestGrantTvaPayload(
+                Origin: "https://verifier.example.com",
+                VerifierOobi: "https://verifier.example.com/oobi/EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                VerifierAid: "EKE3-w61B11vVODLHZdH52zLXoxw6xE3tVv__wfAXN6c",
+                SchemaSaid: "EEBV49hrNEsvvFJ2T6A1EcDhUoLJhySbEdyIhrI09_K9",
+                RequestorName: "Example OIDC Provider",
+                RequestId: "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b",
+                DateTime: "1716777600000",
+                EmailAddress: "alice@example.com",
+                PreferredUsername: "alice",
+                TabId: 42,
+                TabUrl: "https://verifier.example.com/login",
+                OriginalRequestId: "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b",
+                OriginalType: "/dign/ipex/grantTva");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"origin\"", json);
+            Assert.Contains("\"verifierAid\"", json);
+            Assert.Contains("\"tabId\":42", json);
+            Assert.Contains("\"originalType\":\"/dign/ipex/grantTva\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<RequestGrantTvaPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal(payload.Origin, deserialized.Origin);
+            Assert.Equal(payload.VerifierAid, deserialized.VerifierAid);
+            Assert.Equal(payload.SchemaSaid, deserialized.SchemaSaid);
+            Assert.Equal(payload.RequestId, deserialized.RequestId);
+            Assert.Equal(payload.EmailAddress, deserialized.EmailAddress);
+            Assert.Equal("alice", deserialized.PreferredUsername);
+            Assert.Equal(42, deserialized.TabId);
+            Assert.Equal(payload.OriginalRequestId, deserialized.OriginalRequestId);
+            Assert.Equal("/dign/ipex/grantTva", deserialized.OriginalType);
+        }
+
+        [Fact]
+        public void RequestGrantTvaPayload_RoundTrip_OmitsNullablePreferredUsername() {
+            var payload = new RequestGrantTvaPayload(
+                Origin: "https://verifier.example.com",
+                VerifierOobi: "https://verifier.example.com/oobi/EKE3",
+                VerifierAid: "EKE3",
+                SchemaSaid: "EEBV49hr",
+                RequestorName: "Verifier",
+                RequestId: "guid",
+                DateTime: "1716777600000",
+                EmailAddress: "alice@example.com",
+                PreferredUsername: null,
+                TabId: 7);
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.DoesNotContain("\"preferred_username\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<RequestGrantTvaPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Null(deserialized.PreferredUsername);
+            Assert.Equal(7, deserialized.TabId);
+        }
+
+        [Fact]
+        public void ReplyGrantTvaPayload_RoundTrip() {
+            // App→BW reply carrying the SAIDs the BW will forward to the originating CS.
+            var payload = new ReplyGrantTvaPayload(
+                OriginalRequestId: "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b",
+                CredentialSaid: "EHMnCf8_nIemuPx-cUHb1k5DsT8K09vqx0bSwNRr9S4c",
+                GrantSaid: "EFvZ-grantSaid-1234567890abcdefghij");
+
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"originalRequestId\"", json);
+            Assert.Contains("\"credentialSaid\"", json);
+            Assert.Contains("\"grantSaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<ReplyGrantTvaPayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.Equal(payload.OriginalRequestId, deserialized.OriginalRequestId);
+            Assert.Equal(payload.CredentialSaid, deserialized.CredentialSaid);
+            Assert.Equal(payload.GrantSaid, deserialized.GrantSaid);
+        }
+
+        [Fact]
+        public void SubmitIpexGrantRequestPayload_RoundTrip_WithExnPayload() {
+            // Verifies the new ExnPayload field (Dign correlation data) round-trips through
+            // the App→BW request payload along with the existing acdc/anc/iss fields.
+            var dignNested = new RecursiveDictionary();
+            dignNested["requestId"] = new RecursiveValue { StringValue = "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b" };
+            var exnPayload = new RecursiveDictionary();
+            exnPayload["dign"] = new RecursiveValue { Dictionary = dignNested };
+
+            var acdc = new RecursiveDictionary();
+            acdc["d"] = new RecursiveValue { StringValue = "EHMn" };
+
+            var payload = new SubmitIpexGrantRequestPayload(
+                SenderNameOrPrefix: "issuer_aid",
+                RecipientPrefix: "EKE3",
+                Acdc: acdc,
+                Anc: new RecursiveDictionary(),
+                Iss: new RecursiveDictionary(),
+                ExnPayload: exnPayload);
+
+            var json = JsonSerializer.Serialize(payload, _recursiveDictOptions);
+            Assert.Contains("\"exnPayload\"", json);
+            Assert.Contains("\"dign\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexGrantRequestPayload>(json, _recursiveDictOptions);
+            Assert.NotNull(deserialized);
+            Assert.NotNull(deserialized.ExnPayload);
+            Assert.True(deserialized.ExnPayload.TryGetValue("dign", out var dignVal));
+            Assert.NotNull(dignVal?.Dictionary);
+            Assert.Equal(
+                "4f7e3a1d-7c42-4ce7-b1f1-7f9e8d3c5a6b",
+                dignVal!.Dictionary!["requestId"].StringValue);
+        }
+
+        [Fact]
+        public void SubmitIpexGrantResponsePayload_RoundTrip_Success_WithGrantSaid() {
+            var payload = new SubmitIpexGrantResponsePayload(true, GrantSaid: "EFvZ-grantSaid");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.Contains("\"grantSaid\":\"EFvZ-grantSaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexGrantResponsePayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.True(deserialized.Success);
+            Assert.Equal("EFvZ-grantSaid", deserialized.GrantSaid);
+            Assert.Null(deserialized.Error);
+        }
+
+        [Fact]
+        public void SubmitIpexGrantResponsePayload_RoundTrip_Failure_OmitsGrantSaid() {
+            var payload = new SubmitIpexGrantResponsePayload(false, Error: "Grant failed");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            Assert.DoesNotContain("\"grantSaid\"", json);
+
+            var deserialized = JsonSerializer.Deserialize<SubmitIpexGrantResponsePayload>(json, _jsonOptions);
+            Assert.NotNull(deserialized);
+            Assert.False(deserialized.Success);
+            Assert.Equal("Grant failed", deserialized.Error);
+            Assert.Null(deserialized.GrantSaid);
+        }
+
+        #endregion
     }
 }
