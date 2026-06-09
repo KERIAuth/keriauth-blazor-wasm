@@ -26,7 +26,7 @@ From the end user's perspective, the extension enables the user to create and co
 * ... and more.
 
 ## Installation
-The most recent stable version is available from the [Chrome Web Store](https://chromewebstore.google.com/search/dign). Or, you can test with the most recent [GitHub build action artifact](https://github.com/KERIAuth/keriauth-blazor-wasm/actions?query=is%3Acompleted+branch%3Amain), or from your own local build.
+You can test with the most recent [GitHub build action artifact](https://github.com/KERIAuth/keriauth-blazor-wasm/actions?query=is%3Acompleted+branch%3Amain), or from your own local build.
 
 ## Runtime Dependencies
 * **Chromium-based Browser** minimum version as specified in manifest.json (Chrome, Edge, or Brave)
